@@ -1,0 +1,7 @@
+{
+  "extends": "@final/configs/react-library.json",
+  "compilerOptions": {
+    "baseUrl": "."
+  },
+  "include": ["src", "vite.config.ts"]
+}
