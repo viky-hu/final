@@ -3,6 +3,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { CustomEase } from "gsap/CustomEase";
+import { BeamsBackground } from "./beams-background";
 
 const BRAND_BLUE = "#3152f4";
 const GRID_COLOR = "rgba(49, 82, 244, 0.12)";
@@ -86,6 +87,7 @@ export function LoginWindowDemo() {
 
 function LoginIntroWindow({ onSignIn }: { onSignIn: () => void }) {
   const svgRef = useRef<SVGSVGElement>(null);
+  const beamsLayerRef = useRef<HTMLDivElement>(null);
   const coordsRef = useRef({ ...INTRO_COORDS });
   const canTriggerRef = useRef(false);
   const playedRef = useRef(false);
@@ -107,6 +109,7 @@ function LoginIntroWindow({ onSignIn }: { onSignIn: () => void }) {
     const logoGroup = svg.querySelector<SVGGElement>("#logo-group");
     const logoFill = svg.querySelector<SVGGElement>("#logo-fill");
     const logoOutline = svg.querySelector<SVGGElement>("#logo-outline");
+    const beamsLayer = beamsLayerRef.current;
 
     // Prepare stroke-dashoffset for draw animation
     mainLines.forEach((line) => {
@@ -122,12 +125,22 @@ function LoginIntroWindow({ onSignIn }: { onSignIn: () => void }) {
     gsap.set(introPanel, { opacity: 0 });
     gsap.set(hintLayer, { opacity: 0 });
     gsap.set(loginPanel, { opacity: 0 });
+    if (beamsLayer) gsap.set(beamsLayer, { opacity: 0.17 });
     if (logoFill) gsap.set(logoFill, { fillOpacity: 0 });
-    if (panelRect) gsap.set(panelRect, { fill: "#ffffff" });
+    if (panelRect) {
+      gsap.set(panelRect, {
+        fill: "#ffffff",
+        attr: {
+          x: (coords.x1 + coords.x2) / 2,
+          y: (coords.y1 + coords.y2) / 2,
+          width: 0,
+          height: 0,
+        },
+      });
+    }
 
     updateLines(svg, coords);
     updateClipRect(clipRect, coords);
-    updatePanelFill(panelRect, coords);
     updatePanelLayout(introPanel, loginPanel, coords);
     updateLogoPosition(logoGroup, coords);
 
@@ -153,22 +166,40 @@ function LoginIntroWindow({ onSignIn }: { onSignIn: () => void }) {
       stagger: 0.04,
     }, 0.12);
 
+    if (panelRect) {
+      introTl.to(panelRect, {
+        attr: {
+          x: coords.x1,
+          y: coords.y1,
+          width: coords.x2 - coords.x1,
+          height: coords.y2 - coords.y1,
+        },
+        duration: 0.72,
+        ease: "power3.out",
+      }, 0.40);
+    }
+
     if (logoFill) {
       introTl.to(logoFill, {
         fillOpacity: 1,
         duration: 0.35,
-      }, 0.72);
+      }, 0.74);
     }
 
-    introTl.to(introPanel, {
+    introTl.fromTo(introPanel, {
+      opacity: 0,
+      y: coords.y1 + 20,
+    }, {
       opacity: 1,
-      duration: 0.45,
+      y: coords.y1 + 16,
+      duration: 0.42,
+      ease: "power2.out",
     }, 0.9);
 
     introTl.to(hintLayer, {
       opacity: 1,
-      duration: 0.32,
-    }, 1.05);
+      duration: 0.28,
+    }, 1.1);
 
     // === Phase 2: Inversion + collapse + login switch ===
     const stage2Tl = gsap.timeline({ paused: true, defaults: { ease: "power3.inOut" } });
@@ -224,6 +255,18 @@ function LoginIntroWindow({ onSignIn }: { onSignIn: () => void }) {
 
   return (
     <main className="login-svg-page">
+      <div ref={beamsLayerRef} className="login-beams-layer" aria-hidden="true">
+        <BeamsBackground
+          beamWidth={2.4}
+          beamHeight={17}
+          beamNumber={10}
+          lightColor="#4a68ff"
+          speed={0.85}
+          noiseIntensity={1.05}
+          scale={0.22}
+          rotation={18}
+        />
+      </div>
       <svg
         ref={svgRef}
         viewBox={`0 0 ${VW} ${VH}`}
@@ -279,7 +322,7 @@ function LoginIntroWindow({ onSignIn }: { onSignIn: () => void }) {
             <div className={`svg-text-content ${inverted ? "is-inverted" : ""}`}>
               <div className="svg-intro">
                 <h1 className="svg-headline">
-                  At Dropbox, our Brand Guidelines help us infuse everything we make with identity.
+                  LightRAG makes police information retrieval smarter.
                 </h1>
               </div>
             </div>
