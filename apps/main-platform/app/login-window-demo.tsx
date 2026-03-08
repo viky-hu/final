@@ -43,8 +43,8 @@ const COLLAPSE_COORDS = {
 
 const CHAT_W = 1920;
 const CHAT_H = 1080;
-const CHAT_BLUE = "#2D5AF7";
-const CHAT_BG = "#121212";
+const CHAT_BLUE = "#8494FF";
+const CHAT_BG = "#1e1919";
 const CHAT_V1 = 56;
 const CHAT_V2 = 254;
 const CHAT_V3 = 1524;
@@ -55,6 +55,13 @@ const CHAT_L4 = 751.5;
 const CHAT_GREEN_START_X = CHAT_V2 + ((CHAT_V3 - CHAT_V2) * 2) / 3;
 const CHAT_X_MID = (CHAT_V2 + CHAT_V3) / 2;
 const CHAT_Y_MID = CHAT_H / 2;
+const CHAT_TITLE_TOP_EXPAND = 36;
+const CHAT_TITLE_BOTTOM_EXPAND = 56;
+const CHAT_TITLE_TEXT_BASE_HEIGHT = CHAT_L3 - CHAT_L2;
+const CHAT_TITLE_FO_Y = CHAT_L2 - CHAT_TITLE_TOP_EXPAND;
+const CHAT_TITLE_FO_HEIGHT = CHAT_TITLE_TEXT_BASE_HEIGHT + CHAT_TITLE_TOP_EXPAND + CHAT_TITLE_BOTTOM_EXPAND;
+const CHAT_TITLE_MASK_Y = CHAT_TITLE_FO_Y;
+const CHAT_TITLE_MASK_HEIGHT = CHAT_TITLE_FO_HEIGHT;
 
 // Background reference grid positions (non-uniform)
 const GRID_V = [0.08, 0.18, 0.30, 0.42, 0.58, 0.70, 0.82, 0.92].map((r) => r * VW);
@@ -428,9 +435,22 @@ function LightRAGChatWindow({ onBack }: { onBack: () => void }) {
     const backBtn = svg.querySelector<SVGForeignObjectElement>("#chat-back-button-fo");
 
     gsap.set(chars, { yPercent: 112, opacity: 0 });
-    gsap.set(lines, { stroke: "#ffffff", strokeWidth: 1, strokeOpacity: 1, filter: "none" });
+    gsap.set(lines, {
+      stroke: "#ffffff",
+      strokeWidth: 1,
+      strokeOpacity: 1,
+      shapeRendering: "crispEdges",
+      filter: "none",
+    });
 
-    const tl = gsap.timeline();
+    const tl = gsap.timeline({
+      onStart: () => {
+        gsap.set(lines, { shapeRendering: "geometricPrecision" });
+      },
+      onComplete: () => {
+        gsap.set(lines, { shapeRendering: "crispEdges" });
+      },
+    });
 
     tl.to(chars, {
       yPercent: 0,
@@ -441,22 +461,22 @@ function LightRAGChatWindow({ onBack }: { onBack: () => void }) {
     }, 0.08);
 
     tl.to(hL2, {
-      attr: { x1: CHAT_V1, x2: CHAT_W },
+      attr: { x1: CHAT_V1 + 0.5, x2: CHAT_W },
       duration: 0.52,
       ease: CHAT_LINE_EASE,
     }, 0.22);
     tl.to(hL3, {
-      attr: { x1: CHAT_V1, x2: CHAT_W },
+      attr: { x1: CHAT_V1 + 0.5, x2: CHAT_W },
       duration: 0.52,
       ease: CHAT_LINE_EASE,
     }, 0.30);
     tl.to(hL1, {
-      attr: { x1: CHAT_V1, x2: CHAT_W },
+      attr: { x1: CHAT_V1 + 0.5, x2: CHAT_W },
       duration: 0.52,
       ease: CHAT_LINE_EASE,
     }, 0.40);
     tl.to(hL4, {
-      attr: { x1: CHAT_V1, x2: CHAT_W },
+      attr: { x1: CHAT_V1 + 0.5, x2: CHAT_W },
       duration: 0.52,
       ease: CHAT_LINE_EASE,
     }, 0.52);
@@ -479,7 +499,9 @@ function LightRAGChatWindow({ onBack }: { onBack: () => void }) {
 
     tl.to(lines, {
       stroke: CHAT_BLUE,
-      strokeWidth: 0.4,
+      // Keep a full physical pixel, use opacity for "thin" perception.
+      strokeWidth: 1,
+      strokeOpacity: 0.3,
       duration: 0.8,
       ease: "sine.inOut",
     }, 0.92);
@@ -515,7 +537,7 @@ function LightRAGChatWindow({ onBack }: { onBack: () => void }) {
     };
   }, []);
 
-  const title = "LightRAG Chat";
+  const title = "LightRAG";
 
   return (
     <main className="chat-window-page">
@@ -573,9 +595,9 @@ function LightRAGChatWindow({ onBack }: { onBack: () => void }) {
           <clipPath id="chat-title-mask">
             <rect
               x={CHAT_V2}
-              y={CHAT_L2}
+              y={CHAT_TITLE_MASK_Y}
               width={CHAT_V3 - CHAT_V2}
-              height={CHAT_L3 - CHAT_L2 + 24}
+              height={CHAT_TITLE_MASK_HEIGHT}
             />
           </clipPath>
         </defs>
@@ -599,14 +621,14 @@ function LightRAGChatWindow({ onBack }: { onBack: () => void }) {
           mask="url(#chat-green-mask)"
         />
 
-        <line id="chat-l1" className="chat-grid-line" x1={CHAT_X_MID} y1={CHAT_L1} x2={CHAT_X_MID} y2={CHAT_L1} />
-        <line id="chat-l2" className="chat-grid-line" x1={CHAT_X_MID} y1={CHAT_L2} x2={CHAT_X_MID} y2={CHAT_L2} />
-        <line id="chat-l3" className="chat-grid-line" x1={CHAT_X_MID} y1={CHAT_L3} x2={CHAT_X_MID} y2={CHAT_L3} />
-        <line id="chat-l4" className="chat-grid-line" x1={CHAT_X_MID} y1={CHAT_L4} x2={CHAT_X_MID} y2={CHAT_L4} />
+        <line id="chat-l1" className="chat-grid-line" x1={CHAT_X_MID} y1={CHAT_L1 + 0.5} x2={CHAT_X_MID} y2={CHAT_L1 + 0.5} />
+        <line id="chat-l2" className="chat-grid-line" x1={CHAT_X_MID} y1={CHAT_L2 + 0.5} x2={CHAT_X_MID} y2={CHAT_L2 + 0.5} />
+        <line id="chat-l3" className="chat-grid-line" x1={CHAT_X_MID} y1={CHAT_L3 + 0.5} x2={CHAT_X_MID} y2={CHAT_L3 + 0.5} />
+        <line id="chat-l4" className="chat-grid-line" x1={CHAT_X_MID} y1={CHAT_L4 + 0.5} x2={CHAT_X_MID} y2={CHAT_L4 + 0.5} />
 
-        <line id="chat-v1" className="chat-grid-line" x1={CHAT_V1} y1={CHAT_Y_MID} x2={CHAT_V1} y2={CHAT_Y_MID} />
-        <line id="chat-v2" className="chat-grid-line" x1={CHAT_V2} y1={CHAT_Y_MID} x2={CHAT_V2} y2={CHAT_Y_MID} />
-        <line id="chat-v3" className="chat-grid-line" x1={CHAT_V3} y1={CHAT_Y_MID} x2={CHAT_V3} y2={CHAT_Y_MID} />
+        <line id="chat-v1" className="chat-grid-line" x1={CHAT_V1 + 0.5} y1={CHAT_Y_MID} x2={CHAT_V1 + 0.5} y2={CHAT_Y_MID} />
+        <line id="chat-v2" className="chat-grid-line" x1={CHAT_V2 + 0.5} y1={CHAT_Y_MID} x2={CHAT_V2 + 0.5} y2={CHAT_Y_MID} />
+        <line id="chat-v3" className="chat-grid-line" x1={CHAT_V3 + 0.5} y1={CHAT_Y_MID} x2={CHAT_V3 + 0.5} y2={CHAT_Y_MID} />
 
         <text transform={`translate(24 ${CHAT_H - 80}) rotate(-90)`} className="chat-side-label">
           Partner Info
@@ -642,12 +664,12 @@ function LightRAGChatWindow({ onBack }: { onBack: () => void }) {
         <g clipPath="url(#chat-title-mask)">
           <foreignObject
             x={CHAT_V2}
-            y={CHAT_L2}
+            y={CHAT_TITLE_FO_Y}
             width={CHAT_V3 - CHAT_V2}
-            height={CHAT_L3 - CHAT_L2 + 24}
+            height={CHAT_TITLE_FO_HEIGHT}
             xmlns="http://www.w3.org/1999/xhtml"
           >
-            <div className="chat-title-fo-root">
+            <div className="chat-title-fo-root" style={{ paddingTop: `${CHAT_TITLE_TOP_EXPAND}px` }}>
               <div className="chat-title-wrap">
                 {title.split("").map((char, idx) => (
                   <span key={`chat-char-${idx}`} className="chat-title-char">
@@ -659,7 +681,7 @@ function LightRAGChatWindow({ onBack }: { onBack: () => void }) {
           </foreignObject>
         </g>
 
-        <foreignObject id="chat-back-button-fo" x={2} y={514} width={52} height={52} xmlns="http://www.w3.org/1999/xhtml">
+        <foreignObject id="chat-back-button-fo" x={0} y={508} width={64} height={64} xmlns="http://www.w3.org/1999/xhtml">
           <div className="chat-back-btn-root">
             <button type="button" className="chat-pushable" aria-label="Back to login" onClick={onBack}>
               <span className="chat-shadow" />
