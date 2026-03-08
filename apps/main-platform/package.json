@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "gsap": "^3.14.2",
     "next": "latest",
     "react": "latest",
     "react-dom": "latest",
@@ -17,12 +18,13 @@
   },
   "devDependencies": {
     "@final/configs": "workspace:*",
+    "@tailwindcss/postcss": "^4.2.1",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "autoprefixer": "latest",
-    "postcss": "latest",
-    "tailwindcss": "latest",
+    "autoprefixer": "^10.4.27",
+    "postcss": "^8.5.8",
+    "tailwindcss": "^4.2.1",
     "typescript": "latest"
   }
 }
