@@ -2,12 +2,30 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
+import { CustomEase } from "gsap/CustomEase";
 
 const BRAND_BLUE = "#3152f4";
 const GRID_COLOR = "rgba(49, 82, 244, 0.12)";
 const VW = 1440;
 const VH = 900;
 const PHASE1_STROKE = 1.5;
+gsap.registerPlugin(CustomEase);
+
+// Single-curve slow-fast-slow profile to avoid segmented velocity jumps.
+const LINE_DRAW_EASE = CustomEase.create(
+  "line-draw-ease",
+  "M0,0 C0.08,0 0.14,0.02 0.2,0.1 0.32,0.24 0.42,0.8 0.6,0.9 0.76,0.96 0.88,0.99 1,1",
+);
+
+const LOGO_DRAW_EASE = CustomEase.create(
+  "logo-draw-ease",
+  "M0,0 C0.1,0.005 0.18,0.03 0.25,0.12 0.35,0.24 0.44,0.72 0.62,0.88 0.78,0.95 0.9,0.99 1,1",
+);
+
+const CHAT_LINE_EASE = CustomEase.create(
+  "chat-line-ease",
+  "M0,0 C0.08,0.01 0.18,0.05 0.26,0.2 0.36,0.44 0.54,0.86 0.72,0.95 0.86,0.99 0.94,1 1,1",
+);
 
 const INTRO_COORDS = {
   x1: 0.31 * VW,
@@ -23,16 +41,47 @@ const COLLAPSE_COORDS = {
   y2: 0.83 * VH,
 };
 
+const CHAT_W = 1920;
+const CHAT_H = 1080;
+const CHAT_BLUE = "#2D5AF7";
+const CHAT_BG = "#121212";
+const CHAT_V1 = 56;
+const CHAT_V2 = 254;
+const CHAT_V3 = 1524;
+const CHAT_L1 = 328.5;
+const CHAT_L2 = 469.5;
+const CHAT_L3 = 610.5;
+const CHAT_L4 = 751.5;
+const CHAT_GREEN_START_X = CHAT_V2 + ((CHAT_V3 - CHAT_V2) * 2) / 3;
+const CHAT_X_MID = (CHAT_V2 + CHAT_V3) / 2;
+const CHAT_Y_MID = CHAT_H / 2;
+
 // Background reference grid positions (non-uniform)
 const GRID_V = [0.08, 0.18, 0.30, 0.42, 0.58, 0.70, 0.82, 0.92].map((r) => r * VW);
 const GRID_H = [0.06, 0.14, 0.28, 0.44, 0.56, 0.72, 0.86, 0.94].map((r) => r * VH);
 
 export function LoginWindowDemo() {
+  const [activeWindow, setActiveWindow] = useState<"login" | "chat">("login");
+  const [loginRenderKey, setLoginRenderKey] = useState(0);
+
+  const handleOpenChat = () => setActiveWindow("chat");
+  const handleBackToLogin = () => {
+    setActiveWindow("login");
+    setLoginRenderKey((v) => v + 1);
+  };
+
+  if (activeWindow === "chat") {
+    return <LightRAGChatWindow onBack={handleBackToLogin} />;
+  }
+
+  return <LoginIntroWindow key={loginRenderKey} onSignIn={handleOpenChat} />;
+}
+
+function LoginIntroWindow({ onSignIn }: { onSignIn: () => void }) {
   const svgRef = useRef<SVGSVGElement>(null);
   const coordsRef = useRef({ ...INTRO_COORDS });
   const canTriggerRef = useRef(false);
   const playedRef = useRef(false);
-  const stage2Ref = useRef<gsap.core.Timeline | null>(null);
   const [inverted, setInverted] = useState(false);
 
   useLayoutEffect(() => {
@@ -85,13 +134,15 @@ export function LoginWindowDemo() {
     // === Phase 1: Draw ===
     introTl.to(mainLines, {
       strokeDashoffset: 0,
-      duration: 0.95,
+      duration: 1.08,
+      ease: LINE_DRAW_EASE,
       stagger: 0.08,
     }, 0);
 
     introTl.to(logoLines, {
       strokeDashoffset: 0,
-      duration: 0.92,
+      duration: 0.94,
+      ease: LOGO_DRAW_EASE,
       stagger: 0.04,
     }, 0.12);
 
@@ -114,7 +165,6 @@ export function LoginWindowDemo() {
 
     // === Phase 2: Inversion + collapse + login switch ===
     const stage2Tl = gsap.timeline({ paused: true, defaults: { ease: "power3.inOut" } });
-    stage2Ref.current = stage2Tl;
 
     stage2Tl.to(coords, {
       ...COLLAPSE_COORDS,
@@ -229,7 +279,7 @@ export function LoginWindowDemo() {
           </foreignObject>
           <foreignObject id="login-panel" x={INTRO_COORDS.x1 + 16} y={INTRO_COORDS.y1 + 16} width={INTRO_COORDS.x2 - INTRO_COORDS.x1 - 32} height={INTRO_COORDS.y2 - INTRO_COORDS.y1 - 32}>
             <div className="svg-text-content is-inverted">
-              <LoginForm />
+              <LoginForm onSignIn={onSignIn} />
             </div>
           </foreignObject>
         </g>
@@ -244,7 +294,7 @@ export function LoginWindowDemo() {
   );
 }
 
-function LoginForm() {
+function LoginForm({ onSignIn }: { onSignIn: () => void }) {
   const [showPwd, setShowPwd] = useState(false);
   return (
     <form className="svg-login-form" onClick={(e) => e.stopPropagation()}>
@@ -276,7 +326,7 @@ function LoginForm() {
         </label>
         <a href="#forgot">Forgot?</a>
       </div>
-      <button type="button" className="svg-submit">Sign in</button>
+      <button type="button" className="svg-submit" onClick={onSignIn}>Sign in</button>
       <p className="svg-register">
         No account? <a href="#register">Create one</a>
       </p>
@@ -354,4 +404,277 @@ function getLogoDiamonds() {
     { cx: 16, cy: 16, size: 10 },
     { cx: 28, cy: 16, size: 10 },
   ];
+}
+
+function LightRAGChatWindow({ onBack }: { onBack: () => void }) {
+  const svgRef = useRef<SVGSVGElement>(null);
+
+  useLayoutEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const q = gsap.utils.selector(svg);
+    const chars = q(".chat-title-char");
+    const lines = q(".chat-grid-line");
+    const hL1 = svg.querySelector<SVGLineElement>("#chat-l1");
+    const hL2 = svg.querySelector<SVGLineElement>("#chat-l2");
+    const hL3 = svg.querySelector<SVGLineElement>("#chat-l3");
+    const hL4 = svg.querySelector<SVGLineElement>("#chat-l4");
+    const v1 = svg.querySelector<SVGLineElement>("#chat-v1");
+    const v2 = svg.querySelector<SVGLineElement>("#chat-v2");
+    const v3 = svg.querySelector<SVGLineElement>("#chat-v3");
+    const yellowReveal = svg.querySelector<SVGRectElement>("#chat-yellow-reveal-rect");
+    const greenReveal = svg.querySelector<SVGRectElement>("#chat-green-reveal-rect");
+    const backBtn = svg.querySelector<SVGForeignObjectElement>("#chat-back-button-fo");
+
+    gsap.set(chars, { yPercent: 112, opacity: 0 });
+    gsap.set(lines, { stroke: "#ffffff", strokeWidth: 1, strokeOpacity: 1, filter: "none" });
+
+    const tl = gsap.timeline();
+
+    tl.to(chars, {
+      yPercent: 0,
+      opacity: 1,
+      duration: 0.62,
+      ease: "power3.out",
+      stagger: 0.03,
+    }, 0.08);
+
+    tl.to(hL2, {
+      attr: { x1: CHAT_V1, x2: CHAT_W },
+      duration: 0.52,
+      ease: CHAT_LINE_EASE,
+    }, 0.22);
+    tl.to(hL3, {
+      attr: { x1: CHAT_V1, x2: CHAT_W },
+      duration: 0.52,
+      ease: CHAT_LINE_EASE,
+    }, 0.30);
+    tl.to(hL1, {
+      attr: { x1: CHAT_V1, x2: CHAT_W },
+      duration: 0.52,
+      ease: CHAT_LINE_EASE,
+    }, 0.40);
+    tl.to(hL4, {
+      attr: { x1: CHAT_V1, x2: CHAT_W },
+      duration: 0.52,
+      ease: CHAT_LINE_EASE,
+    }, 0.52);
+
+    tl.to(v2, {
+      attr: { y1: 0, y2: CHAT_H },
+      duration: 0.46,
+      ease: CHAT_LINE_EASE,
+    }, 0.60);
+    tl.to(v3, {
+      attr: { y1: 0, y2: CHAT_H },
+      duration: 0.46,
+      ease: CHAT_LINE_EASE,
+    }, 0.68);
+    tl.to(v1, {
+      attr: { y1: 0, y2: CHAT_H },
+      duration: 0.46,
+      ease: CHAT_LINE_EASE,
+    }, 0.78);
+
+    tl.to(lines, {
+      stroke: CHAT_BLUE,
+      strokeWidth: 0.4,
+      duration: 0.8,
+      ease: "sine.inOut",
+    }, 0.92);
+
+    if (yellowReveal) {
+      tl.to(yellowReveal, {
+        attr: { width: CHAT_W - CHAT_V3 + 64 },
+        duration: 0.54,
+        ease: "power3.out",
+      }, 1.00);
+    }
+    if (greenReveal) {
+      tl.to(greenReveal, {
+        attr: { y: CHAT_L4 - 48, height: CHAT_H - CHAT_L4 + 48 },
+        duration: 0.56,
+        ease: "power3.out",
+      }, 1.08);
+    }
+
+    if (backBtn) {
+      tl.fromTo(backBtn, {
+        scale: 0.88,
+        transformOrigin: "28px 540px",
+      }, {
+        scale: 1,
+        duration: 0.24,
+        ease: "back.out(2)",
+      }, 1.15);
+    }
+
+    return () => {
+      tl.kill();
+    };
+  }, []);
+
+  const title = "LightRAG Chat";
+
+  return (
+    <main className="chat-window-page">
+      <svg
+        ref={svgRef}
+        viewBox={`0 0 ${CHAT_W} ${CHAT_H}`}
+        preserveAspectRatio="xMidYMid slice"
+        className="chat-window-canvas"
+      >
+        <defs>
+          <mask id="chat-yellow-mask">
+            <rect
+              x={CHAT_V3}
+              y={0}
+              width={CHAT_W - CHAT_V3}
+              height={CHAT_L1}
+              fill="black"
+            />
+            <rect
+              id="chat-yellow-reveal-rect"
+              x={CHAT_V3}
+              y={0}
+              width={0}
+              height={CHAT_L1}
+              fill="url(#chat-mask-gradient-x)"
+            />
+          </mask>
+          <mask id="chat-green-mask">
+            <rect
+              x={CHAT_GREEN_START_X}
+              y={CHAT_L4}
+              width={CHAT_V3 - CHAT_GREEN_START_X}
+              height={CHAT_H - CHAT_L4}
+              fill="black"
+            />
+            <rect
+              id="chat-green-reveal-rect"
+              x={CHAT_GREEN_START_X}
+              y={CHAT_H}
+              width={CHAT_V3 - CHAT_GREEN_START_X}
+              height={0}
+              fill="url(#chat-mask-gradient-y)"
+            />
+          </mask>
+          <linearGradient id="chat-mask-gradient-x" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stopColor="white" />
+            <stop offset="86%" stopColor="white" />
+            <stop offset="100%" stopColor="black" />
+          </linearGradient>
+          <linearGradient id="chat-mask-gradient-y" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="black" />
+            <stop offset="12%" stopColor="white" />
+            <stop offset="100%" stopColor="white" />
+          </linearGradient>
+          <clipPath id="chat-title-mask">
+            <rect
+              x={CHAT_V2}
+              y={CHAT_L2}
+              width={CHAT_V3 - CHAT_V2}
+              height={CHAT_L3 - CHAT_L2 + 24}
+            />
+          </clipPath>
+        </defs>
+
+        <rect x={0} y={0} width={CHAT_W} height={CHAT_H} fill={CHAT_BG} />
+
+        <rect
+          x={CHAT_V3}
+          y={0}
+          width={CHAT_W - CHAT_V3}
+          height={CHAT_L1}
+          fill="#F7D147"
+          mask="url(#chat-yellow-mask)"
+        />
+        <rect
+          x={CHAT_GREEN_START_X}
+          y={CHAT_L4}
+          width={CHAT_V3 - CHAT_GREEN_START_X}
+          height={CHAT_H - CHAT_L4}
+          fill="#164D33"
+          mask="url(#chat-green-mask)"
+        />
+
+        <line id="chat-l1" className="chat-grid-line" x1={CHAT_X_MID} y1={CHAT_L1} x2={CHAT_X_MID} y2={CHAT_L1} />
+        <line id="chat-l2" className="chat-grid-line" x1={CHAT_X_MID} y1={CHAT_L2} x2={CHAT_X_MID} y2={CHAT_L2} />
+        <line id="chat-l3" className="chat-grid-line" x1={CHAT_X_MID} y1={CHAT_L3} x2={CHAT_X_MID} y2={CHAT_L3} />
+        <line id="chat-l4" className="chat-grid-line" x1={CHAT_X_MID} y1={CHAT_L4} x2={CHAT_X_MID} y2={CHAT_L4} />
+
+        <line id="chat-v1" className="chat-grid-line" x1={CHAT_V1} y1={CHAT_Y_MID} x2={CHAT_V1} y2={CHAT_Y_MID} />
+        <line id="chat-v2" className="chat-grid-line" x1={CHAT_V2} y1={CHAT_Y_MID} x2={CHAT_V2} y2={CHAT_Y_MID} />
+        <line id="chat-v3" className="chat-grid-line" x1={CHAT_V3} y1={CHAT_Y_MID} x2={CHAT_V3} y2={CHAT_Y_MID} />
+
+        <text transform={`translate(24 ${CHAT_H - 80}) rotate(-90)`} className="chat-side-label">
+          Partner Info
+        </text>
+
+        <foreignObject
+          x={CHAT_V3}
+          y={0}
+          width={CHAT_W - CHAT_V3}
+          height={CHAT_L1}
+          xmlns="http://www.w3.org/1999/xhtml"
+        >
+          <div className="chat-quote-panel chat-quote-panel-top">
+            <p>Go from idea to done</p>
+            <p>with Dropbox.</p>
+          </div>
+        </foreignObject>
+
+        <foreignObject
+          x={CHAT_GREEN_START_X}
+          y={CHAT_L4}
+          width={CHAT_V3 - CHAT_GREEN_START_X}
+          height={CHAT_H - CHAT_L4}
+          xmlns="http://www.w3.org/1999/xhtml"
+        >
+          <div className="chat-quote-panel chat-quote-panel-bottom">
+            <p>These are not just your</p>
+            <p>files. They are pieces</p>
+            <p>of your life.</p>
+          </div>
+        </foreignObject>
+
+        <g clipPath="url(#chat-title-mask)">
+          <foreignObject
+            x={CHAT_V2}
+            y={CHAT_L2}
+            width={CHAT_V3 - CHAT_V2}
+            height={CHAT_L3 - CHAT_L2 + 24}
+            xmlns="http://www.w3.org/1999/xhtml"
+          >
+            <div className="chat-title-fo-root">
+              <div className="chat-title-wrap">
+                {title.split("").map((char, idx) => (
+                  <span key={`chat-char-${idx}`} className="chat-title-char">
+                    {char === " " ? "\u00A0" : char}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </foreignObject>
+        </g>
+
+        <foreignObject id="chat-back-button-fo" x={2} y={514} width={52} height={52} xmlns="http://www.w3.org/1999/xhtml">
+          <div className="chat-back-btn-root">
+            <button type="button" className="chat-pushable" aria-label="Back to login" onClick={onBack}>
+              <span className="chat-shadow" />
+              <span className="chat-edge" />
+              <span className="chat-front">
+                <svg viewBox="0 0 20 20" className="chat-back-btn-icon" aria-hidden="true">
+                  <path d="M16 5.5H10V14.5H16" />
+                  <path d="M13 10H4.5" />
+                  <path d="M7.6 7 L4.5 10 L7.6 13" />
+                </svg>
+              </span>
+            </button>
+          </div>
+        </foreignObject>
+      </svg>
+    </main>
+  );
 }
