@@ -12,13 +12,13 @@ const PHASE1_STROKE = 1.5;
 const INTRO_COORDS = {
   x1: 0.31 * VW,
   x2: 0.69 * VW,
-  y1: 0.07 * VH,
+  y1: 0.17 * VH,
   y2: 0.83 * VH,
 };
 
 const COLLAPSE_COORDS = {
-  x1: 0.38 * VW,
-  x2: 0.62 * VW,
+  x1: 0.37 * VW,
+  x2: 0.63 * VW,
   y1: 0.23 * VH,
   y2: 0.83 * VH,
 };
