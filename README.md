@@ -201,6 +201,12 @@ final/
 - **物理反馈**：使用 `cubic-bezier(.3, .7, .4, 1)`。
 - **交互**：`hover` 时 `translateY(-6px)`，`active` 时 `translateY(-2px)`。
 
+#### 5) 角落引号 + 文案浮现 (Quotes & Copy Reveal)
+- **坐标隔离**：引号使用双层 `<g>`，外层仅负责 `translate/scale` 静态坐标，内层仅绑定 GSAP 动画。
+- **引号字符**：使用圆润字形 `\u275b\u275b` / `\u275c\u275c`，字体栈优先 `Arial Rounded MT Bold`。
+- **文案浮现**：两块文案容器使用 `autoAlpha + yPercent + scale` 轻量浮现，且与黄/绿色块揭示时间衔接。
+- **稳定调参**：所有引号位置/大小统一由常量控制，避免 GSAP 覆盖手动坐标。
+
 ---
 
 ### 四、时间轴（标准版）
@@ -218,6 +224,9 @@ final/
 | `t=0.92s` | 全部线条 | 统一质感切换 | `#fff/1 -> #2D5AF7/1` + `opacity: 0.5` |
 | `t=1.00s` | 黄区 | 渐变遮罩水平揭示 | `#F7D147`，`x: V3 -> 1920` |
 | `t=1.08s` | 绿区 | 渐变遮罩垂直揭示 | `#164D33`，`y: L4 -> 1080` |
+| `t=1.06s` | 黄区文案 | `autoAlpha + yPercent + scale` | 右上文案柔和浮现 |
+| `t=1.12s` | 左上/右下引号 | `autoAlpha + yPercent + scale` + `back.out(1.9)` | 引号弹性浮现 |
+| `t=1.14s` | 绿区文案 | `autoAlpha + yPercent + scale` | 右下文案柔和浮现 |
 | `t=1.15s` | 左侧按钮 | 3D 回弹入场 | `#2D5AF7` 可点击状态 |
 
 ---
@@ -232,6 +241,9 @@ final/
 | `transform: translateY` | `globals.css` | 标题 Cap Height 像素级微调 |
 | `TOP_EXPAND` | `login-window-demo.tsx` | 字母 `i` 的点防切缓冲 |
 | `BOTTOM_EXPAND` | `login-window-demo.tsx` | 字母 `g` 的尾巴防切缓冲 |
+| `CHAT_QUOTE_TL_X/Y` | `login-window-demo.tsx` | 左上引号坐标 |
+| `CHAT_QUOTE_BR_X/Y` | `login-window-demo.tsx` | 右下引号坐标 |
+| `CHAT_QUOTE_SCALE` | `login-window-demo.tsx` | 引号整体缩放 |
 | `V1, V2, V3, L1...` | `login-window-demo.tsx` | 骨架网格的核心像素坐标 |
 
 ---

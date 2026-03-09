@@ -261,6 +261,33 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
 }
 
+.chat-corner-quote {
+  fill: #ffffff;
+  pointer-events: none;
+  user-select: none;
+  opacity: 0.94;
+}
+
+.chat-corner-quote-glyph {
+  font-size: 80px;
+  font-weight: 900;
+  font-family: "Arial Rounded MT Bold", "Nunito", "SF Pro Rounded", system-ui, sans-serif;
+}
+
+.chat-corner-quote-anim {
+  transform-box: fill-box;
+  transform-origin: center;
+  will-change: transform, opacity;
+}
+
+.chat-corner-quote-tl {
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.12));
+}
+
+.chat-corner-quote-br {
+  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.12));
+}
+
 .chat-quote-panel {
   width: 100%;
   height: 100%;
@@ -292,6 +319,10 @@ body {
   font-size: 30px;
   font-weight: 650;
   gap: 12px;
+}
+
+.chat-quote-panel-anim {
+  will-change: transform, opacity;
 }
 
 .chat-back-btn-root {

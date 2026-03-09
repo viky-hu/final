@@ -63,6 +63,11 @@ const CHAT_TITLE_FO_Y = CHAT_L2 - CHAT_TITLE_TOP_EXPAND;
 const CHAT_TITLE_FO_HEIGHT = CHAT_TITLE_TEXT_BASE_HEIGHT + CHAT_TITLE_TOP_EXPAND + CHAT_TITLE_BOTTOM_EXPAND;
 const CHAT_TITLE_MASK_Y = CHAT_TITLE_FO_Y;
 const CHAT_TITLE_MASK_HEIGHT = CHAT_TITLE_FO_HEIGHT;
+const CHAT_QUOTE_TL_X = 320;
+const CHAT_QUOTE_TL_Y = 120;
+const CHAT_QUOTE_BR_X = 1480;
+const CHAT_QUOTE_BR_Y = 1000;
+const CHAT_QUOTE_SCALE = 1.4;
 
 // Background reference grid positions (non-uniform)
 const GRID_V = [0.08, 0.18, 0.30, 0.42, 0.58, 0.70, 0.82, 0.92].map((r) => r * VW);
@@ -476,8 +481,29 @@ function LightRAGChatWindow({ onBack }: { onBack: () => void }) {
     const yellowReveal = svg.querySelector<SVGRectElement>("#chat-yellow-reveal-rect");
     const greenReveal = svg.querySelector<SVGRectElement>("#chat-green-reveal-rect");
     const backBtn = svg.querySelector<SVGForeignObjectElement>("#chat-back-button-fo");
+    const topQuotePanel = q(".chat-quote-panel-top.chat-quote-panel-anim");
+    const bottomQuotePanel = q(".chat-quote-panel-bottom.chat-quote-panel-anim");
+    const cornerQuotes = q(".chat-corner-quote-anim");
 
     gsap.set(chars, { yPercent: 112, opacity: 0 });
+    gsap.set(topQuotePanel, {
+      autoAlpha: 0,
+      yPercent: 8,
+      scale: 0.98,
+      transformOrigin: "50% 50%",
+    });
+    gsap.set(bottomQuotePanel, {
+      autoAlpha: 0,
+      yPercent: 8,
+      scale: 0.98,
+      transformOrigin: "50% 50%",
+    });
+    gsap.set(cornerQuotes, {
+      autoAlpha: 0,
+      yPercent: 14,
+      scale: 0.82,
+      transformOrigin: "50% 50%",
+    });
     gsap.set(lines, {
       stroke: "#ffffff",
       strokeWidth: 1,
@@ -563,6 +589,28 @@ function LightRAGChatWindow({ onBack }: { onBack: () => void }) {
         ease: "power3.out",
       }, 1.08);
     }
+    tl.to(topQuotePanel, {
+      autoAlpha: 1,
+      yPercent: 0,
+      scale: 1,
+      duration: 0.36,
+      ease: "power2.out",
+    }, 1.06);
+    tl.to(bottomQuotePanel, {
+      autoAlpha: 1,
+      yPercent: 0,
+      scale: 1,
+      duration: 0.36,
+      ease: "power2.out",
+    }, 1.14);
+    tl.to(cornerQuotes, {
+      autoAlpha: 1,
+      yPercent: 0,
+      scale: 1,
+      duration: 0.42,
+      ease: "back.out(1.9)",
+      stagger: 0.12,
+    }, 1.12);
 
     if (backBtn) {
       tl.fromTo(backBtn, {
@@ -684,7 +732,7 @@ function LightRAGChatWindow({ onBack }: { onBack: () => void }) {
           height={CHAT_L1}
           xmlns="http://www.w3.org/1999/xhtml"
         >
-          <div className="chat-quote-panel chat-quote-panel-top">
+          <div className="chat-quote-panel chat-quote-panel-top chat-quote-panel-anim">
             <p>Go from idea to done</p>
             <p>with Dropbox.</p>
           </div>
@@ -697,12 +745,31 @@ function LightRAGChatWindow({ onBack }: { onBack: () => void }) {
           height={CHAT_H - CHAT_L4}
           xmlns="http://www.w3.org/1999/xhtml"
         >
-          <div className="chat-quote-panel chat-quote-panel-bottom">
+          <div className="chat-quote-panel chat-quote-panel-bottom chat-quote-panel-anim">
             <p>These are not just your</p>
             <p>files. They are pieces</p>
             <p>of your life.</p>
           </div>
         </foreignObject>
+
+        <g
+          id="chat-quote-tl"
+          className="chat-corner-quote chat-corner-quote-tl"
+          transform={`translate(${CHAT_QUOTE_TL_X} ${CHAT_QUOTE_TL_Y}) scale(${CHAT_QUOTE_SCALE})`}
+        >
+          <g className="chat-corner-quote-anim">
+            <text className="chat-corner-quote-glyph">{`\u275b\u275b`}</text>
+          </g>
+        </g>
+        <g
+          id="chat-quote-br"
+          className="chat-corner-quote chat-corner-quote-br"
+          transform={`translate(${CHAT_QUOTE_BR_X} ${CHAT_QUOTE_BR_Y}) scale(${CHAT_QUOTE_SCALE})`}
+        >
+          <g className="chat-corner-quote-anim">
+            <text className="chat-corner-quote-glyph">{`\u275c\u275c`}</text>
+          </g>
+        </g>
 
         <g clipPath="url(#chat-title-mask)">
           <foreignObject
