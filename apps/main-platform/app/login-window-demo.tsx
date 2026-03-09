@@ -63,11 +63,11 @@ const CHAT_TITLE_FO_Y = CHAT_L2 - CHAT_TITLE_TOP_EXPAND;
 const CHAT_TITLE_FO_HEIGHT = CHAT_TITLE_TEXT_BASE_HEIGHT + CHAT_TITLE_TOP_EXPAND + CHAT_TITLE_BOTTOM_EXPAND;
 const CHAT_TITLE_MASK_Y = CHAT_TITLE_FO_Y;
 const CHAT_TITLE_MASK_HEIGHT = CHAT_TITLE_FO_HEIGHT;
-const CHAT_QUOTE_TL_X = 320;
-const CHAT_QUOTE_TL_Y = 120;
-const CHAT_QUOTE_BR_X = 1480;
-const CHAT_QUOTE_BR_Y = 1000;
-const CHAT_QUOTE_SCALE = 1.4;
+const CHAT_QUOTE_TL_X = 140;
+const CHAT_QUOTE_TL_Y = 200;
+const CHAT_QUOTE_BR_X = 1700;
+const CHAT_QUOTE_BR_Y = 1050;
+const CHAT_QUOTE_SCALE = 1.7;
 
 // Background reference grid positions (non-uniform)
 const GRID_V = [0.08, 0.18, 0.30, 0.42, 0.58, 0.70, 0.82, 0.92].map((r) => r * VW);
@@ -610,7 +610,7 @@ function LightRAGChatWindow({ onBack }: { onBack: () => void }) {
       duration: 0.42,
       ease: "back.out(1.9)",
       stagger: 0.12,
-    }, 1.12);
+    }, 1.1);
 
     if (backBtn) {
       tl.fromTo(backBtn, {
@@ -733,8 +733,10 @@ function LightRAGChatWindow({ onBack }: { onBack: () => void }) {
           xmlns="http://www.w3.org/1999/xhtml"
         >
           <div className="chat-quote-panel chat-quote-panel-top chat-quote-panel-anim">
+            <p className="chat-quote-open">{"\u275B\u200A\u275B"}</p>
             <p>Go from idea to done</p>
             <p>with Dropbox.</p>
+            <p className="chat-quote-close">{"\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u275C\u200A\u275C"}</p>
           </div>
         </foreignObject>
 
@@ -746,9 +748,11 @@ function LightRAGChatWindow({ onBack }: { onBack: () => void }) {
           xmlns="http://www.w3.org/1999/xhtml"
         >
           <div className="chat-quote-panel chat-quote-panel-bottom chat-quote-panel-anim">
+            <p className="chat-quote-open">{"\u275B\u200A\u275B"}</p>
             <p>These are not just your</p>
             <p>files. They are pieces</p>
             <p>of your life.</p>
+            <p className="chat-quote-close">{"\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0\u275C\u200A\u275C"}</p>
           </div>
         </foreignObject>
 
