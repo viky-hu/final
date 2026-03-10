@@ -235,16 +235,16 @@ final/
 
 | 参数名 | 调整位置 | 作用 |
 |--------|----------|------|
-| `CHAT_BLUE` | `login-window-demo.tsx` | 全局蓝色主调 (线、按钮) |
-| `strokeOpacity` | `login-window-demo.tsx` | 蓝线视觉粗细（建议 0.5） |
+| `CHAT_BLUE` | `windows/shared/coords.ts` | 全局蓝色主调 (线、按钮) |
+| `strokeOpacity` | `windows/product/panels/PanelBlack.tsx` | 蓝线视觉粗细（建议 0.5） |
 | `font-size` | `globals.css` | `LightRAG` 标题大小 |
 | `transform: translateY` | `globals.css` | 标题 Cap Height 像素级微调 |
-| `TOP_EXPAND` | `login-window-demo.tsx` | 字母 `i` 的点防切缓冲 |
-| `BOTTOM_EXPAND` | `login-window-demo.tsx` | 字母 `g` 的尾巴防切缓冲 |
-| `CHAT_QUOTE_TL_X/Y` | `login-window-demo.tsx` | 左上引号坐标 |
-| `CHAT_QUOTE_BR_X/Y` | `login-window-demo.tsx` | 右下引号坐标 |
-| `CHAT_QUOTE_SCALE` | `login-window-demo.tsx` | 引号整体缩放 |
-| `V1, V2, V3, L1...` | `login-window-demo.tsx` | 骨架网格的核心像素坐标 |
+| `TOP_EXPAND` | `windows/shared/coords.ts` | 字母 `i` 的点防切缓冲 |
+| `BOTTOM_EXPAND` | `windows/shared/coords.ts` | 字母 `g` 的尾巴防切缓冲 |
+| `CHAT_QUOTE_TL_X/Y` | `windows/shared/coords.ts` | 左上引号坐标 |
+| `CHAT_QUOTE_BR_X/Y` | `windows/shared/coords.ts` | 右下引号坐标 |
+| `CHAT_QUOTE_SCALE` | `windows/shared/coords.ts` | 引号整体缩放 |
+| `V1, V2, V3, L1...` | `windows/shared/coords.ts` | 骨架网格的核心像素坐标 |
 
 ---
 
@@ -252,3 +252,80 @@ final/
 - **动画组件使用 `"use client"`**，初始化放在 `useLayoutEffect`。
 - **销毁管理**：所有动画通过 `gsap.context()` 管理，清理函数调用 `ctx.revert()`。
 - **渲染策略**：暗色背景下的细线，强制使用物理 1px + 透明度方案，禁用物理 0.x px 线宽。
+
+
+---
+
+## 🧩 第二窗口升级：三板块全屏滚动（需求冻结稿）
+
+> 目标：将当前“黑色动态板块”升级为一个由 3 个全屏 panel 组成的产品介绍长栏。  
+> 交互方式：用户滚轮或轻点触发，按屏切换，不允许同屏出现两个板块。
+
+### 一、全局硬规则（必须满足）
+
+- **一屏一板块**：任意时刻仅显示一个 panel。
+- **严格全屏**：每个 panel 必须始终撑满视口（`100vw × 100dvh`）。
+- **禁止穿屏**：不得出现“黑+白”或“黑+蓝”同时可见的情况。
+- **整屏步进**：切换时按整屏跳转（index 步进），不可半屏停留。
+- **过渡锁定**：切换动画期间锁定输入，避免连续触发导致越级跳转。
+
+### 二、交互定义（滚轮/轻点）
+
+- 滚轮向下：进入下一 panel。
+- 滚轮向上：返回上一 panel。
+- 轻点空白区：按产品节奏推进到下一 panel（可选与滚轮同逻辑）。
+- 到达首尾边界时不再继续跳转。
+- 每次切换仅允许移动一个 panel。
+
+### 三、画布与容器规范
+
+- 统一窗口舞台高度：`100dvh`，并 `overflow: hidden`。
+- panel 轨道采用纵向排列，位移使用整屏百分比（`translateY(-index * 100%)`）。
+- SVG 统一继续使用 `1920x1080` 坐标体系，适配时保持单屏裁切稳定。
+- 所有 panel 的交互元素不得突破本屏边界。
+
+### 四、三板块规划（当前版本）
+
+#### Panel 1（已实现 / 现有）
+- 主题：黑色动态主视觉（LightRAG 几何动效）
+- 状态：已完成基础动效，可继续微调
+
+#### Panel 2（待实现 / 留白）
+- 主题：蓝色产品介绍主板块
+- 目标：承接 Panel 1，突出核心价值与能力摘要
+- 状态：**留白，暂未动工**
+
+#### Panel 3（待实现 / 留白）
+- 主题：第二个补充板块（蓝系延展）
+- 目标：展示进阶能力、场景或案例信息
+- 状态：**留白，暂未动工**
+
+### 五、文件结构（已落地）
+
+```
+app/
+├── login-window-demo.tsx          # 顶层编排入口（仅路由状态）
+└── windows/
+    ├── shared/
+    │   ├── coords.ts              # 所有坐标 / 颜色常量（两窗口共用）
+    │   └── animation.ts           # GSAP 插件注册 + 自定义 easing
+    ├── login/
+    │   ├── LoginIntroWindow.tsx   # 第一窗口：介绍 + 白蓝反转 + 登录表单
+    │   ├── LoginForm.tsx          # 登录表单子组件
+    │   └── utils.ts               # SVG 布局辅助函数（updateLines 等）
+    └── product/
+        ├── ProductIntroWindow.tsx # 三板块容器：wheel 节流 + GSAP 整屏切换
+        └── panels/
+            ├── PanelBlack.tsx     # Panel 1：已完成黑色动效
+            ├── PanelBlueMain.tsx  # Panel 2：蓝色主介绍（留白）
+            └── PanelBlueExtend.tsx# Panel 3：蓝色延展（留白）
+```
+
+### 六、验收标准
+
+- 任意分辨率下，初始进入仅看到一个完整 panel。
+- 连续滚轮操作不会导致跳帧、越屏或叠屏显示。
+- panel 切换动画连贯，且可稳定落在离散索引位置（0/1/2）。
+- 未开工 panel 保持结构占位，不影响已完成 panel 的展示与交互。
+
+---

@@ -421,3 +421,48 @@ body {
   width: 20px;
   height: 20px;
 }
+
+/* ========== Window 2: Product Intro Pager ========== */
+
+/*
+ * 全屏分镜容器：严格撑满视口，禁止溢出。
+ * 每个 .product-panel 占满一个视口高度，
+ * 通过 GSAP 驱动 .product-pager-track 的 yPercent 整屏切换。
+ */
+.product-pager-stage {
+  width: 100vw;
+  height: 100dvh;
+  overflow: hidden;
+  position: relative;
+}
+
+.product-pager-track {
+  width: 100%;
+  /* 轨道高度 = 面板数 × 100dvh，确保每屏精准对齐 */
+  height: 300dvh;
+  display: flex;
+  flex-direction: column;
+  will-change: transform;
+}
+
+.product-panel {
+  width: 100%;
+  height: 100dvh;
+  flex: 0 0 100dvh;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Panel 2 占位背景 */
+.panel-blue-main {
+  width: 100%;
+  height: 100%;
+  background: #1a3a7a;
+}
+
+/* Panel 3 占位背景 */
+.panel-blue-extend {
+  width: 100%;
+  height: 100%;
+  background: #0f2456;
+}
