@@ -683,6 +683,7 @@ class App {
   disposed = false;
   resizeObserver?: ResizeObserver;
   requestId = 0;
+  stageBackground = 0x1e1919;
 
   constructor(container: HTMLDivElement, options: HyperspeedOptions) {
     this.options = { ...options };
@@ -693,9 +694,10 @@ class App {
     }
 
     this.container = container;
-    this.renderer = new THREE.WebGLRenderer({ antialias: false, alpha: true });
+    this.renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(container.clientWidth, container.clientHeight, false);
+    this.renderer.setClearColor(this.stageBackground, 1);
     this.renderer.domElement.className = "hyperspeed-canvas";
     this.container.appendChild(this.renderer.domElement);
 
@@ -704,9 +706,8 @@ class App {
     this.camera.position.set(0, 8, -5);
 
     this.scene = new THREE.Scene();
-    // Keep transparent to preserve Panel2 white background.
-    this.scene.background = null;
-    const fog = new THREE.Fog(this.options.colors.background, this.options.length * 0.2, this.options.length * 500);
+    this.scene.background = new THREE.Color(this.stageBackground);
+    const fog = new THREE.Fog(this.stageBackground, this.options.length * 0.2, this.options.length * 500);
     this.scene.fog = fog;
     this.fogUniforms = {
       fogColor: { value: fog.color },
@@ -849,11 +850,13 @@ export function HyperspeedBackground({ effectOptions }: HyperspeedBackgroundProp
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+    const basePreset = hyperspeedPresets.one ?? Object.values(hyperspeedPresets)[0];
+    if (!basePreset) return;
     const mergedOptions: HyperspeedOptions = {
-      ...hyperspeedPresets.one,
+      ...basePreset,
       ...effectOptions,
       colors: {
-        ...hyperspeedPresets.one.colors,
+        ...basePreset.colors,
         ...(effectOptions?.colors ?? {}),
       },
     };

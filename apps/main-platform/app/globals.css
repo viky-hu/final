@@ -460,7 +460,7 @@ body {
   position: relative;
   overflow: hidden;
   isolation: isolate;
-  background: #ffffff;
+  background: #1e1919;
 }
 
 .panel-blue-main-bg {
@@ -468,6 +468,7 @@ body {
   inset: 0;
   z-index: 0;
   pointer-events: auto;
+  background: #1e1919;
 }
 
 .panel-blue-main-content {
@@ -512,17 +513,19 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
+  background: #1e1919;
 }
 
 .hyperspeed-canvas {
   width: 100% !important;
   height: 100% !important;
   display: block;
+  background: #1e1919;
 }
 
 /* Panel 3 占位背景 */
 .panel-blue-extend {
   width: 100%;
   height: 100%;
-  background: #0f2456;
+  background: #1e1919;
 }
