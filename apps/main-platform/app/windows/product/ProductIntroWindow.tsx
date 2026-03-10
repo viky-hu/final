@@ -34,7 +34,7 @@ export function ProductIntroWindow({ onBack }: ProductIntroWindowProps) {
     panelIndexRef.current = clamped;
 
     gsap.to(track, {
-      yPercent: -clamped * 100,
+      y: -clamped * window.innerHeight,
       duration: TRANSITION_DURATION,
       ease: "power3.inOut",
       onComplete: () => {
@@ -44,6 +44,10 @@ export function ProductIntroWindow({ onBack }: ProductIntroWindowProps) {
   }, []);
 
   useLayoutEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    gsap.set(track, { y: 0 });
+
     const onWheel = (e: WheelEvent) => {
       const now = Date.now();
       if (now - lastTriggerRef.current < COOLDOWN_MS) return;
@@ -52,8 +56,16 @@ export function ProductIntroWindow({ onBack }: ProductIntroWindowProps) {
       goToPanel(panelIndexRef.current + (e.deltaY > 0 ? 1 : -1));
     };
 
+    const onResize = () => {
+      gsap.set(track, { y: -panelIndexRef.current * window.innerHeight });
+    };
+
     window.addEventListener("wheel", onWheel, { passive: true });
-    return () => window.removeEventListener("wheel", onWheel);
+    window.addEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("resize", onResize);
+    };
   }, [goToPanel]);
 
   return (

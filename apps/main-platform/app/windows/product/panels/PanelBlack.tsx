@@ -65,8 +65,12 @@ export function PanelBlack({ onBack }: PanelBlackProps) {
     gsap.set(lines, { stroke: "#ffffff", strokeWidth: 1, strokeOpacity: 1, shapeRendering: "crispEdges", filter: "none" });
 
     const tl = gsap.timeline({
-      onStart: () => gsap.set(lines, { shapeRendering: "geometricPrecision" }),
-      onComplete: () => gsap.set(lines, { shapeRendering: "crispEdges" }),
+      onStart: () => {
+        gsap.set(lines, { shapeRendering: "geometricPrecision" });
+      },
+      onComplete: () => {
+        gsap.set(lines, { shapeRendering: "crispEdges" });
+      },
     });
 
     tl.to(chars, { yPercent: 0, opacity: 1, duration: 0.62, ease: "power3.out", stagger: 0.03 }, 0.08);

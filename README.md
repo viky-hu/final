@@ -280,7 +280,7 @@ final/
 ### 三、画布与容器规范
 
 - 统一窗口舞台高度：`100dvh`，并 `overflow: hidden`。
-- panel 轨道采用纵向排列，位移使用整屏百分比（`translateY(-index * 100%)`）。
+- panel 轨道采用纵向排列，位移使用视口像素步进（`translateY(-index * window.innerHeight)`）。
 - SVG 统一继续使用 `1920x1080` 坐标体系，适配时保持单屏裁切稳定。
 - 所有 panel 的交互元素不得突破本屏边界。
 
@@ -290,10 +290,10 @@ final/
 - 主题：黑色动态主视觉（LightRAG 几何动效）
 - 状态：已完成基础动效，可继续微调
 
-#### Panel 2（待实现 / 留白）
+#### Panel 2（已开始实现 / 线条特效版本）
 - 主题：蓝色产品介绍主板块
 - 目标：承接 Panel 1，突出核心价值与能力摘要
-- 状态：**留白，暂未动工**
+- 状态：**白底 + 线条流光特效已接入（持续迭代）**
 
 #### Panel 3（待实现 / 留白）
 - 主题：第二个补充板块（蓝系延展）
@@ -315,9 +315,11 @@ app/
     │   └── utils.ts               # SVG 布局辅助函数（updateLines 等）
     └── product/
         ├── ProductIntroWindow.tsx # 三板块容器：wheel 节流 + GSAP 整屏切换
+        ├── HyperspeedBackground.tsx # Panel 2 的 Three.js + postprocessing 背景层
+        ├── hyperspeedPresets.ts   # Hyperspeed 参数预设
         └── panels/
             ├── PanelBlack.tsx     # Panel 1：已完成黑色动效
-            ├── PanelBlueMain.tsx  # Panel 2：蓝色主介绍（留白）
+            ├── PanelBlueMain.tsx  # Panel 2：蓝色主介绍（已接入 Hyperspeed）
             └── PanelBlueExtend.tsx# Panel 3：蓝色延展（留白）
 ```
 
@@ -327,5 +329,39 @@ app/
 - 连续滚轮操作不会导致跳帧、越屏或叠屏显示。
 - panel 切换动画连贯，且可稳定落在离散索引位置（0/1/2）。
 - 未开工 panel 保持结构占位，不影响已完成 panel 的展示与交互。
+
+### 七、Panel 2 流光特效（Hyperspeed）实施说明
+
+#### 1) 技术栈对齐（与本项目 README 主规范一致）
+- **框架层**：`Next.js + React + TypeScript`，组件为 `use client` 客户端组件。
+- **动效层**：保留 `GSAP` 负责整屏切换（Panel 间转场），`Three.js` 负责 Panel 内流光渲染。
+- **后处理层**：`postprocessing`（`BloomEffect + SMAAEffect`）增强流光与抗锯齿。
+- **样式层**：通过 `globals.css` 的分层定位方案，保证画布严格贴合 `panel-blue-main` 白色画布。
+
+#### 2) 提取原则（本次严格执行）
+- 仅提取模板中的**线条播放实现方式**：`RAF 更新循环 + 速度/FOV 插值 + Bloom/SMAA 后处理`。
+- 不搬运模板中的道路地面、岛区、背景实体等“场景语义”对象。
+- 最终效果是“白底上的线条图案层”，而不是完整公路场景。
+
+#### 3) 为什么不会“脱离窗口”
+- 轨道层：`.product-pager-stage` 与 `.product-panel` 都是 `overflow: hidden`，作为第一道裁切边界。
+- Panel 2 根容器：`.panel-blue-main` 设置 `position: relative + overflow: hidden + isolation: isolate`。
+- 背景层：`.panel-blue-main-bg` 使用 `position: absolute; inset: 0; z-index: 0`，Three.js canvas 仅存在于此层。
+- 内容层：`.panel-blue-main-content` 使用 `position: absolute; inset: 0; z-index: 1`，保证文案覆盖在流光之上。
+
+#### 4) 照搬到画布的方法（可复用步骤）
+1. 在 `PanelBlueMain.tsx` 中创建双层结构：`背景层` + `内容层`。
+2. 将 `HyperspeedBackground` 仅挂载到背景层，不直接挂在 panel 根节点。
+3. 背景组件内部使用容器 `ref`，将 renderer canvas append 到该容器。
+4. 通过 `ResizeObserver` 同步 renderer/composer/camera 尺寸，避免分辨率变化导致越界。
+5. 在组件卸载时执行完整 `dispose`（renderer、composer、geometry、material、RAF、事件监听）。
+6. 三屏切换位移按视口像素 `y = -index * window.innerHeight`，避免 `yPercent` 对轨道高度计算造成越屏。
+
+#### 5) 当前代码落点
+- `windows/product/HyperspeedBackground.tsx`：React 版线条特效层（仅线条对象 + postprocessing）。
+- `windows/product/hyperspeedPresets.ts`：Panel 2 白底线条预设参数。
+- `windows/product/panels/PanelBlueMain.tsx`：已接入白底画布上的线条层与基础文案层。
+- `windows/product/ProductIntroWindow.tsx`：三屏位移按视口像素进行，避免 panel 错位。
+- `globals.css`：Panel2 白底 + 分层样式 + canvas 约束样式。
 
 ---

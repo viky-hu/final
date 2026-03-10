@@ -1,19 +1,21 @@
 "use client";
 
-// ─────────────────────────────────────────────────────────────
-// Panel 2 · 蓝色产品介绍主板块
-// 状态：留白 — 暂未动工
-//
-// 待实现内容（参见 README §第二窗口升级 Panel 2）：
-//   - 蓝色主题背景（延续 SVG + GSAP 画布思维）
-//   - 核心价值与能力摘要文案
-//   - 进场动画：与 ProductIntroWindow 的切屏时间线配合
-// ─────────────────────────────────────────────────────────────
+import { HyperspeedBackground } from "../HyperspeedBackground";
+import { hyperspeedPresets } from "../hyperspeedPresets";
 
 export function PanelBlueMain() {
   return (
     <div className="panel-blue-main">
-      {/* TODO: Panel 2 内容待实现 */}
+      <div className="panel-blue-main-bg">
+        <HyperspeedBackground effectOptions={hyperspeedPresets.one} />
+      </div>
+      <div className="panel-blue-main-content">
+        <p className="panel-blue-kicker">Product Intro</p>
+        <h2 className="panel-blue-title">LightRAG Neon Road</h2>
+        <p className="panel-blue-desc">
+          已接入完整公路流光特效（黑幕+炫彩线条+行进感），并严格限制在 Panel 2 内显示。
+        </p>
+      </div>
     </div>
   );
 }
