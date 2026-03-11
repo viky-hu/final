@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { BloomEffect, EffectComposer, EffectPass, RenderPass, SMAAEffect, SMAAPreset } from "postprocessing";
-import type { HyperspeedOptions } from "./hyperspeedPresets";
+import type { HyperspeedOptions as PresetHyperspeedOptions } from "./hyperspeedPresets";
 import { hyperspeedPresets } from "./hyperspeedPresets";
 
 interface Distortion {
@@ -13,7 +13,120 @@ interface Distortion {
 }
 
 interface HyperspeedBackgroundProps {
-  effectOptions?: Partial<HyperspeedOptions>;
+  effectOptions?: Partial<PresetHyperspeedOptions> & Record<string, unknown>;
+}
+
+interface RuntimeHyperspeedColors {
+  background: number;
+  roadColor: number;
+  islandColor: number;
+  shoulderLines: number;
+  brokenLines: number;
+  leftCars: readonly number[] | number;
+  rightCars: readonly number[] | number;
+  sticks: readonly number[] | number;
+}
+
+interface RuntimeHyperspeedOptions {
+  onSpeedUp?: (event: MouseEvent) => void;
+  onSlowDown?: (event: MouseEvent) => void;
+  distortion?: Distortion | keyof typeof distortions | null;
+  length: number;
+  roadWidth: number;
+  islandWidth: number;
+  lanesPerRoad: number;
+  speedUp: number;
+  fov: number;
+  fovSpeedUp: number;
+  bloomIntensity: number;
+  bloomLuminanceThreshold: number;
+  lightPairsPerRoadWay: number;
+  totalSideLightSticks: number;
+  carLightsFade: number;
+  carLightsLength: [number, number];
+  carLightsRadius: [number, number];
+  carWidthPercentage: [number, number];
+  carShiftX: [number, number];
+  carFloorSeparation: [number, number];
+  movingAwaySpeed: [number, number];
+  movingCloserSpeed: [number, number];
+  lightStickWidth: [number, number];
+  lightStickHeight: [number, number];
+  shoulderLinesWidthPercentage: number;
+  brokenLinesWidthPercentage: number;
+  brokenLinesLengthPercentage: number;
+  colors: RuntimeHyperspeedColors;
+}
+
+function toNumber(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function toTuple2(value: unknown, fallback: [number, number]): [number, number] {
+  if (Array.isArray(value) && value.length >= 2) {
+    const a = Number(value[0]);
+    const b = Number(value[1]);
+    if (Number.isFinite(a) && Number.isFinite(b)) return [a, b];
+  }
+  return fallback;
+}
+
+function toColorList(value: unknown, fallback: readonly number[] | number): readonly number[] | number {
+  if (Array.isArray(value) && value.length > 0) return value.map((v) => Number(v));
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  return fallback;
+}
+
+function normalizeOptions(basePreset: unknown, overridePreset?: unknown): RuntimeHyperspeedOptions {
+  const base = (basePreset ?? {}) as Record<string, unknown>;
+  const override = (overridePreset ?? {}) as Record<string, unknown>;
+  const raw = { ...base, ...override };
+  const colors = {
+    ...((base.colors as Record<string, unknown> | undefined) ?? {}),
+    ...((override.colors as Record<string, unknown> | undefined) ?? {}),
+  };
+
+  const length = toNumber(raw.length, 400);
+
+  return {
+    onSpeedUp: typeof raw.onSpeedUp === "function" ? (raw.onSpeedUp as (event: MouseEvent) => void) : undefined,
+    onSlowDown: typeof raw.onSlowDown === "function" ? (raw.onSlowDown as (event: MouseEvent) => void) : undefined,
+    distortion: (raw.distortion as RuntimeHyperspeedOptions["distortion"]) ?? "turbulentDistortion",
+    length,
+    roadWidth: toNumber(raw.roadWidth, 10),
+    islandWidth: toNumber(raw.islandWidth, 2),
+    lanesPerRoad: toNumber(raw.lanesPerRoad, 3),
+    speedUp: toNumber(raw.speedUp, 2.4),
+    fov: toNumber(raw.fov, 90),
+    fovSpeedUp: toNumber(raw.fovSpeedUp, 140),
+    bloomIntensity: toNumber(raw.bloomIntensity, 0.8),
+    bloomLuminanceThreshold: toNumber(raw.bloomLuminanceThreshold, 0.2),
+    lightPairsPerRoadWay: toNumber(raw.lightPairsPerRoadWay, 50),
+    totalSideLightSticks: toNumber(raw.totalSideLightSticks, 30),
+    carLightsFade: toNumber(raw.carLightsFade, 0.4),
+    carLightsLength: toTuple2(raw.carLightsLength ?? raw.lineLength, [length * 0.03, length * 0.2]),
+    carLightsRadius: toTuple2(raw.carLightsRadius ?? raw.lineRadius, [0.05, 0.14]),
+    carWidthPercentage: toTuple2(raw.carWidthPercentage, [0.3, 0.5]),
+    carShiftX: toTuple2(raw.carShiftX, [-0.8, 0.8]),
+    carFloorSeparation: toTuple2(raw.carFloorSeparation, [0, 5]),
+    movingAwaySpeed: toTuple2(raw.movingAwaySpeed, [60, 80]),
+    movingCloserSpeed: toTuple2(raw.movingCloserSpeed, [-120, -160]),
+    lightStickWidth: toTuple2(raw.lightStickWidth ?? raw.stickWidth, [0.12, 0.5]),
+    lightStickHeight: toTuple2(raw.lightStickHeight ?? raw.stickHeight, [1.3, 1.7]),
+    shoulderLinesWidthPercentage: toNumber(raw.shoulderLinesWidthPercentage, 0.05),
+    brokenLinesWidthPercentage: toNumber(raw.brokenLinesWidthPercentage, 0.1),
+    brokenLinesLengthPercentage: toNumber(raw.brokenLinesLengthPercentage, 0.5),
+    colors: {
+      background: toNumber(colors.background, 0x1e1919),
+      roadColor: toNumber(colors.roadColor ?? colors.road, 0x080808),
+      islandColor: toNumber(colors.islandColor ?? colors.divider, 0x0a0a0a),
+      shoulderLines: toNumber(colors.shoulderLines ?? colors.brokenLines ?? colors.divider ?? colors.road, 0x0f1119),
+      brokenLines: toNumber(colors.brokenLines ?? colors.shoulderLines ?? colors.divider ?? colors.road, 0x0f1119),
+      leftCars: toColorList(colors.leftCars ?? colors.leftLines, [0xd856bf, 0x6750a2, 0xc247ac]),
+      rightCars: toColorList(colors.rightCars ?? colors.rightLines, [0x03b3c3, 0x0e5ea5, 0x324555]),
+      sticks: toColorList(colors.sticks, [0x03b3c3, 0xe5a1ff]),
+    },
+  };
 }
 
 function nsin(val: number) {
@@ -414,7 +527,7 @@ const roadVertex = `
 
 class CarLights {
   webgl: App;
-  options: HyperspeedOptions;
+  options: RuntimeHyperspeedOptions;
   colors: readonly number[] | number;
   speed: [number, number];
   fade: THREE.Vector2;
@@ -422,7 +535,7 @@ class CarLights {
 
   constructor(
     webgl: App,
-    options: HyperspeedOptions,
+    options: RuntimeHyperspeedOptions,
     colors: readonly number[] | number,
     speed: [number, number],
     fade: THREE.Vector2,
@@ -449,7 +562,8 @@ class CarLights {
     const aOffset: number[] = [];
     const aMetrics: number[] = [];
     const aColor: number[] = [];
-    const colorArray = Array.isArray(this.colors) ? this.colors.map((c) => new THREE.Color(c)) : [new THREE.Color(this.colors)];
+    const colorValues = Array.isArray(this.colors) ? this.colors : [this.colors];
+    const colorArray = colorValues.map((c) => new THREE.Color(Number(c)));
 
     for (let i = 0; i < options.lightPairsPerRoadWay; i += 1) {
       const radius = random(options.carLightsRadius);
@@ -486,14 +600,14 @@ class CarLights {
           uFade: { value: this.fade },
         },
         this.webgl.fogUniforms,
-        (typeof options.distortion === "object" ? options.distortion.uniforms : {}) || {},
+        (typeof options.distortion === "object" && options.distortion !== null ? options.distortion.uniforms : {}) || {},
       ),
     });
 
     material.onBeforeCompile = (shader) => {
       shader.vertexShader = shader.vertexShader.replace(
         "#include <getDistortion_vertex>",
-        typeof options.distortion === "object" ? options.distortion.getDistortion : "",
+        typeof options.distortion === "object" && options.distortion !== null ? options.distortion.getDistortion : "",
       );
     };
 
@@ -510,10 +624,10 @@ class CarLights {
 
 class LightsSticks {
   webgl: App;
-  options: HyperspeedOptions;
+  options: RuntimeHyperspeedOptions;
   mesh!: THREE.Mesh<THREE.InstancedBufferGeometry, THREE.ShaderMaterial>;
 
-  constructor(webgl: App, options: HyperspeedOptions) {
+  constructor(webgl: App, options: RuntimeHyperspeedOptions) {
     this.webgl = webgl;
     this.options = options;
   }
@@ -532,9 +646,8 @@ class LightsSticks {
     const aOffset: number[] = [];
     const aColor: number[] = [];
     const aMetrics: number[] = [];
-    const colorArray = Array.isArray(options.colors.sticks)
-      ? options.colors.sticks.map((c) => new THREE.Color(c))
-      : [new THREE.Color(options.colors.sticks)];
+    const stickValues = Array.isArray(options.colors.sticks) ? options.colors.sticks : [options.colors.sticks];
+    const colorArray = stickValues.map((c) => new THREE.Color(Number(c)));
 
     for (let i = 0; i < options.totalSideLightSticks; i += 1) {
       const width = random(options.lightStickWidth);
@@ -559,14 +672,14 @@ class LightsSticks {
           uTime: { value: 0 },
         },
         this.webgl.fogUniforms,
-        (typeof options.distortion === "object" ? options.distortion.uniforms : {}) || {},
+        (typeof options.distortion === "object" && options.distortion !== null ? options.distortion.uniforms : {}) || {},
       ),
     });
 
     material.onBeforeCompile = (shader) => {
       shader.vertexShader = shader.vertexShader.replace(
         "#include <getDistortion_vertex>",
-        typeof options.distortion === "object" ? options.distortion.getDistortion : "",
+        typeof options.distortion === "object" && options.distortion !== null ? options.distortion.getDistortion : "",
       );
     };
 
@@ -583,13 +696,13 @@ class LightsSticks {
 
 class Road {
   webgl: App;
-  options: HyperspeedOptions;
+  options: RuntimeHyperspeedOptions;
   uTime = { value: 0 };
   leftRoadWay!: THREE.Mesh;
   rightRoadWay!: THREE.Mesh;
   island!: THREE.Mesh;
 
-  constructor(webgl: App, options: HyperspeedOptions) {
+  constructor(webgl: App, options: RuntimeHyperspeedOptions) {
     this.webgl = webgl;
     this.options = options;
   }
@@ -622,14 +735,14 @@ class Road {
       uniforms: Object.assign(
         uniforms,
         this.webgl.fogUniforms,
-        (typeof options.distortion === "object" ? options.distortion.uniforms : {}) || {},
+        (typeof options.distortion === "object" && options.distortion !== null ? options.distortion.uniforms : {}) || {},
       ),
     });
 
     material.onBeforeCompile = (shader) => {
       shader.vertexShader = shader.vertexShader.replace(
         "#include <getDistortion_vertex>",
-        typeof options.distortion === "object" ? options.distortion.getDistortion : "",
+        typeof options.distortion === "object" && options.distortion !== null ? options.distortion.getDistortion : "",
       );
     };
 
@@ -665,7 +778,7 @@ function resizeRendererToDisplaySize(renderer: THREE.WebGLRenderer, setSize: (wi
 
 class App {
   container: HTMLDivElement;
-  options: HyperspeedOptions;
+  options: RuntimeHyperspeedOptions;
   renderer: THREE.WebGLRenderer;
   composer: EffectComposer;
   camera: THREE.PerspectiveCamera;
@@ -685,7 +798,7 @@ class App {
   requestId = 0;
   stageBackground = 0x1e1919;
 
-  constructor(container: HTMLDivElement, options: HyperspeedOptions) {
+  constructor(container: HTMLDivElement, options: RuntimeHyperspeedOptions) {
     this.options = { ...options };
     if (!this.options.distortion) {
       this.options.distortion = { uniforms: distortion_uniforms, getDistortion: distortion_vertex };
@@ -850,16 +963,12 @@ export function HyperspeedBackground({ effectOptions }: HyperspeedBackgroundProp
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const basePreset = hyperspeedPresets.one ?? Object.values(hyperspeedPresets)[0];
+    const basePreset =
+      (hyperspeedPresets as Record<string, unknown>).one ??
+      (hyperspeedPresets as Record<string, unknown>).panelRoadNeon ??
+      Object.values(hyperspeedPresets)[0];
     if (!basePreset) return;
-    const mergedOptions: HyperspeedOptions = {
-      ...basePreset,
-      ...effectOptions,
-      colors: {
-        ...basePreset.colors,
-        ...(effectOptions?.colors ?? {}),
-      },
-    };
+    const mergedOptions = normalizeOptions(basePreset, effectOptions);
     appRef.current?.dispose();
     const app = new App(container, mergedOptions);
     appRef.current = app;
