@@ -10,6 +10,7 @@
     "type-check": "tsc --noEmit"
   },
   "dependencies": {
+    "@fontsource/zcool-qingke-huangyou": "^5.2.8",
     "gsap": "^3.14.2",
     "next": "latest",
     "postprocessing": "^6.38.3",

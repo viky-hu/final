@@ -132,13 +132,26 @@ final/
 
 ---
 
-## 🚀 第二个窗口：LightRAG Chat（标准实施稿）
+## 🚀 第二个窗口：产品介绍（三板块全屏滚动）
 
-### 设计目标
-第二窗口延续“画布思维”，以深色底和几何网格构建高动态界面。  
-核心观感：**标题优先上升、线条中心生长、白线柔和转蓝、色块流动揭示、按钮真实压感反馈**。
+> 第二窗口由 3 个全屏 panel 组成，用户滚轮或轻点触发按屏切换。  
+> 各板块安放各自的时间轴、实现样式与坐标系统。
 
-### 一、统一坐标系统（1920 x 1080）
+### 一、全局硬规则（必须满足）
+
+- **一屏一板块**：任意时刻仅显示一个 panel。
+- **严格全屏**：每个 panel 必须始终撑满视口（`100vw × 100dvh`）。
+- **整屏步进**：切换时按整屏跳转（index 步进），不可半屏停留。
+- **过渡锁定**：切换动画期间锁定输入，避免连续触发导致越级跳转。
+- **画布规范**：SVG 统一使用 `1920×1080` 坐标体系；panel 轨道位移按 `translateY(-index * window.innerHeight)`。
+
+---
+
+### （1）Panel 1：黑色动态主视觉（LightRAG）
+
+**主题**：深色底 + 几何网格 + 标题上升 + 色块流动 + 3D 返回按钮。
+
+#### 统一坐标系统（1920 x 1080）
 以左上角为原点 `(0, 0)`，最终骨架为 **3 条竖线 + 4 条横线**。
 
 #### 1) 竖线（Vertical）
@@ -161,9 +174,7 @@ final/
 - 横线左端不得越过 `V1=56`
 - 横线右端到屏幕边界 `x=1920`
 
----
-
-### 二、版式与颜色（唯一口径）
+#### 二、版式与颜色（唯一口径）
 - **页面背景**：`#1E1919`
 - **主标题**：白色粗体，文案 `LightRAG`
 - **右下黄区文案**：深色字 `#121212`（保证对比）
@@ -172,9 +183,7 @@ final/
 - **绿区**：`#164D33`，区域 `x: (V2 + 2/3*(V3-V2)) -> V3`、`y: L4 -> 1080`
 - **科技蓝**：`#2D5AF7`（线条最终细线颜色 + 左侧按钮主色）
 
----
-
-### 三、动画分层与技术细节 (Technical Deep Dive)
+#### 三、动画分层与技术细节 (Technical Deep Dive)
 
 #### 1) 标题上升 (Typography Rise)
 - **对齐规则**：**Cap Height（大写高度）对齐**。大写字母顶端严格压在 `L2` 线。
@@ -207,9 +216,7 @@ final/
 - **文案浮现**：两块文案容器使用 `autoAlpha + yPercent + scale` 轻量浮现，且与黄/绿色块揭示时间衔接。
 - **稳定调参**：所有引号位置/大小统一由常量控制，避免 GSAP 覆盖手动坐标。
 
----
-
-### 四、时间轴（标准版）
+#### 四、时间轴（标准版）
 | 时间点 | 动画对象 | 动态方式 | 状态目标 |
 |--------|----------|----------|----------|
 | `t=0.00s` | 主标题容器 | 容器释放 | 占据 `V2~V3` 与 `L2~L3` 区域 |
@@ -229,9 +236,7 @@ final/
 | `t=1.14s` | 绿区文案 | `autoAlpha + yPercent + scale` | 右下文案柔和浮现 |
 | `t=1.15s` | 左侧按钮 | 3D 回弹入场 | `#2D5AF7` 可点击状态 |
 
----
-
-### 五、参数调优手册 (Parameter Tuning)
+#### 五、参数调优手册 (Parameter Tuning)
 
 | 参数名 | 调整位置 | 作用 |
 |--------|----------|------|
@@ -246,28 +251,77 @@ final/
 | `CHAT_QUOTE_SCALE` | `windows/shared/coords.ts` | 引号整体缩放 |
 | `V1, V2, V3, L1...` | `windows/shared/coords.ts` | 骨架网格的核心像素坐标 |
 
----
-
-### 六、Next.js / React 实施规范
+#### 六、Next.js / React 实施规范
 - **动画组件使用 `"use client"`**，初始化放在 `useLayoutEffect`。
 - **销毁管理**：所有动画通过 `gsap.context()` 管理，清理函数调用 `ctx.revert()`。
 - **渲染策略**：暗色背景下的细线，强制使用物理 1px + 透明度方案，禁用物理 0.x px 线宽。
 
+---
+
+### （2）Panel 2：蓝色产品介绍主板块
+
+**主题**：流光公路特效 + SVG 线条框 + Shuffle 文案动效。承接 Panel 1，突出核心价值与能力摘要。
+
+#### 层级结构（必须严格）
+
+```
+z-index: 0  → 流光层（HyperspeedBackground，Three.js WebGL）
+z-index: 1  → SVG 线条层（仅画线条，不画背景 rect）
+z-index: 2  → 文案层（ShuffleText：「各端口即时交流 时空链接」）
+```
+
+**红线**：SVG 线条层不得添加全屏不透明 `rect`，否则会盖住流光层。
+
+#### 坐标系统（1920×1080，基于文本框尺寸）
+
+文本框由 `.panel-blue-main-shuffle-wrap` 定位：`top: 35%`，`width: min(90vw, 1280px)` 居中。换算得文字框约 `x: 320~1600`，`y: 378~499`。四条主线在框外留约 40px 边距。
+
+| 常量 | 值 | 说明 |
+|------|-----|------|
+| `P2_V1` | `56`（= CHAT_V1） | 左辅线，与 Panel1 一致；所有横线左端止于此 |
+| `P2_TOP` | `338` | 上主线 y |
+| `P2_BOTTOM` | `539` | 下主线 y |
+| `P2_LEFT` | `280` | 左主线 x |
+| `P2_RIGHT` | `1640` | 右主线 x |
+| `P2_AUX_H_Y` | `169` | 第二条辅线（横）y，屏幕顶与上主线之间居中 |
+
+#### 线条时间轴（标准版）
+
+| 顺序 | 线 | t（秒） | 动态方式 |
+|------|-----|---------|----------|
+| 1 | 左辅线（竖） | 0.00 | 从中心向上下生长 |
+| 2 | 上主线（横） | 0.12 | x1 固定 56.5，x2 从 56.5 → 1920 |
+| 3 | 下主线（横） | 0.22 | 同上 |
+| 4 | 左主线（竖） | 0.32 | 从中心向上下生长 |
+| 5 | 右主线（竖） | 0.42 | 同上 |
+| 6 | 第二条辅线（横） | 0.52 | 从左辅线向右生长 |
+| 7 | 全部线条 | 0.70 | 统一变色 `#fff` → `#8494FF`，`strokeOpacity` → 0.3 |
+
+#### 线宽与透明度（与 Panel1 一致）
+
+- 初始：`stroke: #ffffff`，`strokeWidth: 1`，`strokeOpacity: 1`
+- 最终：`stroke: #8494FF`（CHAT_BLUE），`strokeWidth: 1`，`strokeOpacity: 0.3`
+
+#### 流光特效（Hyperspeed）
+
+- **技术栈**：Three.js + postprocessing（BloomEffect + SMAAEffect）
+- **落点**：`HyperspeedBackground.tsx`、`hyperspeedPresets.ts`
+- **层级**：`.panel-blue-main-bg` 内，`z-index: 0`
+
+#### 文案动效（ShuffleText）
+
+- **文案**：`各端口即时交流 时空链接`
+- **字体**：ZCOOL QingKe HuangYou（`@fontsource/zcool-qingke-huangyou`）
+- **触发**：panel2 激活时自动播放，每 1.5s 自动重播
 
 ---
 
-## 🧩 第二窗口升级：三板块全屏滚动（需求冻结稿）
+### （3）Panel 3：蓝色延展
 
-> 目标：将当前“黑色动态板块”升级为一个由 3 个全屏 panel 组成的产品介绍长栏。  
-> 交互方式：用户滚轮或轻点触发，按屏切换，不允许同屏出现两个板块。
+**主题**：第二个补充板块（蓝系延展）。  
+**状态**：留白，暂未动工。
 
-### 一、全局硬规则（必须满足）
-
-- **一屏一板块**：任意时刻仅显示一个 panel。
-- **严格全屏**：每个 panel 必须始终撑满视口（`100vw × 100dvh`）。
-- **禁止穿屏**：不得出现“黑+白”或“黑+蓝”同时可见的情况。
-- **整屏步进**：切换时按整屏跳转（index 步进），不可半屏停留。
-- **过渡锁定**：切换动画期间锁定输入，避免连续触发导致越级跳转。
+---
 
 ### 二、交互定义（滚轮/轻点）
 
@@ -284,21 +338,9 @@ final/
 - SVG 统一继续使用 `1920x1080` 坐标体系，适配时保持单屏裁切稳定。
 - 所有 panel 的交互元素不得突破本屏边界。
 
-### 四、三板块规划（当前版本）
+### 四、三板块规划
 
-#### Panel 1（已实现 / 现有）
-- 主题：黑色动态主视觉（LightRAG 几何动效）
-- 状态：已完成基础动效，可继续微调
-
-#### Panel 2（已开始实现 / 线条特效版本）
-- 主题：蓝色产品介绍主板块
-- 目标：承接 Panel 1，突出核心价值与能力摘要
-- 状态：**白底 + 线条流光特效已接入（持续迭代）**
-
-#### Panel 3（待实现 / 留白）
-- 主题：第二个补充板块（蓝系延展）
-- 目标：展示进阶能力、场景或案例信息
-- 状态：**留白，暂未动工**
+各板块时间轴、坐标与实现样式详见上文 **（1）Panel 1**、**（2）Panel 2**、**（3）Panel 3**。
 
 ### 五、文件结构（已落地）
 
@@ -317,9 +359,11 @@ app/
         ├── ProductIntroWindow.tsx # 三板块容器：wheel 节流 + GSAP 整屏切换
         ├── HyperspeedBackground.tsx # Panel 2 的 Three.js + postprocessing 背景层
         ├── hyperspeedPresets.ts   # Hyperspeed 参数预设
+        ├── overlays/
+        │   └── ShuffleText.tsx    # Panel 2：Shuffle 文案动效组件
         └── panels/
             ├── PanelBlack.tsx     # Panel 1：已完成黑色动效
-            ├── PanelBlueMain.tsx  # Panel 2：蓝色主介绍（已接入 Hyperspeed）
+            ├── PanelBlueMain.tsx  # Panel 2：蓝色主介绍（流光 + 线条 + 文案）
             └── PanelBlueExtend.tsx# Panel 3：蓝色延展（留白）
 ```
 
@@ -347,7 +391,8 @@ app/
 - 轨道层：`.product-pager-stage` 与 `.product-panel` 都是 `overflow: hidden`，作为第一道裁切边界。
 - Panel 2 根容器：`.panel-blue-main` 设置 `position: relative + overflow: hidden + isolation: isolate`。
 - 背景层：`.panel-blue-main-bg` 使用 `position: absolute; inset: 0; z-index: 0`，Three.js canvas 仅存在于此层。
-- 内容层：`.panel-blue-main-content` 使用 `position: absolute; inset: 0; z-index: 1`，保证文案覆盖在流光之上。
+- 线条层：SVG 线条层 `z-index: 1`，位于流光之上、文案之下。
+- 内容层：`.panel-blue-main-content` 使用 `position: absolute; inset: 0; z-index: 2`，保证文案覆盖在线条与流光之上。
 
 #### 4) 照搬到画布的方法（可复用步骤）
 1. 在 `PanelBlueMain.tsx` 中创建双层结构：`背景层` + `内容层`。

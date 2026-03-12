@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useRef } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { PanelBlack } from "./panels/PanelBlack";
 import { PanelBlueMain } from "./panels/PanelBlueMain";
@@ -22,6 +22,7 @@ export function ProductIntroWindow({ onBack }: ProductIntroWindowProps) {
   const panelIndexRef = useRef(0);
   const isTransitioningRef = useRef(false);
   const lastTriggerRef = useRef(0);
+  const [activePanel, setActivePanel] = useState(0);
 
   const goToPanel = useCallback((index: number) => {
     const track = trackRef.current;
@@ -32,6 +33,7 @@ export function ProductIntroWindow({ onBack }: ProductIntroWindowProps) {
 
     isTransitioningRef.current = true;
     panelIndexRef.current = clamped;
+    setActivePanel(clamped);
 
     gsap.to(track, {
       y: -clamped * window.innerHeight,
@@ -75,7 +77,7 @@ export function ProductIntroWindow({ onBack }: ProductIntroWindowProps) {
           <PanelBlack onBack={onBack} />
         </div>
         <div className="product-panel">
-          <PanelBlueMain />
+          <PanelBlueMain isActive={activePanel === 1} />
         </div>
         <div className="product-panel">
           <PanelBlueExtend />
