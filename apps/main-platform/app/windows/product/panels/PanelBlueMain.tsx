@@ -3,6 +3,7 @@
 import { HyperspeedBackground } from "../HyperspeedBackground";
 import { hyperspeedPresets } from "../hyperspeedPresets";
 import { ShuffleText } from "../overlays/ShuffleText";
+import { PanelBlueLines } from "./PanelBlueLines";
 
 interface PanelBlueMainProps {
   isActive: boolean;
@@ -18,6 +19,9 @@ export function PanelBlueMain({ isActive }: PanelBlueMainProps) {
     <div className="panel-blue-main">
       <div className="panel-blue-main-bg">
         <HyperspeedBackground effectOptions={panel2Preset as Partial<typeof hyperspeedPresets.panelRoadNeon>} />
+      </div>
+      <div className="panel-blue-main-lines" aria-hidden="true">
+        <PanelBlueLines isActive={isActive} />
       </div>
       <div className="panel-blue-main-content" aria-hidden="true">
         <div className="panel-blue-main-shuffle-wrap">

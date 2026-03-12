@@ -471,6 +471,27 @@ body {
   background: #1e1919;
 }
 
+.panel-blue-main-lines {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.panel-blue-main-lines-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.p2-grid-line {
+  fill: none;
+  stroke: #ffffff;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  shape-rendering: crispEdges;
+}
+
 .panel-blue-main-content {
   position: absolute;
   inset: 0;

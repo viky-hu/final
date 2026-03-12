@@ -65,3 +65,18 @@ export const CHAT_QUOTE_TL_Y = 200;
 export const CHAT_QUOTE_BR_X = 1700;
 export const CHAT_QUOTE_BR_Y = 1050;
 export const CHAT_QUOTE_SCALE = 1.7;
+
+// ─────────────────────────────────────────────
+// Window 2 · Panel 2 (Blue) · Lines Blueprint
+// ─────────────────────────────────────────────
+// Panel 2 text box (CSS): top 35%, width min(90vw, 1280px), centered.
+// For 1920×1080, approx text box: x: 320~1600, y: 378~499.
+// Main box lines keep ~40px padding around text box.
+export const P2_V1 = CHAT_V1; // Aligns with Panel 1 V1 (56)
+export const P2_TOP = 338;
+export const P2_BOTTOM = 539;
+export const P2_LEFT = 280;
+export const P2_RIGHT = 1640;
+export const P2_AUX_H_Y = 169;
+// Panel 2 quotes: keep TL same as Panel 1, lift BR into lower third area.
+export const P2_QUOTE_BR_Y = 720;
