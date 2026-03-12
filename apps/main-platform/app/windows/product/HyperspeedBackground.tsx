@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import * as THREE from "three";
 import { BloomEffect, EffectComposer, EffectPass, RenderPass, SMAAEffect, SMAAPreset } from "postprocessing";
 import type { HyperspeedOptions as PresetHyperspeedOptions } from "./hyperspeedPresets";
@@ -14,6 +14,11 @@ interface Distortion {
 
 interface HyperspeedBackgroundProps {
   effectOptions?: Partial<PresetHyperspeedOptions> & Record<string, unknown>;
+}
+
+export interface HyperspeedBackgroundHandle {
+  /** 停止动效并释放资源，与收起动画 onComplete 同帧调用可避免后台继续播放造成卡顿 */
+  stop(): void;
 }
 
 interface RuntimeHyperspeedColors {
@@ -941,6 +946,7 @@ class App {
   }
 
   dispose() {
+    if (this.disposed) return;
     this.disposed = true;
     cancelAnimationFrame(this.requestId);
     this.resizeObserver?.disconnect();
@@ -956,26 +962,44 @@ class App {
   }
 }
 
-export function HyperspeedBackground({ effectOptions }: HyperspeedBackgroundProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const appRef = useRef<App | null>(null);
+export const HyperspeedBackground = forwardRef<HyperspeedBackgroundHandle, HyperspeedBackgroundProps>(
+  function HyperspeedBackground({ effectOptions }, ref) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const appRef = useRef<App | null>(null);
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const basePreset =
-      (hyperspeedPresets as Record<string, unknown>).one ??
-      (hyperspeedPresets as Record<string, unknown>).panelRoadNeon ??
-      Object.values(hyperspeedPresets)[0];
-    if (!basePreset) return;
-    const mergedOptions = normalizeOptions(basePreset, effectOptions);
-    appRef.current?.dispose();
-    const app = new App(container, mergedOptions);
-    appRef.current = app;
-    app.init();
-    return () => app.dispose();
-  }, [effectOptions]);
+    useImperativeHandle(
+      ref,
+      () => ({
+        stop() {
+          if (appRef.current) {
+            appRef.current.dispose();
+            appRef.current = null;
+          }
+        },
+      }),
+      [],
+    );
 
-  return <div ref={containerRef} className="hyperspeed-container" aria-hidden="true" />;
-}
+    useEffect(() => {
+      const container = containerRef.current;
+      if (!container) return;
+      const basePreset =
+        (hyperspeedPresets as Record<string, unknown>).one ??
+        (hyperspeedPresets as Record<string, unknown>).panelRoadNeon ??
+        Object.values(hyperspeedPresets)[0];
+      if (!basePreset) return;
+      const mergedOptions = normalizeOptions(basePreset, effectOptions);
+      appRef.current?.dispose();
+      const app = new App(container, mergedOptions);
+      appRef.current = app;
+      app.init();
+      return () => {
+        app.dispose();
+        appRef.current = null;
+      };
+    }, [effectOptions]);
+
+    return <div ref={containerRef} className="hyperspeed-container" aria-hidden="true" />;
+  },
+);
 

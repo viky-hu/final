@@ -463,12 +463,14 @@ body {
   background: #1e1919;
 }
 
+/* 公路层：收起动效由 GSAP 驱动 clip-path inset(0 0 0%) → inset(0 0 100%)，同帧停止 Three 动效 */
 .panel-blue-main-bg {
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: auto;
   background: #1e1919;
+  clip-path: inset(0 0 0 0);
 }
 
 .panel-blue-main-lines {
