@@ -74,13 +74,15 @@ export function PanelBlueExtend({ isActive = false }: PanelBlueExtendProps) {
       },
     });
 
+    // 时间轴整体右移 0.7s，防止画面未切过来线条动画已播完
+    const P3_DELAY = 0.7;
     // 左侧竖线（与 Panel1/2 一致）：从中心向上下生长
-    tl.to(v1, { attr: { y1: 0, y2: CHAT_H }, duration: 0.46, ease: CHAT_LINE_EASE }, 0.0);
+    tl.to(v1, { attr: { y1: 0, y2: CHAT_H }, duration: 0.46, ease: CHAT_LINE_EASE }, P3_DELAY + 0.0);
     // README：L2 → L3 → L1 → L4 顺序，中心向两端生长
-    tl.to(hL2, { attr: { x1: CHAT_V1 + 0.5, x2: CHAT_W }, duration: 0.52, ease: CHAT_LINE_EASE }, 0.0);
-    tl.to(hL3, { attr: { x1: CHAT_V1 + 0.5, x2: CHAT_W }, duration: 0.52, ease: CHAT_LINE_EASE }, 0.08);
-    tl.to(hL1, { attr: { x1: CHAT_V1 + 0.5, x2: CHAT_W }, duration: 0.52, ease: CHAT_LINE_EASE }, 0.18);
-    tl.to(hL4, { attr: { x1: CHAT_V1 + 0.5, x2: CHAT_W }, duration: 0.52, ease: CHAT_LINE_EASE }, 0.28);
+    tl.to(hL2, { attr: { x1: CHAT_V1 + 0.5, x2: CHAT_W }, duration: 0.52, ease: CHAT_LINE_EASE }, P3_DELAY + 0.0);
+    tl.to(hL3, { attr: { x1: CHAT_V1 + 0.5, x2: CHAT_W }, duration: 0.52, ease: CHAT_LINE_EASE }, P3_DELAY + 0.08);
+    tl.to(hL1, { attr: { x1: CHAT_V1 + 0.5, x2: CHAT_W }, duration: 0.52, ease: CHAT_LINE_EASE }, P3_DELAY + 0.18);
+    tl.to(hL4, { attr: { x1: CHAT_V1 + 0.5, x2: CHAT_W }, duration: 0.52, ease: CHAT_LINE_EASE }, P3_DELAY + 0.28);
     tl.to(
       lines,
       {
@@ -90,7 +92,7 @@ export function PanelBlueExtend({ isActive = false }: PanelBlueExtendProps) {
         duration: 0.8,
         ease: "sine.inOut",
       },
-      0.38
+      P3_DELAY + 0.38
     );
 
     return () => {
