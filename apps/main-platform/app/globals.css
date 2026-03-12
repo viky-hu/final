@@ -561,9 +561,44 @@ body {
   background: #1e1919;
 }
 
-/* Panel 3 占位背景 */
+/* Panel 3 · 蓝色延展（与 Panel 2 层级规范一致：仅 WebGL 层，无 SVG/GSAP 画布冲突） */
 .panel-blue-extend {
   width: 100%;
   height: 100%;
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
   background: #1e1919;
+}
+
+/* Panel 3 画布区：下移至 65% 区域，z-index: 0，仅挂载 Threads 特效 */
+.panel-blue-extend-canvas {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 65%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+/* Panel 3 四横线 SVG 层：z-index: 1，仅四条 <line>，无全屏 rect */
+.panel-blue-extend-lines-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* Threads 容器：撑满父级，启用 GPU 合成与清晰渲染 */
+.threads-effect-container {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
 }

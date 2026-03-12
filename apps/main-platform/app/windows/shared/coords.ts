@@ -80,3 +80,12 @@ export const P2_RIGHT = 1640;
 export const P2_AUX_H_Y = 169;
 // Panel 2 quotes: keep TL same as Panel 1, lift BR into lower third area.
 export const P2_QUOTE_BR_Y = 720;
+
+// ─────────────────────────────────────────────
+// Window 2 · Panel 3 (Blue Extend) · 四条横线
+// 与 Panel 1 间隔一致，对称轴上移约 60px，为下方 Threads 留空
+// ─────────────────────────────────────────────
+export const P3_L1 = 268.5;
+export const P3_L2 = 409.5;
+export const P3_L3 = 550.5;
+export const P3_L4 = 691.5;

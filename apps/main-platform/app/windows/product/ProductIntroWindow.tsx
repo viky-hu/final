@@ -80,7 +80,7 @@ export function ProductIntroWindow({ onBack }: ProductIntroWindowProps) {
           <PanelBlueMain isActive={activePanel === 1} />
         </div>
         <div className="product-panel">
-          <PanelBlueExtend />
+          <PanelBlueExtend isActive={activePanel === 2} />
         </div>
       </div>
     </div>
