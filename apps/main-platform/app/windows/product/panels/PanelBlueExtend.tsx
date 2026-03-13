@@ -5,7 +5,7 @@
 // 画布层级：z-index 0 WebGL（Threads），z-index 1 SVG 四横线（GSAP），与 README 规范一致
 // ─────────────────────────────────────────────────────────────
 
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
 import {
   CHAT_BLUE,
@@ -24,11 +24,96 @@ import { ThreadsEffect, THREADS_GRADIENT } from "../ThreadsEffect";
 
 interface PanelBlueExtendProps {
   isActive?: boolean;
+  /**
+   * 软退出阶段：panel 已切走但尚未完全停止渲染。
+   * 此时 ThreadsEffect 降帧+振幅衰减，SVG 线条做淡出，过渡自然不突兀。
+   */
+  shouldSoftStop?: boolean;
 }
 
-export function PanelBlueExtend({ isActive = false }: PanelBlueExtendProps) {
-  const svgRef = useRef<SVGSVGElement>(null);
+const FORCE_ACTIVE_MS = 500;
+const PARAM_LERP_MS = 500;
+const ACTIVE_DISTANCE = 0;
+const INACTIVE_DISTANCE = -0.18;
+const ACTIVE_VERTICAL_OFFSET = 0.22;
+const INACTIVE_VERTICAL_OFFSET = 0.3;
+// 时间轴整体右移 0.5s，切到 panel3 后再播线条动画
+const P3_DELAY = 0.5;
+const INACTIVE_GRADIENT: [[number, number, number], [number, number, number], [number, number, number]] = [
+  [126 / 255, 132 / 255, 206 / 255],
+  [84 / 255, 97 / 255, 186 / 255],
+  [53 / 255, 69 / 255, 153 / 255],
+];
 
+const lerp = (from: number, to: number, t: number) => from + (to - from) * t;
+const lerpColor = (
+  from: [number, number, number],
+  to: [number, number, number],
+  t: number
+): [number, number, number] => [lerp(from[0], to[0], t), lerp(from[1], to[1], t), lerp(from[2], to[2], t)];
+const lerpGradient = (
+  from: [[number, number, number], [number, number, number], [number, number, number]],
+  to: [[number, number, number], [number, number, number], [number, number, number]],
+  t: number
+): [[number, number, number], [number, number, number], [number, number, number]] => [
+  lerpColor(from[0], to[0], t),
+  lerpColor(from[1], to[1], t),
+  lerpColor(from[2], to[2], t),
+];
+
+export function PanelBlueExtend({
+  isActive = false,
+  shouldSoftStop = false,
+}: PanelBlueExtendProps) {
+  const svgRef = useRef<SVGSVGElement>(null);
+  const activeLockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const progressRef = useRef(isActive ? 1 : 0);
+  const [forceActive, setForceActive] = useState(false);
+  const [progress, setProgress] = useState(progressRef.current);
+
+  useEffect(() => {
+    if (activeLockTimerRef.current) {
+      clearTimeout(activeLockTimerRef.current);
+      activeLockTimerRef.current = null;
+    }
+    if (!isActive) {
+      setForceActive(false);
+      return;
+    }
+    setForceActive(true);
+    activeLockTimerRef.current = setTimeout(() => {
+      setForceActive(false);
+      activeLockTimerRef.current = null;
+    }, FORCE_ACTIVE_MS);
+    return () => {
+      if (activeLockTimerRef.current) {
+        clearTimeout(activeLockTimerRef.current);
+        activeLockTimerRef.current = null;
+      }
+    };
+  }, [isActive]);
+
+  useEffect(() => {
+    const tweenState = { value: progressRef.current };
+    const target = isActive ? 1 : 0;
+    const tween = gsap.to(tweenState, {
+      value: target,
+      duration: PARAM_LERP_MS / 1000,
+      ease: "sine.inOut",
+      onUpdate: () => {
+        progressRef.current = tweenState.value;
+        setProgress(tweenState.value);
+      },
+      onComplete: () => {
+        progressRef.current = target;
+      },
+    });
+    return () => {
+      tween.kill();
+    };
+  }, [isActive]);
+
+  // 进入动画（isActive 变为 true 时触发）
   useLayoutEffect(() => {
     const svg = svgRef.current;
     if (!svg || !isActive) return;
@@ -39,6 +124,10 @@ export function PanelBlueExtend({ isActive = false }: PanelBlueExtendProps) {
     const hL2 = svg.querySelector<SVGLineElement>("#p3-l2");
     const hL3 = svg.querySelector<SVGLineElement>("#p3-l3");
     const hL4 = svg.querySelector<SVGLineElement>("#p3-l4");
+
+    // 取消可能残留的软退出淡出
+    gsap.killTweensOf(lines);
+    if (v1) gsap.killTweensOf(v1);
 
     if (v1) {
       gsap.set(v1, { attr: { y1: CHAT_Y_MID, y2: CHAT_Y_MID } });
@@ -51,6 +140,20 @@ export function PanelBlueExtend({ isActive = false }: PanelBlueExtendProps) {
         fill: "none",
         filter: "none",
       });
+    }
+
+    // 每次进入都把四条横线几何重置到「从中点开始」的初始状态，避免二次进入时已是完全展开状态
+    if (hL1) {
+      gsap.set(hL1, { attr: { x1: CHAT_X_MID, x2: CHAT_X_MID } });
+    }
+    if (hL2) {
+      gsap.set(hL2, { attr: { x1: CHAT_X_MID, x2: CHAT_X_MID } });
+    }
+    if (hL3) {
+      gsap.set(hL3, { attr: { x1: CHAT_X_MID, x2: CHAT_X_MID } });
+    }
+    if (hL4) {
+      gsap.set(hL4, { attr: { x1: CHAT_X_MID, x2: CHAT_X_MID } });
     }
 
     gsap.set(lines, {
@@ -74,8 +177,7 @@ export function PanelBlueExtend({ isActive = false }: PanelBlueExtendProps) {
       },
     });
 
-    // 时间轴整体右移，切到 panel3 后再播线条动画（略长于切换时长 0.75s）
-    const P3_DELAY = 0.95;
+    // 时间轴整体右移 P3_DELAY，切到 panel3 后再播线条动画
     // 左侧竖线（与 Panel1/2 一致）：从中心向上下生长
     tl.to(v1, { attr: { y1: 0, y2: CHAT_H }, duration: 0.46, ease: CHAT_LINE_EASE }, P3_DELAY + 0.0);
     // README：L2 → L3 → L1 → L4 顺序，中心向两端生长
@@ -100,15 +202,37 @@ export function PanelBlueExtend({ isActive = false }: PanelBlueExtendProps) {
     };
   }, [isActive]);
 
+  // 软退出动画：isActive=false 且 shouldSoftStop=true 时，SVG 线条淡出
+  useLayoutEffect(() => {
+    if (isActive || !shouldSoftStop) return;
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const lines = svg.querySelectorAll(".p3-grid-line");
+    gsap.killTweensOf(lines);
+    gsap.to(lines, { strokeOpacity: 0, duration: 0.35, ease: "sine.in" });
+
+    return () => {
+      gsap.killTweensOf(lines);
+    };
+  }, [isActive, shouldSoftStop]);
+
+  // active → 全速；软退出中 → 降帧+振幅衰减；完全离开 → 停渲染
+  const threadsMode = isActive || forceActive ? "active" : shouldSoftStop ? "idle" : "off";
+  const interpolatedDistance = lerp(INACTIVE_DISTANCE, ACTIVE_DISTANCE, progress);
+  const interpolatedVerticalOffset = lerp(INACTIVE_VERTICAL_OFFSET, ACTIVE_VERTICAL_OFFSET, progress);
+  const interpolatedGradient = lerpGradient(INACTIVE_GRADIENT, THREADS_GRADIENT, progress);
+
   return (
     <div className="panel-blue-extend">
       <div className="panel-blue-extend-canvas">
         <ThreadsEffect
-          gradientColors={THREADS_GRADIENT}
+          gradientColors={interpolatedGradient}
           amplitude={1}
-          distance={0}
+          distance={interpolatedDistance}
           enableMouseInteraction={false}
-          verticalOffset={0.22}
+          verticalOffset={interpolatedVerticalOffset}
+          mode={threadsMode}
         />
       </div>
       <svg
