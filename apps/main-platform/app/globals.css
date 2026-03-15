@@ -885,29 +885,42 @@ body {
   transform: translateX(0);
 }
 
+/* 收起按钮固定在侧滑面板左上角 */
 .sm-scope .sm-panel-close-wrap {
+  position: absolute;
+  top: 1.25rem;
+  left: 1.25rem;
+  right: auto;
   flex-shrink: 0;
   display: flex;
-  justify-content: flex-end;
-  margin-bottom: 0.5rem;
+  justify-content: flex-start;
+  align-items: flex-start;
+  z-index: 2;
 }
 
 .sm-scope .sm-panel-close-btn {
-  padding: 0.4em 0.8em;
-  font-size: 0.95rem;
-  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
   color: var(--sm-accent, #27FF64);
   background: transparent;
-  border: 1px solid var(--sm-accent, #27FF64);
-  border-radius: 0.25rem;
+  border: none;
+  border-radius: 50%;
   cursor: pointer;
-  font-family: "ZCOOL QingKe HuangYou", system-ui, sans-serif;
-  transition: color 0.2s, background 0.2s, border-color 0.2s;
+  transition: color 0.2s, background 0.2s, transform 0.2s;
 }
 
 .sm-scope .sm-panel-close-btn:hover {
   color: #fff;
   background: var(--sm-accent, #27FF64);
+  transform: scale(1.05);
+}
+
+.sm-scope .sm-panel-close-btn:active {
+  transform: scale(0.98);
 }
 
 .sm-scope .sm-panel-inner {
@@ -955,7 +968,7 @@ body {
   transition: background 0.25s, color 0.25s;
   display: inline-block;
   text-decoration: none;
-  padding-right: 2em;
+  padding-right: 0.6em;
   font-family: "ZCOOL QingKe HuangYou", system-ui, sans-serif;
 }
 
@@ -982,7 +995,7 @@ body {
   content: counter(smItem, decimal-leading-zero);
   position: absolute;
   top: 0.1em;
-  right: 0.2em;
+  right: 0;
   font-size: 18px;
   font-weight: 400;
   color: var(--sm-accent, #ff0000);

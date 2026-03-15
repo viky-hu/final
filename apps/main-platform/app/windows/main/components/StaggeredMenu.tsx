@@ -60,7 +60,7 @@ export function StaggeredMenu({
 
   // GSAP animation refs
   const openTlRef = useRef<gsap.core.Timeline | null>(null);
-  const closeTweenRef = useRef<gsap.core.Tween | null>(null);
+  const closeTlRef = useRef<gsap.core.Timeline | null>(null);
   const spinTweenRef = useRef<gsap.core.Timeline | null>(null);
   const textCycleAnimRef = useRef<gsap.core.Tween | null>(null);
   const colorTweenRef = useRef<gsap.core.Tween | null>(null);
@@ -141,9 +141,9 @@ export function StaggeredMenu({
       if (!panel) return null;
 
       openTlRef.current?.kill();
-      if (closeTweenRef.current) {
-        closeTweenRef.current.kill();
-        closeTweenRef.current = null;
+      if (closeTlRef.current) {
+        closeTlRef.current.kill();
+        closeTlRef.current = null;
       }
       itemEntranceTweenRef.current?.kill();
 
@@ -249,42 +249,95 @@ export function StaggeredMenu({
     openTlRef.current?.kill();
     openTlRef.current = null;
     itemEntranceTweenRef.current?.kill();
+    closeTlRef.current?.kill();
 
     const panel = panelRef.current;
     const layers = preLayerElsRef.current;
     if (!panel) return;
 
-    const all: HTMLElement[] = [...layers, panel];
-    closeTweenRef.current?.kill();
+    const itemEls = Array.from(
+      panel.querySelectorAll(".sm-panel-itemLabel")
+    ) as HTMLElement[];
+    const numberEls = Array.from(
+      panel.querySelectorAll(
+        ".sm-panel-list[data-numbering] .sm-panel-item"
+      )
+    ) as HTMLElement[];
 
     const offscreen =
       propsRef.current.position === "left" ? -100 : 100;
 
-    closeTweenRef.current = gsap.to(all, {
-      xPercent: offscreen,
-      duration: 0.32,
-      ease: "power3.in",
-      overwrite: "auto",
+    // 倒推动画：与展开顺序相反 — 先收菜单项与编号，再收面板，最后收背景层
+    const tl = gsap.timeline({
       onComplete: () => {
-        const itemEls = Array.from(
-          panel.querySelectorAll(".sm-panel-itemLabel")
-        ) as HTMLElement[];
         if (itemEls.length)
           gsap.set(itemEls, { yPercent: 140, rotate: 10 });
-
-        const numberEls = Array.from(
-          panel.querySelectorAll(
-            ".sm-panel-list[data-numbering] .sm-panel-item"
-          )
-        ) as HTMLElement[];
         if (numberEls.length)
           gsap.set(numberEls, {
             "--sm-num-opacity": 0,
           } as gsap.TweenVars);
-
         busyRef.current = false;
+        closeTlRef.current = null;
       },
     });
+
+    // Phase 1: 编号与菜单项收起（最后展开的先收）
+    const phase1Duration = 0.35;
+    if (numberEls.length) {
+      tl.to(
+        numberEls,
+        {
+          duration: 0.28,
+          ease: "power2.in",
+          "--sm-num-opacity": 0,
+          stagger: { each: -0.06, from: "end" },
+        } as gsap.TweenVars,
+        0
+      );
+    }
+    if (itemEls.length) {
+      tl.to(
+        itemEls,
+        {
+          yPercent: 140,
+          rotate: 10,
+          duration: phase1Duration,
+          ease: "power3.in",
+          stagger: { each: -0.07, from: "end" },
+        },
+        0
+      );
+    }
+
+    // Phase 2: 面板滑出
+    const phase2Start = phase1Duration * 0.6;
+    tl.to(
+      panel,
+      {
+        xPercent: offscreen,
+        duration: 0.45,
+        ease: "power3.in",
+      },
+      phase2Start
+    );
+
+    // Phase 3: 背景层依次滑出（最后展开的先收）
+    const phase3Start = phase2Start + 0.12;
+    const layerCount = layers.length;
+    layers.forEach((el: HTMLElement, i: number) => {
+      const reverseIndex = layerCount - 1 - i;
+      tl.to(
+        el,
+        {
+          xPercent: offscreen,
+          duration: 0.35,
+          ease: "power3.in",
+        },
+        phase3Start + reverseIndex * 0.05
+      );
+    });
+
+    closeTlRef.current = tl;
   }, []);
 
   const animateIcon = useCallback((opening: boolean) => {
@@ -388,7 +441,7 @@ export function StaggeredMenu({
     initializeGSAP();
     return () => {
       openTlRef.current?.kill();
-      closeTweenRef.current?.kill();
+      closeTlRef.current?.kill();
       spinTweenRef.current?.kill();
       textCycleAnimRef.current?.kill();
       colorTweenRef.current?.kill();
@@ -534,7 +587,20 @@ export function StaggeredMenu({
               onClick={toggleMenu}
               aria-label="收起菜单"
             >
-              收起
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="22"
+                height="22"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M11 17l-5-5 5-5M18 17l-5-5 5-5" />
+              </svg>
             </button>
           </div>
           <div className="flex flex-col flex-1 gap-5 sm-panel-inner">
