@@ -843,8 +843,8 @@ body {
   position: absolute;
   top: 0;
   right: 0;
-  /* 宽度放宽以容纳中文长文案（如"返回初始界面"） */
-  width: clamp(300px, 44vw, 500px);
+  /* 宽度约为原 3/4，容纳中文长文案 */
+  width: clamp(225px, 33vw, 375px);
   height: 100%;
   background: white;
   backdrop-filter: blur(12px);
@@ -866,7 +866,7 @@ body {
   top: 0;
   right: 0;
   bottom: 0;
-  width: clamp(300px, 44vw, 500px);
+  width: clamp(225px, 33vw, 375px);
   pointer-events: none;
   z-index: 5;
 }
@@ -883,6 +883,31 @@ body {
   height: 100%;
   width: 100%;
   transform: translateX(0);
+}
+
+.sm-scope .sm-panel-close-wrap {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 0.5rem;
+}
+
+.sm-scope .sm-panel-close-btn {
+  padding: 0.4em 0.8em;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--sm-accent, #27FF64);
+  background: transparent;
+  border: 1px solid var(--sm-accent, #27FF64);
+  border-radius: 0.25rem;
+  cursor: pointer;
+  font-family: "ZCOOL QingKe HuangYou", system-ui, sans-serif;
+  transition: color 0.2s, background 0.2s, border-color 0.2s;
+}
+
+.sm-scope .sm-panel-close-btn:hover {
+  color: #fff;
+  background: var(--sm-accent, #27FF64);
 }
 
 .sm-scope .sm-panel-inner {
@@ -915,7 +940,7 @@ body {
  * - font-size: 2.5rem（原 4rem，为适配中文长文案降低）
  * - letter-spacing: 0.12em（原 -2px，中文字符适当展开）
  * - text-transform: none（中文无需全大写）
- * - padding-right: 3.5em（为编号图案留出右侧空间）
+ * - padding-right: 2em（缩小与编号图案的间距）
  * - font-family: ZCOOL QingKe HuangYou
  */
 .sm-scope .sm-panel-item {
@@ -930,7 +955,7 @@ body {
   transition: background 0.25s, color 0.25s;
   display: inline-block;
   text-decoration: none;
-  padding-right: 3.5em;
+  padding-right: 2em;
   font-family: "ZCOOL QingKe HuangYou", system-ui, sans-serif;
 }
 
@@ -950,15 +975,14 @@ body {
 
 /*
  * 01/02/03/04 荧光绿编号图案
- * right: 0.5em 将编号置于 padding-right 空白区内，
- * 不与中文文本重叠（原 right: 3.2em 对中文会产生重叠）。
+ * right: 0.2em 使编号更靠近文本。
  */
 .sm-scope .sm-panel-list[data-numbering] .sm-panel-item::after {
   counter-increment: smItem;
   content: counter(smItem, decimal-leading-zero);
   position: absolute;
   top: 0.1em;
-  right: 0.5em;
+  right: 0.2em;
   font-size: 18px;
   font-weight: 400;
   color: var(--sm-accent, #ff0000);

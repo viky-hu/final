@@ -527,6 +527,16 @@ export function StaggeredMenu({
           style={{ WebkitBackdropFilter: "blur(12px)" }}
           aria-hidden={!open}
         >
+          <div className="sm-panel-close-wrap">
+            <button
+              type="button"
+              className="sm-panel-close-btn"
+              onClick={toggleMenu}
+              aria-label="收起菜单"
+            >
+              收起
+            </button>
+          </div>
           <div className="flex flex-col flex-1 gap-5 sm-panel-inner">
             <ul
               className="flex flex-col m-0 p-0 list-none sm-panel-list"

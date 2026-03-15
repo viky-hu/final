@@ -40,7 +40,7 @@ export function MainWindow({ onBack }: MainWindowProps) {
         <DotGrid
           dotSize={4}
           gap={20}
-          baseColor="#27FF64"
+          baseColor="#6b6b6b"
           activeColor="#27FF64"
           proximity={150}
           speedTrigger={100}
