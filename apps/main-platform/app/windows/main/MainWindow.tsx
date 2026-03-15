@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { DotGrid } from "./components/DotGrid";
 import { StaggeredMenu } from "./components/StaggeredMenu";
+import { ChatCanvasLines } from "./components/ChatCanvasLines";
 import type { StaggeredMenuItem } from "./components/StaggeredMenu";
 
 interface MainWindowProps {
@@ -9,6 +11,8 @@ interface MainWindowProps {
 }
 
 export function MainWindow({ onBack }: MainWindowProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   const menuItems: StaggeredMenuItem[] = [
     {
       label: "返回初始界面",
@@ -35,7 +39,7 @@ export function MainWindow({ onBack }: MainWindowProps) {
 
   return (
     <div className="main-window-page">
-      {/* DotGrid: full-screen background */}
+      {/* DotGrid: z-index 0, full-screen background */}
       <div className="main-window-dotgrid-bg">
         <DotGrid
           dotSize={4}
@@ -52,7 +56,12 @@ export function MainWindow({ onBack }: MainWindowProps) {
         />
       </div>
 
-      {/* StaggeredMenu: foreground overlay */}
+      {/* ChatCanvasLines: z-index 5, SVG canvas layer between dotgrid and menu */}
+      <div className="main-window-canvas-layer">
+        <ChatCanvasLines menuOpen={isMenuOpen} />
+      </div>
+
+      {/* StaggeredMenu: z-index 10, foreground overlay */}
       <div className="main-window-menu-layer">
         <StaggeredMenu
           position="right"
@@ -63,6 +72,8 @@ export function MainWindow({ onBack }: MainWindowProps) {
           changeMenuColorOnOpen={true}
           colors={["#9EF2B2", "#27FF64"]}
           accentColor="#27FF64"
+          onMenuOpen={() => setIsMenuOpen(true)}
+          onMenuClose={() => setIsMenuOpen(false)}
         />
       </div>
     </div>

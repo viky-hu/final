@@ -89,3 +89,35 @@ export const P3_L1 = 268.5;
 export const P3_L2 = 409.5;
 export const P3_L3 = 550.5;
 export const P3_L4 = 691.5;
+
+// ─────────────────────────────────────────────
+// Window 3 · Main (Chat Canvas) · 1440×900
+// 四线围成的画布区域，y1/y2 扩张后贴紧上下屏幕边界
+// ─────────────────────────────────────────────
+export const MAIN_CANVAS_INITIAL = {
+  x1: 0.35 * VW, // 504
+  x2: 0.65 * VW, // 936
+  y1: 0.23 * VH, // 207
+  y2: 0.83 * VH, // 747
+};
+
+// 菜单收起（默认）时的展开态坐标
+export const MAIN_CANVAS_EXPANDED = {
+  x1: 0.25 * VW, // 360
+  x2: 0.75 * VW, // 1080
+  y1: 0 * VH,    // 0
+  y2: 1 * VH,    // 900
+};
+
+// 菜单展开时，画布横向平移至左侧 2/3 区间
+export const MAIN_CANVAS_MENU_OPEN = {
+  x1: 0.10 * VW, // 144
+  x2: 0.60 * VW, // 864
+  y1: 0 * VH,
+  y2: 1 * VH,
+};
+
+export const MAIN_CANVAS_FILL = "#1e1919";
+export const MAIN_CANVAS_LINE_ACTIVE = "#27FF64";
+export const MAIN_CANVAS_LINE_INITIAL = "#ffffff";
+export const MAIN_CANVAS_STROKE_WIDTH = 1.5;

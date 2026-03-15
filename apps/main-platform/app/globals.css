@@ -705,6 +705,41 @@ body {
   min-height: 100dvh;
 }
 
+/*
+ * SVG 画布层：位于 DotGrid(z0) 之上，菜单层(z10) 之下
+ * pointer-events: none 确保鼠标事件穿透至 DotGrid
+ * 内部交互元素（未来的气泡/输入框）可单独设 pointer-events: auto
+ */
+.main-window-canvas-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  min-height: 100dvh;
+}
+
+/*
+ * SVG 画布：铺满父级，viewBox=1440×900 + xMidYMid slice 确保任何窗口尺寸下
+ * 比例与第一窗口一致，四线坐标在 1440×900 坐标系中定义。
+ * display: block 消除 inline-block 基线间距。
+ */
+.main-window-canvas-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/*
+ * 四条边界线共用样式：
+ * vector-effect: non-scaling-stroke 保证 strokeWidth 在缩放时视觉一致。
+ * will-change: stroke-dashoffset 提示浏览器为描边动画准备合成层。
+ */
+.cc-main-line {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  will-change: stroke-dashoffset;
+}
+
 /* StaggeredMenu 全屏前景层 */
 .main-window-menu-layer {
   position: absolute;

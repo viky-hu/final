@@ -403,7 +403,175 @@ app/
 填充的实心画布并不是卡片，而是确确实实由四条线框住的区域决定，我们在第一窗口已经有了这种SVG+GSAP画布的成熟实现，你可以照搬过来
 整个过程是在打开此页面后自动完成的，用0.8秒画出四条线，然后用0.5秒扩张四条线并填充出画布
 这个画布就是我们所谓的交互对话的信息流部分，之后我们将设计优美的问答气泡、高级的输入框，和答案生成前气泡的思考样式。
+####
+第三窗口「线条与画布」实现规划
+一、需求与约束
+1.1 功能目标
+在 DotGrid 点阵背景之上增加一个由四条线围成的画布
+画布为交互对话的信息流区域，后续承载气泡、输入框等
+动画流程：画线 → 变色 → 扩张并填充画布
+1.2 坐标与颜色（1440×900 基准）
+变量	含义	初始位置	扩张后目标
+x1	左竖线	0.35 × VW (504)	0.25 × VW (360)
+x2	右竖线	0.65 × VW (936)	0.75 × VW (1080)
+y1	上横线	0.23 × VH (207)	0 × VH (0)
+y2	下横线	0.83 × VH (747)	1 × VH (900)
+线条：初始白色 → 画完后荧光绿 #27FF64
+画布填充：#003049
+时间：画线 0.8s，扩张+填充 0.5s
+1.3 与第一窗口的差异
+维度	第一窗口 (LoginIntroWindow)	第三窗口
+画布方向	坍缩（向内）	扩张（向外）
+画布填充	白 → 蓝	透明 → 
+#003049
+线条颜色	始终蓝	白 → 荧光绿
+画布初始	从中心展开	从初始矩形同步扩张
+触发	加载自动 + 交互坍缩	加载后自动完成
+二、技术实现规划
+2.1 层级结构
+在 MainWindow 中插入新层，建议结构：
 
+main-window-page
+├── main-window-dotgrid-bg (z-index: 0)     ← 点阵背景
+├── main-window-canvas-layer (z-index: 5)   ← 新增：SVG 画布层
+└── main-window-menu-layer (z-index: 10)    ← 侧边栏
+画布层在 DotGrid 之上、菜单之下
+画布层建议 pointer-events: none，内部交互区域再设 pointer-events: auto
+2.2 坐标与常量
+在 coords.ts 中新增第三窗口常量，例如：
+
+// Window 3 · Main (Chat Canvas) · 1440×900
+export const MAIN_CANVAS_INITIAL = {
+  x1: 0.35 * VW,
+  x2: 0.65 * VW,
+  y1: 0.23 * VH,
+  y2: 0.83 * VH,
+};
+export const MAIN_CANVAS_EXPANDED = {
+  x1: 0.25 * VW,
+  x2: 0.75 * VW,
+  y1: 0 * VH,
+  y2: 1 * VH,
+};
+export const MAIN_CANVAS_FILL = "#003049";
+export const MAIN_CANVAS_LINE_ACTIVE = "#27FF64";
+2.3 组件拆分
+建议新建 ChatCanvasLines.tsx（或类似命名），职责：
+
+渲染 SVG 画布（四条线 + 填充 rect）
+使用 GSAP 驱动画线、变色、扩张、填充
+暴露 onComplete 等回调，供后续信息流组件使用
+2.4 SVG 结构（参考第一窗口）
+<svg viewBox={`0 0 ${VW} ${VH}`} preserveAspectRatio="xMidYMid slice" className="main-window-canvas-svg">
+  <defs>
+    {/* 可选：发光滤镜等 */}
+  </defs>
+  {/* 画布填充 rect，初始与四条线围成区域一致 */}
+  <rect id="chat-canvas-fill" ... fill={MAIN_CANVAS_FILL} />
+  {/* 四条线：左、右、上、下 */}
+  <line id="line-left" className="chat-canvas-line" ... />
+  <line id="line-right" ... />
+  <line id="line-top" ... />
+  <line id="line-bottom" ... />
+</svg>
+使用与第一窗口相同的 VW、VH，保证 1440×900 基准一致
+线条用 stroke-dasharray + stroke-dashoffset 做绘制动画
+2.5 动画时间线设计
+阶段 1：画线（0.8s）
+四条线用 stroke-dashoffset 从 0 画到全长
+顺序建议：上 → 下 → 左 → 右（体现「从上往下」）
+每条线约 0.2s，stagger 约 0.12–0.15s
+初始 stroke：白色
+阶段 2：变色 + 扩张 + 填充（0.5s）
+画线结束后：stroke 从白变为 #27FF64
+同时：coords 从 MAIN_CANVAS_INITIAL 插值到 MAIN_CANVAS_EXPANDED
+在 onUpdate 中同步：
+四条线的 x1/x2/y1/y2
+rect 的 x, y, width, height
+画布 rect 从初始矩形同步扩张到全屏区域
+伪代码
+const drawTl = gsap.timeline();
+// 1. 画线 (0.8s)
+mainLines.forEach(line => {
+  const len = line.getTotalLength();
+  gsap.set(line, { strokeDasharray: len, strokeDashoffset: len, stroke: "#ffffff" });
+});
+drawTl.to(mainLines, { strokeDashoffset: 0, duration: 0.2, stagger: 0.15, ease: "power2.out" });
+// 2. 变色 + 扩张 (0.5s)
+const expandTl = gsap.timeline();
+expandTl.to(coordsRef.current, { ...MAIN_CANVAS_EXPANDED, duration: 0.5, ease: "power3.inOut", onUpdate: syncLinesAndRect });
+expandTl.to(mainLines, { stroke: MAIN_CANVAS_LINE_ACTIVE }, 0);
+// panelRect 的 x,y,width,height 在 onUpdate 中由 coords 计算
+2.6 画布 rect 的同步方式
+沿用第一窗口思路：用 coords 驱动 rect 和线条。
+
+function updateChatCanvasRect(rect: SVGRectElement | null, c: Coords) {
+  if (!rect) return;
+  rect.setAttribute("x", String(c.x1));
+  rect.setAttribute("y", String(c.y1));
+  rect.setAttribute("width", String(c.x2 - c.x1));
+  rect.setAttribute("height", String(c.y2 - c.y1));
+}
+扩张阶段：coords 从 initial 插值到 expanded，每帧调用 updateChatCanvasRect 和 updateLines
+rect 初始就存在，只是随 coords 变化而改变尺寸和位置
+2.7 「从上方一条条划过」的两种实现
+方案 A：stroke-dashoffset + 明显 stagger（推荐）
+
+四条线依次画出，stagger 约 0.12–0.15s
+顺序：上横线 → 下横线 → 左竖线 → 右竖线
+实现简单，与第一窗口一致，易维护
+方案 B：线条从上方划入
+
+每条线从 y=0 附近向下移动并绘制
+需要额外控制 y1/y2 或 transform，实现更复杂
+若 README 强调「划过」的物理感，可再考虑
+建议先实现方案 A，再视效果决定是否做方案 B。
+
+三、实现步骤建议
+coords.ts
+
+添加 MAIN_CANVAS_INITIAL、MAIN_CANVAS_EXPANDED、MAIN_CANVAS_FILL、MAIN_CANVAS_LINE_ACTIVE。
+ChatCanvasLines.tsx
+
+新建组件，包含 SVG、四条线、rect。
+实现 updateLines、updateChatCanvasRect。
+实现两阶段 GSAP 时间线（画线 + 扩张）。
+MainWindow.tsx
+
+在 DotGrid 与 StaggeredMenu 之间插入 main-window-canvas-layer。
+渲染 ChatCanvasLines。
+globals.css
+
+添加 .main-window-canvas-layer、.main-window-canvas-svg 等样式。
+设置层级、定位、pointer-events。
+可选增强
+
+在 defs 中加 filter 实现边界发光。
+导出 onComplete 供信息流组件做入场动画。
+四、注意事项
+视口与缩放
+
+使用 viewBox="0 0 1440 900" 和 preserveAspectRatio="xMidYMid slice"，与第一窗口一致，适配 150% 等缩放。
+rect 与线条顺序
+
+rect 放在线条之下，避免遮挡线条；或使用 fill 与 stroke 分层。
+性能
+
+扩张阶段用 onUpdate 更新 DOM，频率适中，一般不会有明显性能问题。
+颜色一致性
+
+README 中画布颜色有 1e1919 与 003049 两种说法，建议以表格为准使用 #003049。
+与 StaggeredMenu 的关系
+
+画布层在菜单之下，菜单打开时不会遮挡画布动画；画布完成后，信息流内容将放在画布内部。
+五、可复用代码索引
+功能	参考位置
+stroke-dashoffset 画线	LoginIntroWindow.tsx 57–104 行
+rect 从中心展开	LoginIntroWindow.tsx 73–82、111–123 行
+坐标同步	utils.ts 中 updateLines、updatePanelFill
+缓动曲线	animation.ts 中 LINE_DRAW_EASE
+视口与 viewBox	LoginIntroWindow.tsx 205–216 行
+####
 2、构思信息流：
 画布三大部分：
 这一区域必须明确所需的技术栈和UI库，我们需要使用当代非常先进的UI库来实现充满高级感的模块设计，必要时可以联网搜索。
