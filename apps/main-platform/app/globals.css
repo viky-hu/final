@@ -4,8 +4,14 @@
   color-scheme: light;
 }
 
+html,
 body {
   margin: 0;
+  height: 100%;
+  min-height: 100dvh;
+}
+
+body {
   background-color: #ffffff;
   color: #0f172a;
 }
@@ -679,42 +685,307 @@ body {
   pointer-events: none;
 }
 
-/* ========== Window 3 · 主界面占位 ========== */
+/* ========== Window 3 · 交互对话页 ========== */
 
 .main-window-page {
+  position: relative;
   width: 100vw;
-  height: 100dvh;
+  min-width: 100vw;
+  height: 100%;
+  min-height: 100dvh;
+  overflow: hidden;
+  background: #0a0a0f;
+}
+
+/* DotGrid 全屏背景层 */
+.main-window-dotgrid-bg {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  min-height: 100dvh;
+}
+
+/* StaggeredMenu 全屏前景层 */
+.main-window-menu-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  min-height: 100dvh;
+}
+
+/* ========== Window 3 · StaggeredMenu 样式系统 ========== */
+/*
+ * 以下所有样式均来自 README StaggeredMenu 的 Vue <style scoped> 代码块，
+ * 作用域通过 .sm-scope 父类约束，避免污染其他 Panel 样式。
+ * 中文化调整：字体、字号、行距、编号位置。
+ */
+
+.sm-scope .staggered-menu-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 40;
+}
+
+.sm-scope .staggered-menu-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2em;
+  background: transparent;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.sm-scope .staggered-menu-header > * {
+  pointer-events: auto;
+}
+
+.sm-scope .sm-logo {
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+
+.sm-scope .sm-logo-img {
+  display: block;
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+}
+
+.sm-scope .sm-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #e9e9ef;
+  font-weight: 500;
+  line-height: 1;
+  overflow: visible;
+  font-family: "ZCOOL QingKe HuangYou", system-ui, sans-serif;
+}
+
+.sm-scope .sm-toggle:focus-visible {
+  outline: 2px solid #ffffffaa;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.sm-scope .sm-line:last-of-type {
+  margin-top: 6px;
+}
+
+.sm-scope .sm-toggle-textWrap {
+  position: relative;
+  margin-right: 0.5em;
+  display: inline-block;
+  height: 1em;
+  overflow: hidden;
+  white-space: nowrap;
+  width: var(--sm-toggle-width, auto);
+  min-width: var(--sm-toggle-width, auto);
+}
+
+.sm-scope .sm-toggle-textInner {
   display: flex;
   flex-direction: column;
+  line-height: 1;
+}
+
+.sm-scope .sm-toggle-line {
+  display: block;
+  height: 1em;
+  line-height: 1;
+}
+
+.sm-scope .sm-icon {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #0a0a0f;
-  color: #ffffff;
-  gap: 2rem;
+  will-change: transform;
 }
 
-.main-window-placeholder {
+.sm-scope .sm-panel-itemWrap {
+  position: relative;
+  overflow: hidden;
+  line-height: 1;
+}
+
+.sm-scope .sm-icon-line {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 2px;
+  background: currentColor;
+  border-radius: 2px;
+  transform: translate(-50%, -50%);
+  will-change: transform;
+}
+
+.sm-scope .sm-line {
+  display: none !important;
+}
+
+.sm-scope .staggered-menu-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  /* 宽度放宽以容纳中文长文案（如"返回初始界面"） */
+  width: clamp(300px, 44vw, 500px);
+  height: 100%;
+  background: white;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  padding: 6em 2em 2em 2em;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.sm-scope [data-position='left'] .staggered-menu-panel {
+  right: auto;
+  left: 0;
+}
+
+.sm-scope .sm-prelayers {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: clamp(300px, 44vw, 500px);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.sm-scope [data-position='left'] .sm-prelayers {
+  right: auto;
+  left: 0;
+}
+
+.sm-scope .sm-prelayer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 100%;
+  transform: translateX(0);
+}
+
+.sm-scope .sm-panel-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.sm-scope .sm-panel-title {
   margin: 0;
-  font-size: clamp(20px, 3vw, 48px);
+  font-size: 1rem;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.5);
-  letter-spacing: 0.06em;
-  font-family: system-ui, -apple-system, sans-serif;
+  color: #fff;
+  text-transform: uppercase;
 }
 
-.main-window-back {
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.28);
-  color: rgba(255, 255, 255, 0.65);
-  padding: 0.6rem 1.4rem;
-  border-radius: 0.4rem;
-  font-size: 0.9rem;
+.sm-scope .sm-panel-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  /* 增大行距以提升中文菜单可读性（原 0.5rem） */
+  gap: 1.8rem;
+}
+
+/*
+ * 菜单条目：中文化调整
+ * - font-size: 2.5rem（原 4rem，为适配中文长文案降低）
+ * - letter-spacing: 0.12em（原 -2px，中文字符适当展开）
+ * - text-transform: none（中文无需全大写）
+ * - padding-right: 3.5em（为编号图案留出右侧空间）
+ * - font-family: ZCOOL QingKe HuangYou
+ */
+.sm-scope .sm-panel-item {
+  position: relative;
+  color: #000;
+  font-weight: 600;
+  font-size: 2.5rem;
   cursor: pointer;
-  font-family: system-ui, -apple-system, sans-serif;
-  transition: border-color 0.2s, color 0.2s;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  text-transform: none;
+  transition: background 0.25s, color 0.25s;
+  display: inline-block;
+  text-decoration: none;
+  padding-right: 3.5em;
+  font-family: "ZCOOL QingKe HuangYou", system-ui, sans-serif;
 }
 
-.main-window-back:hover {
-  border-color: rgba(255, 255, 255, 0.65);
-  color: #ffffff;
+.sm-scope .sm-panel-itemLabel {
+  display: inline-block;
+  will-change: transform;
+  transform-origin: 50% 100%;
+}
+
+.sm-scope .sm-panel-item:hover {
+  color: var(--sm-accent, #ff0000);
+}
+
+.sm-scope .sm-panel-list[data-numbering] {
+  counter-reset: smItem;
+}
+
+/*
+ * 01/02/03/04 荧光绿编号图案
+ * right: 0.5em 将编号置于 padding-right 空白区内，
+ * 不与中文文本重叠（原 right: 3.2em 对中文会产生重叠）。
+ */
+.sm-scope .sm-panel-list[data-numbering] .sm-panel-item::after {
+  counter-increment: smItem;
+  content: counter(smItem, decimal-leading-zero);
+  position: absolute;
+  top: 0.1em;
+  right: 0.5em;
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--sm-accent, #ff0000);
+  letter-spacing: 0;
+  pointer-events: none;
+  user-select: none;
+  opacity: var(--sm-num-opacity, 0);
+}
+
+@media (max-width: 1024px) {
+  .sm-scope .staggered-menu-panel {
+    width: 100%;
+    left: 0;
+    right: 0;
+  }
+  .sm-scope .staggered-menu-wrapper[data-open] .sm-logo-img {
+    filter: invert(100%);
+  }
+}
+
+@media (max-width: 640px) {
+  .sm-scope .staggered-menu-panel {
+    width: 100%;
+    left: 0;
+    right: 0;
+  }
+  .sm-scope .staggered-menu-wrapper[data-open] .sm-logo-img {
+    filter: invert(100%);
+  }
 }

@@ -522,3 +522,1273 @@ app/
 - `globals.css`：`.panel-blue-extend-interact`、`.p3-aim-shoot-wrap`、`.p3-aim-shoot-text` 等样式。
 
 ---
+
+
+
+## （我自己手写的，你可以按照readme规范对格式进行优化）第三个窗口：交互对话
+这个页面就是从panel3的Shoot按钮按下去触发出的新窗口，之前咱们做了个模拟的窗口，你可以删了重做。
+目前整个页面具有以下模块的现成的代码，我需要你以符合我们技术栈react的形式复现在此界面中（仅照搬代码，不要擅自做改动），确保任何的操作都要符合vercel给出的react的最佳实践（可以联网搜索这个概念），关于传统代码模块的react复现网上也有一些skills可以学习。
+注意：你必须完全按照我给定的以下两个代码来做，千万不能擅自修改其逻辑和样式。
+我默认整个web的最佳呈现的界面缩放大小为150%，请确保我们制作的界面也是在150%大小界面时的最佳状态
+
+1、Dot Grid（具物理引擎的点阵，鼠标靠近部分膨胀变绿————这是整个窗口的背景）
+补充：
+水平方向 (宽度)： 约 50 - 55 个点。
+垂直方向 (高度)： 约 28 - 32 个点。
+间距 (Gap)： 每个点之间的中心距离大约在 20px 到 24px 之间。
+圆点大小： 直径约为 4px。
+
+Installation
+npm install gsap
+Usage
+<template>
+  <div class="dot-grid-container">
+    <DotGrid
+      :dot-size="16"
+      :gap="32"
+      base-color="#27FF64"
+      active-color="#27FF64"
+      :proximity="150"
+      :speed-trigger="100"
+      :shock-radius="250"
+      :shock-strength="5"
+      :max-speed="5000"
+      :resistance="750"
+      :return-duration="1.5"
+      class-name="custom-dot-grid"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+  import DotGrid from "./DotGrid.vue";
+</script>
+
+<style scoped>
+  .dot-grid-container {
+    width: 100%;
+    height: 500px;
+    position: relative;
+    overflow: hidden;
+  }
+</style>
+Code
+<template>
+  <section :class="`flex items-center justify-center h-full w-full relative ${className}`" :style="style">
+    <div ref="wrapperRef" class="w-full h-full relative">
+      <canvas ref="canvasRef" class="absolute inset-0 w-full h-full pointer-events-none" />
+    </div>
+  </section>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted, computed, watch, nextTick, useTemplateRef } from 'vue';
+import { gsap } from 'gsap';
+import { InertiaPlugin } from 'gsap/InertiaPlugin';
+
+gsap.registerPlugin(InertiaPlugin);
+
+const throttle = <T extends unknown[]>(func: (...args: T) => void, limit: number) => {
+  let lastCall = 0;
+  return function (this: unknown, ...args: T) {
+    const now = performance.now();
+    if (now - lastCall >= limit) {
+      lastCall = now;
+      func.apply(this, args);
+    }
+  };
+};
+
+interface Dot {
+  cx: number;
+  cy: number;
+  xOffset: number;
+  yOffset: number;
+  _inertiaApplied: boolean;
+}
+
+export interface DotGridProps {
+  dotSize?: number;
+  gap?: number;
+  baseColor?: string;
+  activeColor?: string;
+  proximity?: number;
+  speedTrigger?: number;
+  shockRadius?: number;
+  shockStrength?: number;
+  maxSpeed?: number;
+  resistance?: number;
+  returnDuration?: number;
+  className?: string;
+  style?: Record<string, string | number>;
+}
+
+const props = withDefaults(defineProps<DotGridProps>(), {
+  dotSize: 16,
+  gap: 32,
+  baseColor: '#27FF64',
+  activeColor: '#27FF64',
+  proximity: 150,
+  speedTrigger: 100,
+  shockRadius: 250,
+  shockStrength: 5,
+  maxSpeed: 5000,
+  resistance: 750,
+  returnDuration: 1.5,
+  className: '',
+  style: () => ({})
+});
+
+const wrapperRef = useTemplateRef<HTMLDivElement>('wrapperRef');
+const canvasRef = useTemplateRef<HTMLCanvasElement>('canvasRef');
+const dots = ref<Dot[]>([]);
+const pointer = ref({
+  x: 0,
+  y: 0,
+  vx: 0,
+  vy: 0,
+  speed: 0,
+  lastTime: 0,
+  lastX: 0,
+  lastY: 0
+});
+
+function hexToRgb(hex: string) {
+  const m = hex.match(/^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i);
+  if (!m) return { r: 0, g: 0, b: 0 };
+  return {
+    r: parseInt(m[1], 16),
+    g: parseInt(m[2], 16),
+    b: parseInt(m[3], 16)
+  };
+}
+
+const baseRgb = computed(() => hexToRgb(props.baseColor));
+const activeRgb = computed(() => hexToRgb(props.activeColor));
+
+const circlePath = computed(() => {
+  if (typeof window === 'undefined' || !window.Path2D) return null;
+
+  const p = new Path2D();
+  p.arc(0, 0, props.dotSize / 2, 0, Math.PI * 2);
+  return p;
+});
+
+const buildGrid = () => {
+  const wrap = wrapperRef.value;
+  const canvas = canvasRef.value;
+  if (!wrap || !canvas) return;
+
+  const { width, height } = wrap.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+
+  canvas.width = width * dpr;
+  canvas.height = height * dpr;
+  canvas.style.width = `${width}px`;
+  canvas.style.height = `${height}px`;
+  const ctx = canvas.getContext('2d');
+  if (ctx) ctx.scale(dpr, dpr);
+
+  const cols = Math.floor((width + props.gap) / (props.dotSize + props.gap));
+  const rows = Math.floor((height + props.gap) / (props.dotSize + props.gap));
+  const cell = props.dotSize + props.gap;
+
+  const gridW = cell * cols - props.gap;
+  const gridH = cell * rows - props.gap;
+
+  const extraX = width - gridW;
+  const extraY = height - gridH;
+
+  const startX = extraX / 2 + props.dotSize / 2;
+  const startY = extraY / 2 + props.dotSize / 2;
+
+  const newDots: Dot[] = [];
+  for (let y = 0; y < rows; y++) {
+    for (let x = 0; x < cols; x++) {
+      const cx = startX + x * cell;
+      const cy = startY + y * cell;
+      newDots.push({ cx, cy, xOffset: 0, yOffset: 0, _inertiaApplied: false });
+    }
+  }
+  dots.value = newDots;
+};
+
+let rafId: number;
+let resizeObserver: ResizeObserver | null = null;
+
+const draw = () => {
+  const canvas = canvasRef.value;
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  const { x: px, y: py } = pointer.value;
+  const proxSq = props.proximity * props.proximity;
+
+  for (const dot of dots.value) {
+    const ox = dot.cx + dot.xOffset;
+    const oy = dot.cy + dot.yOffset;
+    const dx = dot.cx - px;
+    const dy = dot.cy - py;
+    const dsq = dx * dx + dy * dy;
+
+    let style = props.baseColor;
+    if (dsq <= proxSq) {
+      const dist = Math.sqrt(dsq);
+      const t = 1 - dist / props.proximity;
+      const r = Math.round(baseRgb.value.r + (activeRgb.value.r - baseRgb.value.r) * t);
+      const g = Math.round(baseRgb.value.g + (activeRgb.value.g - baseRgb.value.g) * t);
+      const b = Math.round(baseRgb.value.b + (activeRgb.value.b - baseRgb.value.b) * t);
+      style = `rgb(${r},${g},${b})`;
+    }
+
+    if (circlePath.value) {
+      ctx.save();
+      ctx.translate(ox, oy);
+      ctx.fillStyle = style;
+      ctx.fill(circlePath.value);
+      ctx.restore();
+    }
+  }
+
+  rafId = requestAnimationFrame(draw);
+};
+
+const onMove = (e: MouseEvent) => {
+  const now = performance.now();
+  const pr = pointer.value;
+  const dt = pr.lastTime ? now - pr.lastTime : 16;
+  const dx = e.clientX - pr.lastX;
+  const dy = e.clientY - pr.lastY;
+  let vx = (dx / dt) * 1000;
+  let vy = (dy / dt) * 1000;
+  let speed = Math.hypot(vx, vy);
+  if (speed > props.maxSpeed) {
+    const scale = props.maxSpeed / speed;
+    vx *= scale;
+    vy *= scale;
+    speed = props.maxSpeed;
+  }
+  pr.lastTime = now;
+  pr.lastX = e.clientX;
+  pr.lastY = e.clientY;
+  pr.vx = vx;
+  pr.vy = vy;
+  pr.speed = speed;
+
+  const canvas = canvasRef.value;
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  pr.x = e.clientX - rect.left;
+  pr.y = e.clientY - rect.top;
+
+  for (const dot of dots.value) {
+    const dist = Math.hypot(dot.cx - pr.x, dot.cy - pr.y);
+    if (speed > props.speedTrigger && dist < props.proximity && !dot._inertiaApplied) {
+      dot._inertiaApplied = true;
+      gsap.killTweensOf(dot);
+      const pushX = dot.cx - pr.x + vx * 0.005;
+      const pushY = dot.cy - pr.y + vy * 0.005;
+      gsap.to(dot, {
+        inertia: { xOffset: pushX, yOffset: pushY, resistance: props.resistance },
+        onComplete: () => {
+          gsap.to(dot, {
+            xOffset: 0,
+            yOffset: 0,
+            duration: props.returnDuration,
+            ease: 'elastic.out(1,0.75)'
+          });
+          dot._inertiaApplied = false;
+        }
+      });
+    }
+  }
+};
+
+const onClick = (e: MouseEvent) => {
+  const canvas = canvasRef.value;
+  if (!canvas) return;
+  const rect = canvas.getBoundingClientRect();
+  const cx = e.clientX - rect.left;
+  const cy = e.clientY - rect.top;
+  for (const dot of dots.value) {
+    const dist = Math.hypot(dot.cx - cx, dot.cy - cy);
+    if (dist < props.shockRadius && !dot._inertiaApplied) {
+      dot._inertiaApplied = true;
+      gsap.killTweensOf(dot);
+      const falloff = Math.max(0, 1 - dist / props.shockRadius);
+      const pushX = (dot.cx - cx) * props.shockStrength * falloff;
+      const pushY = (dot.cy - cy) * props.shockStrength * falloff;
+      gsap.to(dot, {
+        inertia: { xOffset: pushX, yOffset: pushY, resistance: props.resistance },
+        onComplete: () => {
+          gsap.to(dot, {
+            xOffset: 0,
+            yOffset: 0,
+            duration: props.returnDuration,
+            ease: 'elastic.out(1,0.75)'
+          });
+          dot._inertiaApplied = false;
+        }
+      });
+    }
+  }
+};
+
+const throttledMove = throttle(onMove, 50);
+
+onMounted(async () => {
+  await nextTick();
+
+  buildGrid();
+
+  if (circlePath.value) {
+    draw();
+  }
+
+  if ('ResizeObserver' in window) {
+    resizeObserver = new ResizeObserver(buildGrid);
+    if (wrapperRef.value) {
+      resizeObserver.observe(wrapperRef.value);
+    }
+  } else {
+    (window as Window).addEventListener('resize', buildGrid);
+  }
+
+  window.addEventListener('mousemove', throttledMove, { passive: true });
+  window.addEventListener('click', onClick);
+});
+
+onUnmounted(() => {
+  if (rafId) {
+    cancelAnimationFrame(rafId);
+  }
+
+  if (resizeObserver) {
+    resizeObserver.disconnect();
+  } else {
+    window.removeEventListener('resize', buildGrid);
+  }
+
+  window.removeEventListener('mousemove', throttledMove);
+  window.removeEventListener('click', onClick);
+});
+
+watch([() => props.dotSize, () => props.gap], () => {
+  buildGrid();
+});
+
+watch([() => props.proximity, () => props.baseColor, activeRgb, baseRgb, circlePath], () => {
+  if (rafId) {
+    cancelAnimationFrame(rafId);
+  }
+  if (circlePath.value) {
+    draw();
+  }
+});
+</script>
+
+
+2、Staggered Menu（一个菜单按钮和其动态弹出菜单的样式）
+menu菜单的文字全改成中文（请将字体改为ZCOOL QingKe HuangYou，Panel2部分代码有其成熟实现方法，请注意参照），BACK改成“返回初始界面”，ABOUT改成“交互对话”，SERVICES改成“数据库”，CONTACT改成”宏观平台“，并且删除Socials Twitter GitHub LinkedIn这些模块。我们设置了01、02、03、04的荧光绿图案，文本修改时需要顺便调整这些图案的位置，防止这些图案和文本重合了。
+四行按钮的行距不能太窄，应该大一点，并且单行字的字与字之间不能太近太过紧凑。
+Installation
+npm install gsap（我们web是pnpm，这个应该没事吧？我也不懂）
+Usage
+<template>
+ <div style="height: 100vh; background: #1a1a1a">
+   <StaggeredMenu
+     position="right"
+     :items="menuItems"
+     :social-items="socialItems"
+     :display-socials="true"
+     :display-item-numbering="true"
+     menu-button-color="#fff"
+     open-menu-button-color="#fff"
+     :change-menu-color-on-open="true"
+     :colors="['#9EF2B2', '#27FF64']"
+     logo-url="/path-to-your-logo.svg"
+     accent-color="#27FF64"
+     @menu-open="handleMenuOpen"
+     @menu-close="handleMenuClose"
+   />
+ </div>
+</template>
+
+<script setup>
+import StaggeredMenu from './StaggeredMenu.vue'
+
+const menuItems = [
+ { label: 'Home', ariaLabel: 'Go to home page', link: '/' },
+ { label: 'About', ariaLabel: 'Learn about us', link: '/about' },
+ { label: 'Services', ariaLabel: 'View our services', link: '/services' },
+ { label: 'Contact', ariaLabel: 'Get in touch', link: '/contact' }
+]
+
+const socialItems = [
+ { label: 'Twitter', link: 'https://twitter.com' },
+ { label: 'GitHub', link: 'https://github.com' },
+ { label: 'LinkedIn', link: 'https://linkedin.com' }
+]
+
+const handleMenuOpen = () => console.log('Menu opened')
+const handleMenuClose = () => console.log('Menu closed')
+</script>
+Collapse Snippet
+Code
+<template>
+  <div class="w-full h-full sm-scope">
+    <div
+      :class="(className ? className + ' ' : '') + 'staggered-menu-wrapper relative w-full h-full z-40'"
+      :style="accentColor ? { '--sm-accent': accentColor } : undefined"
+      :data-position="position"
+      :data-open="open || undefined"
+    >
+      <div
+        ref="preLayersRef"
+        class="top-0 right-0 bottom-0 z-[5] absolute pointer-events-none sm-prelayers"
+        aria-hidden="true"
+      >
+        <div
+          v-for="(color, index) in processedColors"
+          :key="index"
+          class="top-0 right-0 absolute w-full h-full translate-x-0 sm-prelayer"
+          :style="{ background: color }"
+        />
+      </div>
+
+      <header
+        class="top-0 left-0 z-20 absolute flex justify-between items-center bg-transparent p-[2em] w-full pointer-events-none staggered-menu-header"
+        aria-label="Main navigation header"
+      >
+        <div class="flex items-center pointer-events-auto select-none sm-logo" aria-label="Logo">
+          <img
+            :src="logoUrl || '/src/assets/logos/reactbits-gh-white.svg'"
+            alt="Logo"
+            class="block w-auto h-8 object-contain sm-logo-img"
+            :draggable="false"
+            width="110"
+            height="24"
+          />
+        </div>
+
+        <button
+          ref="toggleBtnRef"
+          class="inline-flex relative items-center gap-[0.3rem] bg-transparent border-0 overflow-visible font-medium text-[#e9e9ef] leading-none cursor-pointer pointer-events-auto sm-toggle"
+          :aria-label="open ? 'Close menu' : 'Open menu'"
+          :aria-expanded="open"
+          aria-controls="staggered-menu-panel"
+          @click="toggleMenu"
+          type="button"
+        >
+          <span
+            ref="textWrapRef"
+            class="inline-block relative w-[var(--sm-toggle-width,auto)] min-w-[var(--sm-toggle-width,auto)] h-[1em] overflow-hidden whitespace-nowrap sm-toggle-textWrap"
+            aria-hidden="true"
+          >
+            <span ref="textInnerRef" class="flex flex-col leading-none sm-toggle-textInner">
+              <span v-for="(line, index) in textLines" :key="index" class="block h-[1em] leading-none sm-toggle-line">
+                {{ line }}
+              </span>
+            </span>
+          </span>
+
+          <span
+            ref="iconRef"
+            class="inline-flex relative justify-center items-center w-[14px] h-[14px] sm-icon shrink-0 [will-change:transform]"
+            aria-hidden="true"
+          >
+            <span
+              ref="plusHRef"
+              class="top-1/2 left-1/2 absolute bg-current rounded-[2px] w-full h-[2px] -translate-x-1/2 -translate-y-1/2 sm-icon-line [will-change:transform]"
+            />
+            <span
+              ref="plusVRef"
+              class="top-1/2 left-1/2 absolute bg-current rounded-[2px] w-full h-[2px] -translate-x-1/2 -translate-y-1/2 sm-icon-line sm-icon-line-v [will-change:transform]"
+            />
+          </span>
+        </button>
+      </header>
+
+      <aside
+        id="staggered-menu-panel"
+        ref="panelRef"
+        class="top-0 right-0 z-10 absolute flex flex-col bg-white backdrop-blur-[12px] p-[6em_2em_2em_2em] h-full overflow-y-auto staggered-menu-panel"
+        style="webkit-backdrop-filter: blur(12px)"
+        :aria-hidden="!open"
+      >
+        <div class="flex flex-col flex-1 gap-5 sm-panel-inner">
+          <ul
+            class="flex flex-col gap-2 m-0 p-0 list-none sm-panel-list"
+            role="list"
+            :data-numbering="displayItemNumbering || undefined"
+          >
+            <li
+              v-if="items && items.length"
+              v-for="(item, idx) in items"
+              :key="item.label + idx"
+              class="relative overflow-hidden leading-none sm-panel-itemWrap"
+            >
+              <a
+                class="inline-block relative pr-[1.4em] font-semibold text-[4rem] text-black no-underline uppercase leading-none tracking-[-2px] transition-[background,color] duration-150 ease-linear cursor-pointer sm-panel-item"
+                :href="item.link"
+                :aria-label="item.ariaLabel"
+                :data-index="idx + 1"
+              >
+                <span class="inline-block will-change-transform sm-panel-itemLabel [transform-origin:50%_100%]">
+                  {{ item.label }}
+                </span>
+              </a>
+            </li>
+            <li v-else class="relative overflow-hidden leading-none sm-panel-itemWrap" aria-hidden="true">
+              <span
+                class="inline-block relative pr-[1.4em] font-semibold text-[4rem] text-black no-underline uppercase leading-none tracking-[-2px] transition-[background,color] duration-150 ease-linear cursor-pointer sm-panel-item"
+              >
+                <span class="inline-block will-change-transform sm-panel-itemLabel [transform-origin:50%_100%]">
+                  No items
+                </span>
+              </span>
+            </li>
+          </ul>
+
+          <div
+            v-if="displaySocials && socialItems && socialItems.length > 0"
+            class="flex flex-col gap-3 mt-auto pt-8 sm-socials"
+            aria-label="Social links"
+          >
+            <h3 class="m-0 font-medium text-base sm-socials-title [color:var(--sm-accent,#ff0000)]">Socials</h3>
+            <ul class="flex flex-row flex-wrap items-center gap-4 m-0 p-0 list-none sm-socials-list" role="list">
+              <li v-for="(social, i) in socialItems" :key="social.label + i" class="sm-socials-item">
+                <a
+                  :href="social.link"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="inline-block relative py-[2px] font-medium text-[#111] text-[1.2rem] no-underline transition-[color,opacity] duration-300 ease-linear sm-socials-link"
+                >
+                  {{ social.label }}
+                </a>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { gsap } from 'gsap';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue';
+
+export interface StaggeredMenuItem {
+  label: string;
+  ariaLabel: string;
+  link: string;
+}
+export interface StaggeredMenuSocialItem {
+  label: string;
+  link: string;
+}
+export interface StaggeredMenuProps {
+  position?: 'left' | 'right';
+  colors?: string[];
+  items?: StaggeredMenuItem[];
+  socialItems?: StaggeredMenuSocialItem[];
+  displaySocials?: boolean;
+  displayItemNumbering?: boolean;
+  className?: string;
+  logoUrl?: string;
+  menuButtonColor?: string;
+  openMenuButtonColor?: string;
+  accentColor?: string;
+  changeMenuColorOnOpen?: boolean;
+  onMenuOpen?: () => void;
+  onMenuClose?: () => void;
+}
+
+const props = withDefaults(defineProps<StaggeredMenuProps>(), {
+  position: 'right',
+  colors: () => ['#9EF2B2', '#27FF64'],
+  items: () => [],
+  socialItems: () => [],
+  displaySocials: true,
+  displayItemNumbering: true,
+  logoUrl: '/src/assets/logos/vuebits-gh-white.svg',
+  menuButtonColor: '#fff',
+  openMenuButtonColor: '#fff',
+  changeMenuColorOnOpen: true,
+  accentColor: '#27FF64'
+});
+
+const open = ref(false);
+const openRef = ref(false);
+
+const panelRef = useTemplateRef('panelRef');
+const preLayersRef = useTemplateRef('preLayersRef');
+const preLayerElsRef = ref<HTMLElement[]>([]);
+
+const plusHRef = useTemplateRef('plusHRef');
+const plusVRef = useTemplateRef('plusVRef');
+const iconRef = useTemplateRef('iconRef');
+
+const textInnerRef = useTemplateRef('textInnerRef');
+const textWrapRef = useTemplateRef('textWrapRef');
+const textLines = ref<string[]>(['Menu', 'Close']);
+
+const openTlRef = ref<gsap.core.Timeline | null>(null);
+const closeTweenRef = ref<gsap.core.Tween | null>(null);
+const spinTweenRef = ref<gsap.core.Timeline | null>(null);
+const textCycleAnimRef = ref<gsap.core.Tween | null>(null);
+const colorTweenRef = ref<gsap.core.Tween | null>(null);
+
+const toggleBtnRef = useTemplateRef('toggleBtnRef');
+const busyRef = ref(false);
+
+const itemEntranceTweenRef = ref<gsap.core.Tween | null>(null);
+
+const processedColors = computed(() => {
+  const raw = props.colors && props.colors.length ? props.colors.slice(0, 4) : ['#20251F', '#353F37'];
+  const arr = [...raw];
+  if (arr.length >= 3) {
+    const mid = Math.floor(arr.length / 2);
+    arr.splice(mid, 1);
+  }
+  return arr;
+});
+
+let gsapContext: gsap.Context | null = null;
+
+const initializeGSAP = () => {
+  gsapContext = gsap.context(() => {
+    const panel = panelRef.value;
+    const preContainer = preLayersRef.value;
+    const plusH = plusHRef.value;
+    const plusV = plusVRef.value;
+    const icon = iconRef.value;
+    const textInner = textInnerRef.value;
+
+    if (!panel || !plusH || !plusV || !icon || !textInner) return;
+
+    let preLayers: HTMLElement[] = [];
+    if (preContainer) {
+      preLayers = Array.from(preContainer.querySelectorAll('.sm-prelayer')) as HTMLElement[];
+    }
+    preLayerElsRef.value = preLayers;
+
+    const offscreen = props.position === 'left' ? -100 : 100;
+    gsap.set([panel, ...preLayers], { xPercent: offscreen });
+
+    gsap.set(plusH, { transformOrigin: '50% 50%', rotate: 0 });
+    gsap.set(plusV, { transformOrigin: '50% 50%', rotate: 90 });
+    gsap.set(icon, { rotate: 0, transformOrigin: '50% 50%' });
+
+    gsap.set(textInner, { yPercent: 0 });
+
+    if (toggleBtnRef.value) {
+      gsap.set(toggleBtnRef.value, { color: props.menuButtonColor });
+    }
+  });
+};
+
+const buildOpenTimeline = (): gsap.core.Timeline | null => {
+  const panel = panelRef.value;
+  const layers = preLayerElsRef.value;
+  if (!panel) return null;
+
+  openTlRef.value?.kill();
+  if (closeTweenRef.value) {
+    closeTweenRef.value.kill();
+    closeTweenRef.value = null;
+  }
+  itemEntranceTweenRef.value?.kill();
+
+  const itemEls = Array.from(panel.querySelectorAll('.sm-panel-itemLabel')) as HTMLElement[];
+  const numberEls = Array.from(
+    panel.querySelectorAll('.sm-panel-list[data-numbering] .sm-panel-item')
+  ) as HTMLElement[];
+  const socialTitle = panel.querySelector('.sm-socials-title') as HTMLElement | null;
+  const socialLinks = Array.from(panel.querySelectorAll('.sm-socials-link')) as HTMLElement[];
+
+  const layerStates = layers.map((el: HTMLElement) => ({ el, start: Number(gsap.getProperty(el, 'xPercent')) }));
+  const panelStart = Number(gsap.getProperty(panel, 'xPercent'));
+
+  if (itemEls.length) gsap.set(itemEls, { yPercent: 140, rotate: 10 });
+  if (numberEls.length) gsap.set(numberEls, { ['--sm-num-opacity' as keyof Record<string, number>]: 0 });
+  if (socialTitle) gsap.set(socialTitle, { opacity: 0 });
+  if (socialLinks.length) gsap.set(socialLinks, { y: 25, opacity: 0 });
+
+  const tl = gsap.timeline({ paused: true });
+
+  layerStates.forEach((ls: { el: HTMLElement; start: number }, i: number) => {
+    tl.fromTo(ls.el, { xPercent: ls.start }, { xPercent: 0, duration: 0.5, ease: 'power4.out' }, i * 0.07);
+  });
+
+  const lastTime = layerStates.length ? (layerStates.length - 1) * 0.07 : 0;
+  const panelInsertTime = lastTime + (layerStates.length ? 0.08 : 0);
+  const panelDuration = 0.65;
+
+  tl.fromTo(
+    panel,
+    { xPercent: panelStart },
+    { xPercent: 0, duration: panelDuration, ease: 'power4.out' },
+    panelInsertTime
+  );
+
+  if (itemEls.length) {
+    const itemsStartRatio = 0.15;
+    const itemsStart = panelInsertTime + panelDuration * itemsStartRatio;
+
+    tl.to(
+      itemEls,
+      { yPercent: 0, rotate: 0, duration: 1, ease: 'power4.out', stagger: { each: 0.1, from: 'start' } },
+      itemsStart
+    );
+
+    if (numberEls.length) {
+      tl.to(
+        numberEls,
+        {
+          duration: 0.6,
+          ease: 'power2.out',
+          ['--sm-num-opacity' as keyof Record<string, number>]: 1,
+          stagger: { each: 0.08, from: 'start' }
+        },
+        itemsStart + 0.1
+      );
+    }
+  }
+
+  if (socialTitle || socialLinks.length) {
+    const socialsStart = panelInsertTime + panelDuration * 0.4;
+
+    if (socialTitle) tl.to(socialTitle, { opacity: 1, duration: 0.5, ease: 'power2.out' }, socialsStart);
+    if (socialLinks.length) {
+      tl.to(
+        socialLinks,
+        {
+          y: 0,
+          opacity: 1,
+          duration: 0.55,
+          ease: 'power3.out',
+          stagger: { each: 0.08, from: 'start' },
+          onComplete: () => {
+            gsap.set(socialLinks, { clearProps: 'opacity' });
+          }
+        },
+        socialsStart + 0.04
+      );
+    }
+  }
+
+  openTlRef.value = tl;
+  return tl;
+};
+
+const playOpen = () => {
+  if (busyRef.value) return;
+  busyRef.value = true;
+  const tl = buildOpenTimeline();
+  if (tl) {
+    tl.eventCallback('onComplete', () => {
+      busyRef.value = false;
+    });
+    tl.play(0);
+  } else {
+    busyRef.value = false;
+  }
+};
+
+const playClose = () => {
+  openTlRef.value?.kill();
+  openTlRef.value = null;
+  itemEntranceTweenRef.value?.kill();
+
+  const panel = panelRef.value;
+  const layers = preLayerElsRef.value;
+  if (!panel) return;
+
+  const all: HTMLElement[] = [...layers, panel];
+  closeTweenRef.value?.kill();
+
+  const offscreen = props.position === 'left' ? -100 : 100;
+
+  closeTweenRef.value = gsap.to(all, {
+    xPercent: offscreen,
+    duration: 0.32,
+    ease: 'power3.in',
+    overwrite: 'auto',
+    onComplete: () => {
+      const itemEls = Array.from(panel.querySelectorAll('.sm-panel-itemLabel')) as HTMLElement[];
+      if (itemEls.length) gsap.set(itemEls, { yPercent: 140, rotate: 10 });
+
+      const numberEls = Array.from(
+        panel.querySelectorAll('.sm-panel-list[data-numbering] .sm-panel-item')
+      ) as HTMLElement[];
+      if (numberEls.length) gsap.set(numberEls, { ['--sm-num-opacity' as keyof Record<string, number>]: 0 });
+
+      const socialTitle = panel.querySelector('.sm-socials-title') as HTMLElement | null;
+      const socialLinks = Array.from(panel.querySelectorAll('.sm-socials-link')) as HTMLElement[];
+      if (socialTitle) gsap.set(socialTitle, { opacity: 0 });
+      if (socialLinks.length) gsap.set(socialLinks, { y: 25, opacity: 0 });
+
+      busyRef.value = false;
+    }
+  });
+};
+
+const animateIcon = (opening: boolean) => {
+  const icon = iconRef.value;
+  const h = plusHRef.value;
+  const v = plusVRef.value;
+  if (!icon || !h || !v) return;
+
+  spinTweenRef.value?.kill();
+
+  if (opening) {
+    gsap.set(icon, { rotate: 0, transformOrigin: '50% 50%' });
+    spinTweenRef.value = gsap
+      .timeline({ defaults: { ease: 'power4.out' } })
+      .to(h, { rotate: 45, duration: 0.5 }, 0)
+      .to(v, { rotate: -45, duration: 0.5 }, 0);
+  } else {
+    spinTweenRef.value = gsap
+      .timeline({ defaults: { ease: 'power3.inOut' } })
+      .to(h, { rotate: 0, duration: 0.35 }, 0)
+      .to(v, { rotate: 90, duration: 0.35 }, 0)
+      .to(icon, { rotate: 0, duration: 0.001 }, 0);
+  }
+};
+
+const animateColor = (opening: boolean) => {
+  const btn = toggleBtnRef.value;
+  if (!btn) return;
+  colorTweenRef.value?.kill();
+  if (props.changeMenuColorOnOpen) {
+    const targetColor = opening ? props.openMenuButtonColor : props.menuButtonColor;
+    colorTweenRef.value = gsap.to(btn, { color: targetColor, delay: 0.18, duration: 0.3, ease: 'power2.out' });
+  } else {
+    gsap.set(btn, { color: props.menuButtonColor });
+  }
+};
+
+const animateText = (opening: boolean) => {
+  const inner = textInnerRef.value;
+  if (!inner) return;
+
+  textCycleAnimRef.value?.kill();
+
+  const valueLabel = opening ? 'Menu' : 'Close';
+  const targetLabel = opening ? 'Close' : 'Menu';
+  const cycles = 3;
+
+  const seq: string[] = [valueLabel];
+  let last = valueLabel;
+  for (let i = 0; i < cycles; i++) {
+    last = last === 'Menu' ? 'Close' : 'Menu';
+    seq.push(last);
+  }
+  if (last !== targetLabel) seq.push(targetLabel);
+  seq.push(targetLabel);
+
+  textLines.value = seq;
+  gsap.set(inner, { yPercent: 0 });
+
+  const lineCount = seq.length;
+  const finalShift = ((lineCount - 1) / lineCount) * 100;
+
+  textCycleAnimRef.value = gsap.to(inner, {
+    yPercent: -finalShift,
+    duration: 0.5 + lineCount * 0.07,
+    ease: 'power4.out'
+  });
+};
+
+const toggleMenu = () => {
+  const target = !openRef.value;
+  openRef.value = target;
+  open.value = target;
+
+  if (target) {
+    props.onMenuOpen?.();
+    playOpen();
+  } else {
+    props.onMenuClose?.();
+    playClose();
+  }
+
+  animateIcon(target);
+  animateColor(target);
+  animateText(target);
+};
+
+watch(
+  () => [props.changeMenuColorOnOpen, props.menuButtonColor, props.openMenuButtonColor],
+  () => {
+    if (toggleBtnRef.value) {
+      if (props.changeMenuColorOnOpen) {
+        const targetColor = openRef.value ? props.openMenuButtonColor : props.menuButtonColor;
+        gsap.set(toggleBtnRef.value, { color: targetColor });
+      } else {
+        gsap.set(toggleBtnRef.value, { color: props.menuButtonColor });
+      }
+    }
+  }
+);
+
+watch(
+  () => [props.menuButtonColor, props.position],
+  () => {
+    nextTick(() => {
+      if (gsapContext) {
+        gsapContext.revert();
+      }
+      initializeGSAP();
+    });
+  }
+);
+
+onMounted(() => {
+  nextTick(() => {
+    initializeGSAP();
+  });
+});
+
+onBeforeUnmount(() => {
+  openTlRef.value?.kill();
+  closeTweenRef.value?.kill();
+  spinTweenRef.value?.kill();
+  textCycleAnimRef.value?.kill();
+  colorTweenRef.value?.kill();
+  itemEntranceTweenRef.value?.kill();
+
+  if (gsapContext) {
+    gsapContext.revert();
+  }
+});
+</script>
+
+<style scoped>
+.sm-scope .staggered-menu-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  z-index: 40;
+}
+
+.sm-scope .staggered-menu-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2em;
+  background: transparent;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.sm-scope .staggered-menu-header > * {
+  pointer-events: auto;
+}
+
+.sm-scope .sm-logo {
+  display: flex;
+  align-items: center;
+  user-select: none;
+}
+
+.sm-scope .sm-logo-img {
+  display: block;
+  height: 32px;
+  width: auto;
+  object-fit: contain;
+}
+
+.sm-scope .sm-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #e9e9ef;
+  font-weight: 500;
+  line-height: 1;
+  overflow: visible;
+}
+
+.sm-scope .sm-toggle:focus-visible {
+  outline: 2px solid #ffffffaa;
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+.sm-scope .sm-line:last-of-type {
+  margin-top: 6px;
+}
+
+.sm-scope .sm-toggle-textWrap {
+  position: relative;
+  margin-right: 0.5em;
+  display: inline-block;
+  height: 1em;
+  overflow: hidden;
+  white-space: nowrap;
+  width: var(--sm-toggle-width, auto);
+  min-width: var(--sm-toggle-width, auto);
+}
+
+.sm-scope .sm-toggle-textInner {
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+}
+
+.sm-scope .sm-toggle-line {
+  display: block;
+  height: 1em;
+  line-height: 1;
+}
+
+.sm-scope .sm-icon {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  will-change: transform;
+}
+
+.sm-scope .sm-panel-itemWrap {
+  position: relative;
+  overflow: hidden;
+  line-height: 1;
+}
+
+.sm-scope .sm-icon-line {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 100%;
+  height: 2px;
+  background: currentColor;
+  border-radius: 2px;
+  transform: translate(-50%, -50%);
+  will-change: transform;
+}
+
+.sm-scope .sm-line {
+  display: none !important;
+}
+
+.sm-scope .staggered-menu-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: clamp(260px, 38vw, 420px);
+  height: 100%;
+  background: white;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  display: flex;
+  flex-direction: column;
+  padding: 6em 2em 2em 2em;
+  overflow-y: auto;
+  z-index: 10;
+}
+
+.sm-scope [data-position='left'] .staggered-menu-panel {
+  right: auto;
+  left: 0;
+}
+
+.sm-scope .sm-prelayers {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: clamp(260px, 38vw, 420px);
+  pointer-events: none;
+  z-index: 5;
+}
+
+.sm-scope [data-position='left'] .sm-prelayers {
+  right: auto;
+  left: 0;
+}
+
+.sm-scope .sm-prelayer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 100%;
+  width: 100%;
+  transform: translateX(0);
+}
+
+.sm-scope .sm-panel-inner {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.sm-scope .sm-socials {
+  margin-top: auto;
+  padding-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.sm-scope .sm-socials-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 500;
+  color: var(--sm-accent, #ff0000);
+}
+
+.sm-scope .sm-socials-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.sm-scope .sm-socials-list .sm-socials-link {
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.sm-scope .sm-socials-list:hover .sm-socials-link:not(:hover) {
+  opacity: 0.35;
+}
+
+.sm-scope .sm-socials-list:focus-within .sm-socials-link:not(:focus-visible) {
+  opacity: 0.35;
+}
+
+.sm-scope .sm-socials-list .sm-socials-link:hover,
+.sm-scope .sm-socials-list .sm-socials-link:focus-visible {
+  opacity: 1;
+}
+
+.sm-scope .sm-socials-link:focus-visible {
+  outline: 2px solid var(--sm-accent, #ff0000);
+  outline-offset: 3px;
+}
+
+.sm-scope .sm-socials-link {
+  font-size: 1.2rem;
+  font-weight: 500;
+  color: #111;
+  text-decoration: none;
+  position: relative;
+  padding: 2px 0;
+  display: inline-block;
+  transition:
+    color 0.3s ease,
+    opacity 0.3s ease;
+}
+
+.sm-scope .sm-socials-link:hover {
+  color: var(--sm-accent, #ff0000);
+}
+
+.sm-scope .sm-panel-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #fff;
+  text-transform: uppercase;
+}
+
+.sm-scope .sm-panel-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.sm-scope .sm-panel-item {
+  position: relative;
+  color: #000;
+  font-weight: 600;
+  font-size: 4rem;
+  cursor: pointer;
+  line-height: 1;
+  letter-spacing: -2px;
+  text-transform: uppercase;
+  transition:
+    background 0.25s,
+    color 0.25s;
+  display: inline-block;
+  text-decoration: none;
+  padding-right: 1.4em;
+}
+
+.sm-scope .sm-panel-itemLabel {
+  display: inline-block;
+  will-change: transform;
+  transform-origin: 50% 100%;
+}
+
+.sm-scope .sm-panel-item:hover {
+  color: var(--sm-accent, #ff0000);
+}
+
+.sm-scope .sm-panel-list[data-numbering] {
+  counter-reset: smItem;
+}
+
+.sm-scope .sm-panel-list[data-numbering] .sm-panel-item::after {
+  counter-increment: smItem;
+  content: counter(smItem, decimal-leading-zero);
+  position: absolute;
+  top: 0.1em;
+  right: 3.2em;
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--sm-accent, #ff0000);
+  letter-spacing: 0;
+  pointer-events: none;
+  user-select: none;
+  opacity: var(--sm-num-opacity, 0);
+}
+
+@media (max-width: 1024px) {
+  .sm-scope .staggered-menu-panel {
+    width: 100%;
+    left: 0;
+    right: 0;
+  }
+  .sm-scope .staggered-menu-wrapper[data-open] .sm-logo-img {
+    filter: invert(100%);
+  }
+}
+
+@media (max-width: 640px) {
+  .sm-scope .staggered-menu-panel {
+    width: 100%;
+    left: 0;
+    right: 0;
+  }
+  .sm-scope .staggered-menu-wrapper[data-open] .sm-logo-img {
+    filter: invert(100%);
+  }
+}
+</style>
+
+
