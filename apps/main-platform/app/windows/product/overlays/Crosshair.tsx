@@ -10,17 +10,6 @@ interface CrosshairProps {
 
 const lerp = (a: number, b: number, n: number): number => (1 - n) * a + n * b;
 
-const getMousePos = (e: MouseEvent, container: HTMLElement | null) => {
-  if (container) {
-    const bounds = container.getBoundingClientRect();
-    return {
-      x: e.clientX - bounds.left,
-      y: e.clientY - bounds.top,
-    };
-  }
-  return { x: e.clientX, y: e.clientY };
-};
-
 export function Crosshair({ color = "white", containerRef = null }: CrosshairProps) {
   const cursorRef = useRef<HTMLDivElement>(null);
   const lineHorizontalRef = useRef<HTMLDivElement>(null);
@@ -28,66 +17,98 @@ export function Crosshair({ color = "white", containerRef = null }: CrosshairPro
   const filterXRef = useRef<SVGFETurbulenceElement>(null);
   const filterYRef = useRef<SVGFETurbulenceElement>(null);
 
+  /** 原始鼠标坐标，mousemove 只写入，不触发布局读取 */
+  const rawMouseRef = useRef({ x: 0, y: 0 });
+  /** 计算后的相对坐标，在 rAF 中更新 */
   const mouseRef = useRef({ x: 0, y: 0 });
   const animationIdRef = useRef<number | null>(null);
+  /** 边界内/外状态，避免重复 gsap.to */
+  const wasInsideRef = useRef<boolean | null>(null);
 
   useEffect(() => {
     const container = containerRef;
-    // Cast to EventTarget so TypeScript accepts both HTMLElement and Window
     const target: EventTarget = container ?? window;
     const lineHorizontal = lineHorizontalRef.current;
     const lineVertical = lineVerticalRef.current;
 
+    // mousemove: 仅存储原始坐标，不调用 getBoundingClientRect
     const handleMouseMove = (ev: Event) => {
-      const mouseEvent = ev as MouseEvent;
-      mouseRef.current = getMousePos(mouseEvent, container);
-
-      if (container) {
-        const bounds = container.getBoundingClientRect();
-        if (
-          mouseEvent.clientX < bounds.left ||
-          mouseEvent.clientX > bounds.right ||
-          mouseEvent.clientY < bounds.top ||
-          mouseEvent.clientY > bounds.bottom
-        ) {
-          gsap.to([lineHorizontal, lineVertical], { opacity: 0 });
-        } else {
-          gsap.to([lineHorizontal, lineVertical], { opacity: 1 });
-        }
-      }
+      const e = ev as MouseEvent;
+      rawMouseRef.current = { x: e.clientX, y: e.clientY };
     };
 
     const renderedStyles: Record<string, { previous: number; current: number; amt: number }> = {
-      tx: { previous: 0, current: 0, amt: 0.15 },
-      ty: { previous: 0, current: 0, amt: 0.15 },
+      tx: { previous: 0, current: 0, amt: 0.4 },
+      ty: { previous: 0, current: 0, amt: 0.4 },
     };
 
     gsap.set([lineHorizontal, lineVertical], { opacity: 0 });
 
     const onMouseMove = () => {
-      const mouse = mouseRef.current;
-      renderedStyles.tx.previous = renderedStyles.tx.current = mouse.x;
-      renderedStyles.ty.previous = renderedStyles.ty.current = mouse.y;
-
-      gsap.to([lineHorizontal, lineVertical], {
-        duration: 0.9,
-        ease: "Power3.easeOut",
-        opacity: 1,
-      });
+      const raw = rawMouseRef.current;
+      let x = raw.x;
+      let y = raw.y;
+      if (container) {
+        const bounds = container.getBoundingClientRect();
+        x = raw.x - bounds.left;
+        y = raw.y - bounds.top;
+        const isInside =
+          raw.x >= bounds.left &&
+          raw.x <= bounds.right &&
+          raw.y >= bounds.top &&
+          raw.y <= bounds.bottom;
+        wasInsideRef.current = isInside;
+        const opacity = isInside ? 1 : 0;
+        if (lineHorizontal) lineHorizontal.style.opacity = String(opacity);
+        if (lineVertical) lineVertical.style.opacity = String(opacity);
+      }
+      renderedStyles.tx.previous = renderedStyles.tx.current = x;
+      renderedStyles.ty.previous = renderedStyles.ty.current = y;
+      mouseRef.current = { x, y };
 
       if (animationIdRef.current === null) {
         const render = () => {
-          renderedStyles.tx.current = mouseRef.current.x;
-          renderedStyles.ty.current = mouseRef.current.y;
+          const raw = rawMouseRef.current;
+          let x = raw.x;
+          let y = raw.y;
+
+          // 每帧只读一次布局，在 rAF 中批量处理
+          if (container) {
+            const bounds = container.getBoundingClientRect();
+            x = raw.x - bounds.left;
+            y = raw.y - bounds.top;
+
+            // 边界检测：仅状态变化时更新 opacity，避免重复 gsap.to
+            const isInside =
+              raw.x >= bounds.left &&
+              raw.x <= bounds.right &&
+              raw.y >= bounds.top &&
+              raw.y <= bounds.bottom;
+            if (wasInsideRef.current !== isInside) {
+              wasInsideRef.current = isInside;
+              const opacity = isInside ? 1 : 0;
+              if (lineHorizontalRef.current) lineHorizontalRef.current.style.opacity = String(opacity);
+              if (lineVerticalRef.current) lineVerticalRef.current.style.opacity = String(opacity);
+            }
+          }
+
+          mouseRef.current = { x, y };
+          renderedStyles.tx.current = x;
+          renderedStyles.ty.current = y;
 
           for (const key in renderedStyles) {
             const r = renderedStyles[key];
             r.previous = lerp(r.previous, r.current, r.amt);
           }
 
-          if (lineHorizontalRef.current && lineVerticalRef.current) {
-            gsap.set(lineVerticalRef.current, { x: renderedStyles.tx.previous });
-            gsap.set(lineHorizontalRef.current, { y: renderedStyles.ty.previous });
+          // 原生 transform 替代 gsap.set，GPU 加速
+          const lineH = lineHorizontalRef.current;
+          const lineV = lineVerticalRef.current;
+          if (lineV && lineH) {
+            const tx = renderedStyles.tx.previous;
+            const ty = renderedStyles.ty.previous;
+            lineV.style.transform = `translate3d(${0.5 + tx}px, 0, 0)`;
+            lineH.style.transform = `translate3d(0, ${0.5 + ty}px, 0)`;
           }
 
           animationIdRef.current = requestAnimationFrame(render);
@@ -132,25 +153,7 @@ export function Crosshair({ color = "white", containerRef = null }: CrosshairPro
       });
 
     const enter = () => tl.restart();
-    // Removed .kill() — killing the timeline prevents subsequent restart() calls from working
     const leave = () => tl.progress(1);
-
-    const render = () => {
-      renderedStyles.tx.current = mouseRef.current.x;
-      renderedStyles.ty.current = mouseRef.current.y;
-
-      for (const key in renderedStyles) {
-        const r = renderedStyles[key];
-        r.previous = lerp(r.previous, r.current, r.amt);
-      }
-
-      if (lineHorizontalRef.current && lineVerticalRef.current) {
-        gsap.set(lineVerticalRef.current, { x: renderedStyles.tx.previous });
-        gsap.set(lineHorizontalRef.current, { y: renderedStyles.ty.previous });
-      }
-
-      animationIdRef.current = requestAnimationFrame(render);
-    };
 
     const links = container
       ? container.querySelectorAll("a")
@@ -227,7 +230,6 @@ export function Crosshair({ color = "white", containerRef = null }: CrosshairPro
           height: "1px",
           background: color,
           pointerEvents: "none",
-          transform: "translateY(50%)",
           opacity: 0,
         }}
       />
@@ -239,7 +241,6 @@ export function Crosshair({ color = "white", containerRef = null }: CrosshairPro
           width: "1px",
           background: color,
           pointerEvents: "none",
-          transform: "translateX(50%)",
           opacity: 0,
         }}
       />
