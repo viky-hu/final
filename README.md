@@ -485,3 +485,40 @@ app/
 - `globals.css`：Panel2 白底 + 分层样式 + canvas 约束样式。
 
 ---
+
+### 八、Panel 3 十字准星 Crosshair
+
+#### 1) 技术栈与实现方式
+
+- **框架层**：`Next.js + React + TypeScript`，组件为 `"use client"` 客户端组件。
+- **动效层**：`GSAP` 负责准星跟随的 lerp 插值、进入/离开容器的透明度、以及 `<a>` hover 时的「雪花化」SVG filter 动画。
+- **交互层**：十字准星通过 `requestAnimationFrame` 持续读取鼠标位置并更新横竖线位置；`<a>` 元素上绑定 `mouseenter` / `mouseleave` 触发雪花化 timeline。
+- **样式层**：通过 `globals.css` 的 `.panel-blue-extend-interact` 与 `.p3-aim-shoot-wrap` 实现 L2～L3 区间的精确定位，字号使用 `calc(141 / 1080 * 100dvh)` 使文字上下边界与 L2、L3 重合。
+
+#### 2) 实现效果（瞄准 → 射击联动）
+
+该模块与 Panel 3 中央的交互文本联动，形成「瞄准 → 射击」的视觉反馈：
+
+| 状态 | 表现 |
+|------|------|
+| **十字准星未靠近文本** | 显示灰蓝色大号文本「点此开启链接」，下方有提示「(悬停文字)」 |
+| **十字准星搭在文本上** | 文本变为鲜亮的荧光绿色「链接启动」，准星叠加在文字中心，形成瞄准就绪感 |
+
+#### 3) 文本安放与字号
+
+- **垂直区域**：文本放置在 Panel 3 的 **P3_L2** 与 **P3_L3** 之间（`coords.ts` 中 `P3_L2 = 409.5`，`P3_L3 = 550.5`，间距 141px）。
+- **字号要求**：`font-size: calc(141 / 1080 * 100dvh)` 配合 `line-height: 1`，使文字上下边界恰好与 L2、L3 重合。
+- **字体**：ZCOOL QingKe HuangYou（`@fontsource/zcool-qingke-huangyou`），与 Panel 2 一致。
+- **水平居中**：文本在 L2～L3 区域内水平居中显示。
+
+#### 4) 「链接启动」按钮行为
+
+「链接启动」在交互上等同于入口按钮：用户将十字准星对准文本并点击后，跳转进入第三窗口（主功能界面）。文本包裹为 `<a>` 元素，既可复用 Crosshair 的雪花化效果，又便于绑定点击回调。
+
+#### 5) 代码落点
+
+- `windows/product/overlays/Crosshair.tsx`：十字准星组件（GSAP + SVG feTurbulence 雪花化）。
+- `windows/product/panels/PanelBlueExtend.tsx`：挂载 Crosshair 与 Aim/Shoot 文案，透传 `onShoot` 回调。
+- `globals.css`：`.panel-blue-extend-interact`、`.p3-aim-shoot-wrap`、`.p3-aim-shoot-text` 等样式。
+
+---

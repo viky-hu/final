@@ -16,8 +16,9 @@
 import { useState } from "react";
 import { LoginIntroWindow } from "./windows/login/LoginIntroWindow";
 import { ProductIntroWindow } from "./windows/product/ProductIntroWindow";
+import { MainWindow } from "./windows/main/MainWindow";
 
-type ActiveWindow = "login" | "product";
+type ActiveWindow = "login" | "product" | "main";
 
 export function LoginWindowDemo() {
   const [activeWindow, setActiveWindow] = useState<ActiveWindow>("login");
@@ -29,9 +30,14 @@ export function LoginWindowDemo() {
     // Force re-mount so the intro animation replays from scratch.
     setLoginRenderKey((v) => v + 1);
   };
+  const handleShoot = () => setActiveWindow("main");
+
+  if (activeWindow === "main") {
+    return <MainWindow onBack={handleBackToLogin} />;
+  }
 
   if (activeWindow === "product") {
-    return <ProductIntroWindow onBack={handleBackToLogin} />;
+    return <ProductIntroWindow onBack={handleBackToLogin} onShoot={handleShoot} />;
   }
 
   return <LoginIntroWindow key={loginRenderKey} onSignIn={handleOpenProduct} />;

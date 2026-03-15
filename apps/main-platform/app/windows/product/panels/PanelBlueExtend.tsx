@@ -21,6 +21,7 @@ import {
 } from "../../shared/coords";
 import { CHAT_LINE_EASE } from "../../shared/animation";
 import { ThreadsEffect, THREADS_GRADIENT } from "../ThreadsEffect";
+import { Crosshair } from "../overlays/Crosshair";
 
 interface PanelBlueExtendProps {
   isActive?: boolean;
@@ -29,6 +30,8 @@ interface PanelBlueExtendProps {
    * 此时 ThreadsEffect 降帧+振幅衰减，SVG 线条做淡出，过渡自然不突兀。
    */
   shouldSoftStop?: boolean;
+  /** Shoot!!! 被点击后的回调，用于切入第三窗口 */
+  onShoot?: () => void;
 }
 
 const FORCE_ACTIVE_MS = 500;
@@ -64,12 +67,15 @@ const lerpGradient = (
 export function PanelBlueExtend({
   isActive = false,
   shouldSoftStop = false,
+  onShoot,
 }: PanelBlueExtendProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const activeLockTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const progressRef = useRef(isActive ? 1 : 0);
   const [forceActive, setForceActive] = useState(false);
   const [progress, setProgress] = useState(progressRef.current);
+  const [isAimed, setIsAimed] = useState(false);
+  const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (activeLockTimerRef.current) {
@@ -248,6 +254,24 @@ export function PanelBlueExtend({
         <line id="p3-l3" className="p3-grid-line" x1={CHAT_X_MID} y1={P3_L3 + 0.5} x2={CHAT_X_MID} y2={P3_L3 + 0.5} />
         <line id="p3-l4" className="p3-grid-line" x1={CHAT_X_MID} y1={P3_L4 + 0.5} x2={CHAT_X_MID} y2={P3_L4 + 0.5} />
       </svg>
+      {/* z-index 2：Aim/Shoot 文案 + Crosshair 交互层 */}
+      <div ref={setContainerEl} className="panel-blue-extend-interact">
+        <div className="p3-aim-shoot-wrap">
+          <a
+            className={`p3-aim-shoot-text${isAimed ? " is-aimed" : ""}`}
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              onShoot?.();
+            }}
+            onMouseEnter={() => setIsAimed(true)}
+            onMouseLeave={() => setIsAimed(false)}
+          >
+            {isAimed ? "链接启动" : "点此开启链接"}
+          </a>
+        </div>
+        <Crosshair containerRef={containerEl} color="#ffffff" />
+      </div>
     </div>
   );
 }

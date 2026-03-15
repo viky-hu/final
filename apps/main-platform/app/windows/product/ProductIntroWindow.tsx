@@ -17,9 +17,10 @@ const SOFT_STOP_MS = Math.round(TRANSITION_DURATION * 1000);
 
 interface ProductIntroWindowProps {
   onBack: () => void;
+  onShoot?: () => void;
 }
 
-export function ProductIntroWindow({ onBack }: ProductIntroWindowProps) {
+export function ProductIntroWindow({ onBack, onShoot }: ProductIntroWindowProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const panelIndexRef = useRef(0);
   const isTransitioningRef = useRef(false);
@@ -104,6 +105,7 @@ export function ProductIntroWindow({ onBack }: ProductIntroWindowProps) {
           <PanelBlueExtend
             isActive={activePanel === 2}
             shouldSoftStop={fadingOutPanel === 2}
+            onShoot={onShoot}
           />
         </div>
       </div>
