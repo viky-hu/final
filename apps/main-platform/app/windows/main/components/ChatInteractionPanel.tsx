@@ -44,6 +44,8 @@ export function ChatInteractionPanel({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isSendingRef = useRef(false);
   const pendingFlipRef = useRef<ReturnType<typeof Flip.getState> | null>(null);
+  const pendingEntryIdsRef = useRef<Set<string>>(new Set());
+  const bubbleTweensRef = useRef<Map<string, gsap.core.Tween>>(new Map());
 
   // 三段分区 refs — 用于分段延迟入场动画
   const modeRowRef = useRef<HTMLDivElement>(null);
@@ -61,40 +63,58 @@ export function ChatInteractionPanel({
     }
   }, []);
 
-  // Animate a new bubble with elastic spring effect
-  const animateBubble = useCallback((el: HTMLElement) => {
-    gsap.fromTo(
+  // Single entry animation for new bubbles — no MutationObserver
+  const animateBubble = useCallback((el: HTMLElement, msgId: string) => {
+    bubbleTweensRef.current.get(msgId)?.kill();
+    const tween = gsap.fromTo(
       el,
-      { opacity: 0, scale: 0.5, y: 40, transformOrigin: "bottom center" },
+      {
+        opacity: 0,
+        scale: 0.85,
+        y: 24,
+        transformOrigin: "bottom center",
+        force3D: true,
+      },
       {
         opacity: 1,
         scale: 1,
         y: 0,
-        duration: 0.9,
-        ease: "elastic.out(1, 0.4)",
-        clearProps: "all",
+        duration: 0.5,
+        ease: "power3.out",
+        clearProps: "transform,opacity",
+        onKill: () => {
+          bubbleTweensRef.current.delete(msgId);
+        },
+        onComplete: () => {
+          bubbleTweensRef.current.delete(msgId);
+        },
       }
     );
+    bubbleTweensRef.current.set(msgId, tween);
   }, []);
 
-  // Smooth-scroll list to bottom
+  // Smooth-scroll list to bottom, deferred to avoid layout thrashing
   const scrollToBottom = useCallback(() => {
     const list = listRef.current;
     if (!list) return;
-    gsap.to(list, {
-      scrollTop: list.scrollHeight,
-      duration: 0.8,
-      ease: "power3.out",
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        gsap.to(list, {
+          scrollTop: list.scrollHeight,
+          duration: 0.6,
+          ease: "power3.out",
+        });
+      });
     });
   }, []);
 
-  // Apply pending FLIP after every messages-state change
+  // Apply pending FLIP (existing bubbles only) — runs before entry animation
   useLayoutEffect(() => {
     if (pendingFlipRef.current) {
       Flip.from(pendingFlipRef.current, {
-        duration: 0.38,
+        duration: 0.35,
         ease: "power3.out",
-        stagger: 0.012,
+        stagger: 0.01,
         onComplete: () => {
           pendingFlipRef.current = null;
         },
@@ -103,28 +123,31 @@ export function ChatInteractionPanel({
     }
   }, [messages]);
 
-  // MutationObserver: elastic entry on new bubbles
-  useEffect(() => {
+  // Run entry animation for new bubbles (single trigger, no MutationObserver)
+  useLayoutEffect(() => {
     const list = listRef.current;
-    if (!list) return;
+    if (!list || pendingEntryIdsRef.current.size === 0) return;
 
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        for (const node of mutation.addedNodes) {
-          if (
-            node instanceof HTMLElement &&
-            node.classList.contains("chat-bubble-wrapper")
-          ) {
-            animateBubble(node);
-            scrollToBottom();
-          }
+    const ids = pendingEntryIdsRef.current;
+    list
+      .querySelectorAll<HTMLElement>(".chat-bubble-wrapper[data-msg-id]")
+      .forEach((el) => {
+        const id = el.getAttribute("data-msg-id");
+        if (id && ids.has(id)) {
+          animateBubble(el, id);
         }
-      }
-    });
+      });
+    pendingEntryIdsRef.current.clear();
+    scrollToBottom();
+  }, [messages, animateBubble, scrollToBottom]);
 
-    observer.observe(list, { childList: true });
-    return () => observer.disconnect();
-  }, [animateBubble, scrollToBottom]);
+  // Kill orphaned tweens on unmount
+  useEffect(() => {
+    return () => {
+      bubbleTweensRef.current.forEach((t) => t.kill());
+      bubbleTweensRef.current.clear();
+    };
+  }, []);
 
   // Synchronize panel horizontal position with menu state
   useEffect(() => {
@@ -236,6 +259,7 @@ export function ChatInteractionPanel({
 
     // Step 1: user bubble
     captureFlip();
+    pendingEntryIdsRef.current.add(userId);
     setMessages((prev) => [
       ...prev,
       { id: userId, role: "user", content: text },
@@ -244,6 +268,7 @@ export function ChatInteractionPanel({
     // Step 2: typing indicator
     const typingTimer = setTimeout(() => {
       captureFlip();
+      pendingEntryIdsRef.current.add(typingId);
       setMessages((prev) => [
         ...prev,
         { id: typingId, role: "typing", content: "" },
@@ -252,6 +277,7 @@ export function ChatInteractionPanel({
       // Step 3: replace typing with bot message
       const botTimer = setTimeout(() => {
         captureFlip();
+        pendingEntryIdsRef.current.add(botId);
         setMessages((prev) =>
           prev
             .filter((m) => m.id !== typingId)
@@ -324,6 +350,7 @@ export function ChatInteractionPanel({
               {messages.map((msg) => (
                 <div
                   key={msg.id}
+                  data-msg-id={msg.id}
                   className={`chat-bubble-wrapper chat-bubble-wrapper--${msg.role}`}
                 >
                   {msg.role === "typing" ? (

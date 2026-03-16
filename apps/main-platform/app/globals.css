@@ -1173,13 +1173,13 @@ body {
 }
 
 .chat-mode-item[data-state="on"] {
-  background: #e4ff30;
+  background: #27FF64;
   color: #1e1919;
-  box-shadow: 0 0 14px rgba(228, 255, 48, 0.45);
+  box-shadow: 0 0 14px rgba(39, 255, 100, 0.45);
 }
 
 .chat-mode-item:focus-visible {
-  outline: 2px solid rgba(228, 255, 48, 0.55);
+  outline: 2px solid rgba(39, 255, 100, 0.55);
   outline-offset: 2px;
 }
 
@@ -1296,16 +1296,16 @@ body {
   border-radius: 20px 2px 20px 20px;
 }
 
-/* Bot 气泡：赛博荧光质感 */
+/* Bot 气泡：赛博荧光质感（与第三窗口四线荧光绿一致 #27FF64） */
 .chat-bubble--bot {
-  background: rgba(228, 255, 48, 0.05);
-  border: 1px solid rgba(228, 255, 48, 0.4);
+  background: rgba(39, 255, 100, 0.05);
+  border: 1px solid rgba(39, 255, 100, 0.4);
   box-shadow:
-    0 0 20px rgba(228, 255, 48, 0.15),
-    inset 0 0 10px rgba(228, 255, 48, 0.1);
+    0 0 20px rgba(39, 255, 100, 0.15),
+    inset 0 0 10px rgba(39, 255, 100, 0.1);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  color: #e4ff30;
+  color: #27FF64;
   border-radius: 2px 20px 20px 20px;
 }
 
@@ -1323,7 +1323,7 @@ body {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: rgba(228, 255, 48, 0.7);
+  background: rgba(39, 255, 100, 0.7);
   animation: chatTypingBounce 1.2s ease-in-out infinite;
   flex-shrink: 0;
 }
@@ -1372,9 +1372,9 @@ body {
 }
 
 .chat-input-wrap:focus-within {
-  border-color: rgba(228, 255, 48, 0.42);
+  border-color: rgba(39, 255, 100, 0.42);
   box-shadow:
-    0 0 0 1px rgba(228, 255, 48, 0.16),
+    0 0 0 1px rgba(39, 255, 100, 0.16),
     0 4px 24px rgba(0, 0, 0, 0.22);
 }
 
@@ -1408,14 +1408,14 @@ body {
   cursor: not-allowed;
 }
 
-/* 发送按钮：高端荧光绿胶囊 */
+/* 发送按钮：高端荧光绿胶囊（与第三窗口四线一致 #27FF64） */
 .chat-send-btn {
   flex-shrink: 0;
   width: 2.55rem;
   height: 2.55rem;
   border-radius: 50%;
   border: none;
-  background: #e4ff30;
+  background: #27FF64;
   color: #1e1919;
   cursor: pointer;
   display: inline-flex;
@@ -1427,7 +1427,7 @@ body {
   transition:
     transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1),
     box-shadow 0.18s;
-  box-shadow: 0 2px 14px rgba(228, 255, 48, 0.38);
+  box-shadow: 0 2px 14px rgba(39, 255, 100, 0.38);
 }
 
 .chat-send-btn::after {
@@ -1445,17 +1445,17 @@ body {
 
 .chat-send-btn:hover:not(:disabled) {
   transform: translateY(-2px) scale(1.07);
-  box-shadow: 0 6px 22px rgba(228, 255, 48, 0.6);
+  box-shadow: 0 6px 22px rgba(39, 255, 100, 0.6);
 }
 
 .chat-send-btn:active:not(:disabled) {
   transform: translateY(0) scale(0.95);
-  box-shadow: 0 2px 8px rgba(228, 255, 48, 0.28);
+  box-shadow: 0 2px 8px rgba(39, 255, 100, 0.28);
   transition-duration: 0.08s;
 }
 
 .chat-send-btn:disabled {
-  background: rgba(228, 255, 48, 0.22);
+  background: rgba(39, 255, 100, 0.22);
   color: rgba(30, 25, 25, 0.45);
   cursor: not-allowed;
   box-shadow: none;
