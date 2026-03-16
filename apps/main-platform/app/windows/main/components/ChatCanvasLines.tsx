@@ -100,29 +100,30 @@ export function ChatCanvasLines({ menuOpen = false, onComplete }: ChatCanvasLine
       gsap.set(fillRect, { fillOpacity: 0 });
     }
 
-    // 阶段1：画线 (0.8s)，stagger 0.15s × 4 = total ≈ 0.8s
+    // 阶段1：画线（与第一窗口 LoginIntroWindow 一致：duration 1.08，stagger 0.08，慢快慢 ease）
     const tl = gsap.timeline();
 
     tl.to(lines, {
       strokeDashoffset: 0,
-      duration: 0.2,
-      stagger: 0.15,
+      duration: 1.08,
+      stagger: 0.08,
       ease: LINE_DRAW_EASE,
     }, 0);
 
-    // 阶段2：变色 + 扩张 + 填充 (0.5s)，在画线结束后立即开始
+    // 阶段2：变色 + 扩张 + 填充，在四条线绘制完成后立即开始（0.24 + 1.08 = 1.32）
+    const lineDrawEnd = 0.24 + 1.08;
     tl.to(lines, {
       stroke: MAIN_CANVAS_LINE_ACTIVE,
       duration: 0.5,
       ease: "power2.out",
-    }, 0.8);
+    }, lineDrawEnd);
 
     if (fillRect) {
       tl.to(fillRect, {
         fillOpacity: 1,
         duration: 0.18,
         ease: "power2.out",
-      }, 0.8);
+      }, lineDrawEnd);
     }
 
     tl.to(coords, {
@@ -154,7 +155,7 @@ export function ChatCanvasLines({ menuOpen = false, onComplete }: ChatCanvasLine
         }
         onCompleteRef.current?.();
       },
-    }, 0.8);
+    }, lineDrawEnd);
 
     return () => {
       tl.kill();
