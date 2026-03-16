@@ -44,7 +44,12 @@ export function ChatInteractionPanel({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isSendingRef = useRef(false);
   const pendingFlipRef = useRef<ReturnType<typeof Flip.getState> | null>(null);
-  const contentRef = useRef<HTMLDivElement>(null);
+
+  // 三段分区 refs — 用于分段延迟入场动画
+  const modeRowRef = useRef<HTMLDivElement>(null);
+  const msgMaskRef = useRef<HTMLDivElement>(null);
+  const inputAreaRef = useRef<HTMLDivElement>(null);
+  const revealTlRef = useRef<gsap.core.Timeline | null>(null);
 
   // Capture FLIP state from current list children (before a React update)
   const captureFlip = useCallback(() => {
@@ -133,26 +138,86 @@ export function ChatInteractionPanel({
     });
   }, [menuOpen]);
 
-  // Initial state: hide content immediately on mount to prevent flash
+  // 挂载时立即隐藏三个分区，防止画布动画期间闪现
   useLayoutEffect(() => {
-    const content = contentRef.current;
-    if (!content) return;
-    gsap.set(content, { opacity: 0, visibility: "hidden" });
+    const targets = [
+      modeRowRef.current,
+      msgMaskRef.current,
+      inputAreaRef.current,
+    ].filter((el): el is HTMLDivElement => el !== null);
+    if (targets.length === 0) return;
+    gsap.set(targets, { opacity: 0, y: 24, visibility: "hidden" });
   }, []);
 
-  // Canvas ready: fade in content (mode toggle, messages area, input area)
+  // 画布完成后：三段分区依次浮现，各区独立缓动
   useEffect(() => {
-    const content = contentRef.current;
-    if (!content || !canvasReady) return;
+    if (!canvasReady) return;
 
-    // Make visible and fade in
-    gsap.set(content, { visibility: "visible" });
-    gsap.to(content, {
-      opacity: 1,
-      y: 0,
-      duration: 0.45,
-      ease: "power2.out",
-    });
+    revealTlRef.current?.kill();
+    const tl = gsap.timeline();
+    revealTlRef.current = tl;
+
+    // 每区入场配置：at = 时间轴插入时间点（秒）
+    const sections: Array<{
+      el: HTMLDivElement | null;
+      at: number;
+      fromY: number;
+      fromBlur: number;
+      duration: number;
+      ease: string;
+    }> = [
+      {
+        // 段1：模式切换 — 轻盈上浮 + 去模糊
+        el: modeRowRef.current,
+        at: 0.12,
+        fromY: 16,
+        fromBlur: 5,
+        duration: 0.50,
+        ease: "power3.out",
+      },
+      {
+        // 段2：消息流 — 稍重下沉感，略晚于段1
+        el: msgMaskRef.current,
+        at: 0.30,
+        fromY: 28,
+        fromBlur: 3,
+        duration: 0.62,
+        ease: "power3.out",
+      },
+      {
+        // 段3：输入区 — 最晚，带轻微 overshoot 强调落点
+        el: inputAreaRef.current,
+        at: 0.50,
+        fromY: 38,
+        fromBlur: 8,
+        duration: 0.68,
+        ease: "back.out(1.4)",
+      },
+    ];
+
+    for (const { el, at, fromY, fromBlur, duration, ease } of sections) {
+      if (!el) continue;
+      gsap.set(el, { visibility: "visible" });
+      tl.fromTo(
+        el,
+        { opacity: 0, y: fromY, filter: `blur(${fromBlur}px)` },
+        {
+          opacity: 1,
+          y: 0,
+          filter: "blur(0px)",
+          duration,
+          ease,
+          // 动画结束后清除 filter 属性，避免持续合成开销
+          clearProps: "filter",
+        },
+        at,
+      );
+    }
+
+    return () => {
+      tl.kill();
+      revealTlRef.current = null;
+    };
   }, [canvasReady]);
 
   // Send message flow
@@ -220,9 +285,9 @@ export function ChatInteractionPanel({
   return (
     <div className="chat-interaction-layer" data-menu-open={menuOpen}>
       <div ref={panelRef} className="chat-interaction-panel">
-        <div ref={contentRef} className="chat-content-wrap">
+        <div className="chat-content-wrap">
           {/* ── Mode Toggle ── */}
-          <div className="chat-mode-row">
+          <div ref={modeRowRef} className="chat-mode-row">
             <ToggleGroup.Root
               type="single"
               value={mode}
@@ -248,7 +313,7 @@ export function ChatInteractionPanel({
           </div>
 
           {/* ── Messages Area ── */}
-          <div className="chat-messages-mask">
+          <div ref={msgMaskRef} className="chat-messages-mask">
             <div ref={listRef} className="chat-messages-list">
               {messages.length === 0 && (
                 <div className="chat-empty-state" aria-hidden="true">
@@ -278,7 +343,7 @@ export function ChatInteractionPanel({
           </div>
 
           {/* ── Input Area ── */}
-          <div className="chat-input-area">
+          <div ref={inputAreaRef} className="chat-input-area">
             <div className="chat-input-wrap">
               <textarea
                 ref={inputRef}

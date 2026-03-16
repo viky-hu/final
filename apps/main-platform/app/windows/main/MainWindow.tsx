@@ -66,7 +66,7 @@ export function MainWindow({ onBack }: MainWindowProps) {
         />
       </div>
 
-      {/* ChatInteractionPanel: z-index 11, interactive chat layer above canvas */}
+      {/* ChatInteractionPanel: z-index 6, interactive chat layer above canvas, pointer-events on children only */}
       <ChatInteractionPanel menuOpen={isMenuOpen} canvasReady={canvasReady} />
 
       {/* StaggeredMenu: z-index 10, foreground overlay */}

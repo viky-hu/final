@@ -287,15 +287,53 @@ app/
 | **绘制** | Canvas 2D + Path2D（点阵）；SVG + GSAP（画布线条）；CSS（气泡、输入框、按钮） |
 | **字体** | ZCOOL QingKe HuangYou（与 Panel 2 保持一致） |
 
-#### 层级结构
+#### 层级结构与点击域规范（MVP 强制约束）
 
 ```
 main-window-page
-├── main-window-dotgrid-bg (z-index: 0)     ← 点阵背景
-├── main-window-canvas-layer (z-index: 5)   ← SVG 画布
-├── chat-interaction-layer (z-index: 6)     ← 聊天交互面板
-└── main-window-menu-layer (z-index: 10)    ← 侧滑菜单
+├── main-window-dotgrid-bg    (z-index: 0,  pointer-events: none 由 canvas 元素承载)
+├── main-window-canvas-layer  (z-index: 5,  pointer-events: none)
+├── chat-interaction-layer    (z-index: 6,  pointer-events: none ← 全屏占位，不拦截点击)
+│   └── chat-interaction-panel (left: 25%, right: 25%, pointer-events: none)
+│       ├── chat-mode-row      (pointer-events: auto)
+│       ├── chat-messages-mask (pointer-events: auto)
+│       └── chat-input-area    (pointer-events: auto)
+└── main-window-menu-layer    (z-index: 10, pointer-events: none ← 全屏占位，不拦截点击)
+    └── staggered-menu-wrapper (pointer-events: none)
+        ├── staggered-menu-header (pointer-events: none)
+        │   └── sm-toggle button  (pointer-events: auto ← 开/收按钮始终可点)
+        ├── sm-prelayers          (pointer-events: none / auto when [data-open])
+        └── staggered-menu-panel  (pointer-events: none / auto when [data-open])
 ```
+
+**层级红线（必须满足）：**
+- 任何全屏容器层自身不得设 `pointer-events: auto`，只有真正需要交互的叶子节点才设 auto；
+- 菜单关闭时，信息流三个子区域（模式切换、消息流、输入区）必须可点，右上角菜单按钮必须可点；
+- 菜单展开时，面板内所有元素可点，信息流未被面板覆盖的区域仍可点；
+- 严禁通过 `pointer-events: auto` 的全屏容器覆盖对方功能区。
+
+#### 宽度映射规范（信息流 = 画布）
+
+| 状态 | 画布范围（coords.ts） | 信息流 CSS | GSAP 变换 |
+|------|----------------------|-----------|-----------|
+| 默认（菜单关闭） | `x1=25%, x2=75%` (EXPANDED) | `left: 25%; right: 25%` | `x: 0` |
+| 菜单展开 | `x1=10%, x2=60%` (MENU_OPEN) | 同上 | `x: -15vw` (25%→10%, 75%→60%) |
+
+信息流面板的定位百分比直接作用于视口（父容器 `chat-interaction-layer` 为全屏）。禁止在外层容器和内层面板上叠加相同的 `left/right` 收缩（避免二次收缩变窄）。
+
+#### 信息流入场动效规范（canvasReady 后触发）
+
+画布完成后（`onComplete` 回调触发 `canvasReady = true`），三个分区依序浮现：
+
+| 段 | 触发时间点 | 动效 | ease |
+|----|-----------|------|------|
+| 1 模式切换行 | +0.12s | y: 16→0, opacity: 0→1, blur: 5px→0 | `power3.out` |
+| 2 消息流区域 | +0.30s | y: 28→0, opacity: 0→1, blur: 3px→0 | `power3.out` |
+| 3 输入发送区 | +0.50s | y: 38→0, opacity: 0→1, blur: 8px→0 | `back.out(1.4)` |
+
+- 各区在动画前设 `visibility: hidden`，触发时立即设回 `visible` 再播 `fromTo`；
+- 动画结束后 `clearProps: "filter"` 清除合成层占用；
+- 禁止在整块 `chat-content-wrap` 上做单次整体淡入（破坏节奏感）。
 
 ### 三、模块一：DotGrid 点阵背景
 
@@ -385,13 +423,26 @@ app/
 
 ---
 
-### 八、第三窗口验收要求
+### 八、第三窗口验收要求（MVP 基线）
 
-- 在 Panel 3 点击 Shoot 稳定进入第三窗口；点阵靠近变绿、快速移动与点击有位移回弹；  
-- 画布入场后四条线扩张并填充；菜单打开时画布与聊天面板同步左移；  
-- 聊天面板：模式切换、发送消息、三阶段气泡、Q 弹入场、FLIP 补间、平滑滚动均正常；  
-- 菜单可打开/收起；「返回初始界面」可回到第一窗口；  
-- 1024px / 640px 断点下布局正常；无新增 lint 报错。
+**宽度**
+- 信息流面板（`chat-interaction-panel`）在默认态（菜单关闭）下宽度与黑色画布区域一致（viewport 25%～75%）；
+- 菜单展开后，信息流随 GSAP 同步左移，视觉宽度与 `MAIN_CANVAS_MENU_OPEN`（10%～60%）一致。
+
+**交互点击**
+- 菜单关闭时：模式切换按钮、消息流区、输入框、发送按钮均可点击；右上角「菜单」开启按钮可点击；
+- 菜单展开时：面板内菜单项、收起按钮均可点击；「返回初始界面」可回到第一窗口；
+- 任何情况下不得出现"整个页面只有右上角菜单按钮可点"的层级阻挡现象。
+
+**动效**
+- 在 Panel 3 点击 Shoot 稳定进入第三窗口；点阵靠近变绿、快速移动与点击有位移回弹；
+- 画布入场后四条线扩张并填充；画布完成后三个信息流分区依序浮现，无整块瞬现；
+- 菜单打开时画布与聊天面板同步左移；
+
+**质量**
+- 1024px / 640px 断点下布局正常；
+- 无新增 lint 报错；
+- 代码中无与 README 约束冲突的硬编码层级或百分比。
 
 
 #### 对第三窗口的回答信息溯源

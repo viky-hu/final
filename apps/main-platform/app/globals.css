@@ -740,12 +740,16 @@ body {
   will-change: stroke-dashoffset;
 }
 
-/* StaggeredMenu 全屏前景层 */
+/*
+ * StaggeredMenu 全屏前景层：pointer-events: none，不拦截背景点击。
+ * 可交互子元素（菜单按钮、展开后的面板）在 StaggeredMenu 内部单独开启。
+ */
 .main-window-menu-layer {
   position: absolute;
   inset: 0;
   z-index: 10;
   min-height: 100dvh;
+  pointer-events: none;
 }
 
 /* ========== Window 3 · StaggeredMenu 样式系统 ========== */
@@ -755,11 +759,16 @@ body {
  * 中文化调整：字体、字号、行距、编号位置。
  */
 
+/*
+ * 菜单外层包裹：全屏，默认 pointer-events: none，避免透明区域吞噬点击。
+ * 可交互子元素（header > 按钮、展开后面板）单独设 pointer-events: auto。
+ */
 .sm-scope .staggered-menu-wrapper {
   position: relative;
   width: 100%;
   height: 100%;
   z-index: 40;
+  pointer-events: none;
 }
 
 .sm-scope .staggered-menu-header {
@@ -874,6 +883,10 @@ body {
   display: none !important;
 }
 
+/*
+ * 侧滑面板：默认 pointer-events: none（随 GSAP 在屏外，不应拦截点击）。
+ * 展开态（父级 [data-open]）时设 pointer-events: auto，使面板内容可点击。
+ */
 .sm-scope .staggered-menu-panel {
   position: absolute;
   top: 0;
@@ -889,6 +902,17 @@ body {
   padding: 6em 2em 2em 2em;
   overflow-y: auto;
   z-index: 10;
+  pointer-events: none;
+}
+
+/* 菜单展开时：面板可点击（菜单项、收起按钮等） */
+.sm-scope .staggered-menu-wrapper[data-open] .staggered-menu-panel {
+  pointer-events: auto;
+}
+
+/* 菜单展开时：背景装饰层同步接收点击（避免视觉覆盖区漏点到下层） */
+.sm-scope .staggered-menu-wrapper[data-open] .sm-prelayers {
+  pointer-events: auto;
 }
 
 .sm-scope [data-position='left'] .staggered-menu-panel {
@@ -1068,28 +1092,24 @@ body {
    ======================================================== */
 
 /*
- * 聊天交互层：与画布 EXPANDED 区域重叠（left 25% ~ right 25%）
- * z-index: 6，位于 SVG 画布（z-5）之上、菜单层（z-10）之下
- * pointer-events: auto 使聊天区域可接收点击，不遮挡右侧菜单按钮
+ * 聊天交互层：全屏占位，z-index: 6，位于 SVG 画布（z-5）之上、菜单层（z-10）之下。
+ * 本层自身 pointer-events: none，不拦截任何点击；
+ * 可交互子元素（模式切换、消息流、输入区）单独设 pointer-events: auto。
+ * 宽度定位由内部 chat-interaction-panel 负责，避免两层叠加收缩。
  */
 .chat-interaction-layer {
   position: absolute;
-  left: 25%;
-  right: 25%;
-  top: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 6;
-  pointer-events: auto;
-}
-
-/* 菜单展开时：右边界收缩，为菜单面板留出空间 */
-.chat-interaction-layer[data-menu-open="true"] {
-  right: 35%;
+  pointer-events: none;
 }
 
 /*
- * 聊天面板主体：与画布 EXPANDED 对齐（left 25% / right 25%）
- * 菜单打开时，GSAP 对其 x 变换 -15vw 使之跟随画布左移
+ * 聊天面板主体：直接对齐画布 EXPANDED 区域（left 25% / right 25% = 0.25*VW ~ 0.75*VW）。
+ * 父层已是全屏，此处的百分比直接作用于视口，无二次收缩。
+ * 菜单打开时，GSAP 对其施加 x: -15vw，使左右边界变为 10% / 60%，
+ * 与 MAIN_CANVAS_MENU_OPEN（x1=10%, x2=60%）严格一致。
+ * pointer-events: none；子区域按需单独开启交互。
  */
 .chat-interaction-panel {
   position: absolute;
@@ -1481,15 +1501,7 @@ body {
 
 /* ── 响应式适配 ── */
 @media (max-width: 1024px) {
-  .chat-interaction-layer {
-    left: 8%;
-    right: 8%;
-  }
-
-  .chat-interaction-layer[data-menu-open="true"] {
-    right: 45%;
-  }
-
+  /* 小屏：面板加宽，保证内容可读 */
   .chat-interaction-panel {
     left: 8%;
     right: 8%;
@@ -1497,15 +1509,6 @@ body {
 }
 
 @media (max-width: 640px) {
-  .chat-interaction-layer {
-    left: 2%;
-    right: 2%;
-  }
-
-  .chat-interaction-layer[data-menu-open="true"] {
-    right: 50%;
-  }
-
   .chat-interaction-panel {
     left: 2%;
     right: 2%;
