@@ -4,6 +4,7 @@ import { useState } from "react";
 import { DotGrid } from "./components/DotGrid";
 import { StaggeredMenu } from "./components/StaggeredMenu";
 import { ChatCanvasLines } from "./components/ChatCanvasLines";
+import { ChatInteractionPanel } from "./components/ChatInteractionPanel";
 import type { StaggeredMenuItem } from "./components/StaggeredMenu";
 
 interface MainWindowProps {
@@ -12,6 +13,7 @@ interface MainWindowProps {
 
 export function MainWindow({ onBack }: MainWindowProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [canvasReady, setCanvasReady] = useState(false);
 
   const menuItems: StaggeredMenuItem[] = [
     {
@@ -58,8 +60,14 @@ export function MainWindow({ onBack }: MainWindowProps) {
 
       {/* ChatCanvasLines: z-index 5, SVG canvas layer between dotgrid and menu */}
       <div className="main-window-canvas-layer">
-        <ChatCanvasLines menuOpen={isMenuOpen} />
+        <ChatCanvasLines
+          menuOpen={isMenuOpen}
+          onComplete={() => setCanvasReady(true)}
+        />
       </div>
+
+      {/* ChatInteractionPanel: z-index 11, interactive chat layer above canvas */}
+      <ChatInteractionPanel menuOpen={isMenuOpen} canvasReady={canvasReady} />
 
       {/* StaggeredMenu: z-index 10, foreground overlay */}
       <div className="main-window-menu-layer">
