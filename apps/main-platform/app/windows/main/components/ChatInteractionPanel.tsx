@@ -38,8 +38,10 @@ export function ChatInteractionPanel({
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isSending, setIsSending] = useState(false);
+  const [showSemicircle, setShowSemicircle] = useState(true);
 
   const listRef = useRef<HTMLDivElement>(null);
+  const semicircleOverlayRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isSendingRef = useRef(false);
@@ -154,6 +156,23 @@ export function ChatInteractionPanel({
       scrollToBottom();
     }
   }, [messages, animateBubble, scrollToBottom]);
+
+  // 无消息时显示 semicircle；有消息时淡出 semicircle 后切换到气泡状态
+  useEffect(() => {
+    if (messages.length === 0) {
+      setShowSemicircle(true);
+      return;
+    }
+    if (!showSemicircle) return;
+    const overlay = semicircleOverlayRef.current;
+    if (!overlay) return;
+    gsap.to(overlay, {
+      opacity: 0,
+      duration: 0.6,
+      ease: "power2.out",
+      onComplete: () => setShowSemicircle(false),
+    });
+  }, [messages.length, showSemicircle]);
 
   // Kill orphaned tweens on unmount
   useEffect(() => {
@@ -354,34 +373,58 @@ export function ChatInteractionPanel({
 
           {/* ── Messages Area ── */}
           <div ref={msgMaskRef} className="chat-messages-mask">
-            <div ref={listRef} className="chat-messages-list">
-              {messages.length === 0 && (
-                <div className="chat-empty-state" aria-hidden="true">
-                  <p className="chat-empty-title">智能检索对话</p>
-                  <p className="chat-empty-hint">选择模式，输入问题开始提问</p>
-                </div>
-              )}
-              {messages.map((msg) => (
-                <div
-                  key={msg.id}
-                  data-msg-id={msg.id}
-                  data-flip-id={msg.id}
-                  className={`chat-bubble-wrapper chat-bubble-wrapper--${msg.role}`}
-                >
-                  {msg.role === "typing" ? (
-                    <div className="chat-bubble chat-bubble--bot chat-bubble--typing">
-                      <span className="chat-typing-dot" />
-                      <span className="chat-typing-dot" />
-                      <span className="chat-typing-dot" />
-                    </div>
-                  ) : (
-                    <div className={`chat-bubble chat-bubble--${msg.role}`}>
-                      {msg.content}
-                    </div>
-                  )}
-                </div>
-              ))}
+            <div
+              ref={listRef}
+              className={`chat-messages-list ${messages.length > 0 ? "chat-messages-list--has-messages" : ""}`}
+            >
+              <div className="chat-messages-inner">
+                {messages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    data-msg-id={msg.id}
+                    data-flip-id={msg.id}
+                    className={`chat-bubble-wrapper chat-bubble-wrapper--${msg.role}`}
+                  >
+                    {msg.role === "typing" ? (
+                      <div className="chat-bubble chat-bubble--bot chat-bubble--typing">
+                        <span className="chat-typing-dot" />
+                        <span className="chat-typing-dot" />
+                        <span className="chat-typing-dot" />
+                      </div>
+                    ) : (
+                      <div className={`chat-bubble chat-bubble--${msg.role}`}>
+                        {msg.content}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
+            {showSemicircle && (
+              <div
+                ref={semicircleOverlayRef}
+                className="chat-semicircle-overlay"
+                aria-hidden="true"
+              >
+                <div className="semicircle">
+                  <div>
+                    <div>
+                      <div>
+                        <div>
+                          <div>
+                            <div>
+                              <div>
+                                <div></div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ── Input Area ── */}

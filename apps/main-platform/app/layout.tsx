@@ -1,5 +1,6 @@
 import "./globals.css";
 import "@fontsource/zcool-qingke-huangyou";
+import "@fontsource/michroma";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 

@@ -58,7 +58,7 @@ body {
   justify-content: flex-start;
   padding: clamp(14px, 1.1vw, 20px);
   box-sizing: border-box;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: "Michroma", system-ui, sans-serif;
 }
 
 /* ========== Intro (Stage 1) ========== */
@@ -204,6 +204,7 @@ body {
   letter-spacing: -0.08em;
   font-weight: 600;
   user-select: none;
+  font-family: "Michroma", system-ui, sans-serif;
 }
 
 /* ========== Window 2: LightRAG Chat ========== */
@@ -250,7 +251,7 @@ body {
   letter-spacing: -0.02em;
   line-height: 0.8;
   transform: translateY(0);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: "Michroma", system-ui, sans-serif;
 }
 
 .chat-title-char {
@@ -264,7 +265,7 @@ body {
   font-size: 20px;
   font-weight: 500;
   letter-spacing: 0.03em;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: "Michroma", system-ui, sans-serif;
 }
 
 .chat-corner-quote {
@@ -277,7 +278,7 @@ body {
 .chat-corner-quote-glyph {
   font-size: 80px;
   font-weight: 900;
-  font-family: "Arial Rounded MT Bold", "Nunito", "SF Pro Rounded", system-ui, sans-serif;
+  font-family: "Michroma", "Arial Rounded MT Bold", sans-serif;
 }
 
 .chat-corner-quote-anim {
@@ -301,7 +302,7 @@ body {
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: "Michroma", system-ui, sans-serif;
   line-height: 1.2;
   overflow: hidden;
 }
@@ -1124,12 +1125,17 @@ body {
   will-change: transform;
 }
 
-/* 聊天内容包裹层：参与 flex 布局链，使消息区能正确撑满空间 */
+/* 聊天内容包裹层：参与 flex 布局链，使消息区能正确撑满空间
+ * min-width: 0 防止 flex 子项因内容宽度超出容器产生横向溢出。
+ * overflow: hidden 阻断任何子元素的水平逸出，彻底消除水平滚动。
+ */
 .chat-content-wrap {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  overflow: hidden;
 }
 
 /* ── 模式切换行 ── */
@@ -1200,11 +1206,25 @@ body {
 
 /* ── 消息流区域 ── */
 
-/* 顶部渐隐遮罩：气泡滚入顶部时自然消融 */
+/* 消息流外层：overflow: clip 仅做视觉裁切。
+ * mask 已移至 chat-messages-inner，避免裁切滚动条。
+ */
 .chat-messages-mask {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
+  overflow: clip;
+  position: relative;
+  pointer-events: auto;
+}
+
+/* 气泡内容内层：承载 mask 与 padding/gap，滚动条在 list 上不受 mask 影响 */
+.chat-messages-inner {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 1.5vh 0.25rem 0.5rem;
+  gap: 0.9rem;
+  min-height: min-content;
   mask-image: linear-gradient(to bottom, transparent, black 12%, black 100%);
   -webkit-mask-image: linear-gradient(
     to bottom,
@@ -1212,18 +1232,36 @@ body {
     black 12%,
     black 100%
   );
-  pointer-events: auto;
 }
 
-/* 可滚动气泡列表 */
+/* semicircle  overlay 容器：居中显示，用于淡出动画 */
+.chat-semicircle-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+/* 可滚动气泡列表：仅垂直滚动，禁止水平滚动条
+ * padding/gap 已移至 chat-messages-inner，list 仅负责滚动与滚动条。
+ * pointer-events: auto 确保滚轮和滚动条拖拽事件直接命中此元素。
+ * overscroll-behavior-y: contain 防止滚动事件穿透到外层窗口。
+ * touch-action: pan-y 保证触摸设备仅纵向滑动。
+ */
 .chat-messages-list {
   height: 100%;
   overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior-y: contain;
+  touch-action: pan-y;
   display: flex;
   flex-direction: column;
   justify-content: flex-end;
-  padding: 1.5vh 0.25rem 0.5rem;
-  gap: 0.9rem;
+  box-sizing: border-box;
+  pointer-events: auto;
+  /* 默认隐藏滚动条（无气泡时） */
   scrollbar-width: none;
 }
 
@@ -1231,33 +1269,74 @@ body {
   display: none;
 }
 
-/* 空状态占位 */
-.chat-empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  flex: 1;
-  padding: 4vh 0;
-  pointer-events: none;
+/* 有气泡时持续显示滚动条，无需依赖运动时机 */
+.chat-messages-list.chat-messages-list--has-messages {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(39, 255, 100, 0.5) transparent;
+  scrollbar-gutter: stable;
+  padding-right: 0.5rem;
 }
 
-.chat-empty-title {
-  margin: 0;
-  font-size: clamp(1.1rem, 1.8vw, 1.6rem);
-  font-weight: 650;
-  font-family: "ZCOOL QingKe HuangYou", system-ui, sans-serif;
-  color: rgba(255, 255, 255, 0.18);
-  letter-spacing: 0.04em;
+.chat-messages-list.chat-messages-list--has-messages::-webkit-scrollbar {
+  display: block;
+  width: 6px;
 }
 
-.chat-empty-hint {
-  margin: 0;
-  font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.12);
-  font-family: system-ui, -apple-system, sans-serif;
-  letter-spacing: 0.04em;
+.chat-messages-list.chat-messages-list--has-messages::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.chat-messages-list.chat-messages-list--has-messages::-webkit-scrollbar-thumb {
+  background: rgba(39, 255, 100, 0.5);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.chat-messages-list.chat-messages-list--has-messages::-webkit-scrollbar-thumb:hover {
+  background: rgba(39, 255, 100, 0.8);
+}
+
+/* semicircle 特效
+ * 使用 clamp 控制响应式尺寸，避免在高分辨率下显得过大。
+ * 减小嵌套层的收缩比（从 5%/90% 调整为 8%/84%），
+ * 降低叠层密度以改善边缘清晰度。
+ * image-rendering: crisp-edges + will-change: transform 改善旋转时的锐利度。
+ */
+.semicircle,
+.semicircle div {
+  width: clamp(72px, 7vw, 108px);
+  height: clamp(72px, 7vw, 108px);
+  animation: 6s rotate141 infinite linear;
+  background-repeat: no-repeat;
+  border-radius: 50%;
+  position: relative;
+  overflow: hidden;
+  will-change: transform;
+  image-rendering: crisp-edges;
+}
+
+.semicircle div {
+  position: absolute;
+  top: 8%;
+  left: 8%;
+  width: 84%;
+  height: 84%;
+}
+
+.semicircle:before,
+.semicircle div:before {
+  content: '';
+  width: 100%;
+  height: 50%;
+  display: block;
+  background: radial-gradient(transparent, transparent 62%, rgba(39, 255, 100, 0.9) 62%, rgba(39, 255, 100, 0.9));
+  background-size: 100% 200%;
+}
+
+@keyframes rotate141 {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ── 气泡容器 ── */
