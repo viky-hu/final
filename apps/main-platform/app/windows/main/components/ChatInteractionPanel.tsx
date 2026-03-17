@@ -46,6 +46,7 @@ export function ChatInteractionPanel({
   const pendingFlipRef = useRef<ReturnType<typeof Flip.getState> | null>(null);
   const pendingEntryIdsRef = useRef<Set<string>>(new Set());
   const bubbleTweensRef = useRef<Map<string, gsap.core.Tween>>(new Map());
+  const scrollHandledByFlipRef = useRef(false);
 
   // 三段分区 refs — 用于分段延迟入场动画
   const modeRowRef = useRef<HTMLDivElement>(null);
@@ -54,12 +55,17 @@ export function ChatInteractionPanel({
   const revealTlRef = useRef<gsap.core.Timeline | null>(null);
 
   // Capture FLIP state from current list children (before a React update)
+  // 排除仍在入场动画中的气泡，避免捕获中间状态导致闪烁
   const captureFlip = useCallback(() => {
     const list = listRef.current;
     if (!list) return;
     const nodes = list.querySelectorAll<HTMLElement>(".chat-bubble-wrapper");
-    if (nodes.length > 0) {
-      pendingFlipRef.current = Flip.getState(nodes);
+    const settled = Array.from(nodes).filter((el) => {
+      const id = el.getAttribute("data-msg-id");
+      return !id || !bubbleTweensRef.current.has(id);
+    });
+    if (settled.length > 0) {
+      pendingFlipRef.current = Flip.getState(settled);
     }
   }, []);
 
@@ -109,21 +115,27 @@ export function ChatInteractionPanel({
   }, []);
 
   // Apply pending FLIP (existing bubbles only) — runs before entry animation
+  // 有 Flip 时由 onComplete 负责 scroll，避免与布局补间重叠导致跳动
   useLayoutEffect(() => {
+    scrollHandledByFlipRef.current = false;
     if (pendingFlipRef.current) {
+      scrollHandledByFlipRef.current = true;
       Flip.from(pendingFlipRef.current, {
+        targets: ".chat-bubble-wrapper",
         duration: 0.35,
         ease: "power3.out",
         stagger: 0.01,
         onComplete: () => {
           pendingFlipRef.current = null;
+          scrollToBottom();
         },
       });
       pendingFlipRef.current = null;
     }
-  }, [messages]);
+  }, [messages, scrollToBottom]);
 
   // Run entry animation for new bubbles (single trigger, no MutationObserver)
+  // 无 Flip 时（首条消息）才在此处 scroll，有 Flip 时由 Flip.onComplete 负责
   useLayoutEffect(() => {
     const list = listRef.current;
     if (!list || pendingEntryIdsRef.current.size === 0) return;
@@ -138,7 +150,9 @@ export function ChatInteractionPanel({
         }
       });
     pendingEntryIdsRef.current.clear();
-    scrollToBottom();
+    if (!scrollHandledByFlipRef.current) {
+      scrollToBottom();
+    }
   }, [messages, animateBubble, scrollToBottom]);
 
   // Kill orphaned tweens on unmount
@@ -288,7 +302,7 @@ export function ChatInteractionPanel({
       }, TYPING_DELAY_MS);
 
       return () => clearTimeout(botTimer);
-    }, 120);
+    }, 550);
 
     return () => clearTimeout(typingTimer);
   }, [inputValue, captureFlip]);
@@ -351,6 +365,7 @@ export function ChatInteractionPanel({
                 <div
                   key={msg.id}
                   data-msg-id={msg.id}
+                  data-flip-id={msg.id}
                   className={`chat-bubble-wrapper chat-bubble-wrapper--${msg.role}`}
                 >
                   {msg.role === "typing" ? (
