@@ -10,8 +10,92 @@ import {
 import { gsap } from "gsap";
 import { Flip } from "gsap/Flip";
 import * as ToggleGroup from "@radix-ui/react-toggle-group";
+import { LINE_DRAW_EASE } from "../../shared/animation";
 
 gsap.registerPlugin(Flip);
+
+// ─── BotBubble：带溯源按钮的回答气泡（独立组件，每条消息独立生命周期）─
+interface BotBubbleProps {
+  msgId: string;
+  content: string;
+  onTrace: (msgId: string) => void;
+}
+
+function BotBubble({ msgId, content, onTrace }: BotBubbleProps) {
+  const bubbleRef   = useRef<HTMLDivElement>(null);
+  const btnOuterRef = useRef<HTMLDivElement>(null);
+  const btnInnerRef = useRef<HTMLDivElement>(null);
+  const tlRef      = useRef<gsap.core.Timeline | null>(null);
+
+  // 挂载时初始化 GSAP 状态，并绑定 hover 事件（气泡为 hover 区域）
+  useLayoutEffect(() => {
+    const bubble   = bubbleRef.current;
+    const btnOuter = btnOuterRef.current;
+    const btnInner = btnInnerRef.current;
+    if (!bubble || !btnOuter || !btnInner) return;
+
+    // 初始态：按钮宽度为 0，内芯不可见
+    gsap.set(btnOuter, { width: 0 });
+    gsap.set(btnInner, { opacity: 0 });
+
+    const tl = gsap.timeline({ paused: true });
+
+    // 阶段 1：气泡辉光增强
+    tl.to(bubble, {
+      boxShadow:
+        "0 0 40px rgba(39,255,100,0.5), 0 0 80px rgba(39,255,100,0.18), inset 0 0 20px rgba(39,255,100,0.15)",
+      duration: 0.22,
+      ease: "power2.out",
+    }, 0);
+
+    // 阶段 2：按钮从气泡右边界向右生长（慢→快→慢）
+    tl.to(btnOuter, {
+      width: 80,
+      duration: 0.38,
+      ease: LINE_DRAW_EASE,
+    }, 0.14);
+
+    // 阶段 3："溯源"内芯淡入（按钮展开约 80% 后）
+    tl.to(btnInner, {
+      opacity: 1,
+      duration: 0.18,
+      ease: "power2.out",
+    }, 0.38);
+
+    tlRef.current = tl;
+
+    const onEnter = () => tlRef.current?.play();
+    const onLeave = () => tlRef.current?.reverse();
+    bubble.addEventListener("mouseenter", onEnter);
+    bubble.addEventListener("mouseleave", onLeave);
+
+    return () => {
+      bubble.removeEventListener("mouseenter", onEnter);
+      bubble.removeEventListener("mouseleave", onLeave);
+      tl.kill();
+      tlRef.current = null;
+    };
+  }, []);
+
+  return (
+    <div ref={bubbleRef} className="chat-bubble chat-bubble--bot chat-bubble--bot-traceable">
+      {content}
+      <div ref={btnOuterRef} className="trace-btn-outer" aria-hidden="true">
+        <div
+          ref={btnInnerRef}
+          className="trace-btn-inner"
+          role="button"
+          tabIndex={0}
+          aria-label="查看回答溯源"
+          onClick={() => onTrace(msgId)}
+          onKeyDown={(e) => e.key === "Enter" && onTrace(msgId)}
+        >
+          溯源
+        </div>
+      </div>
+    </div>
+  );
+}
 
 type Mode = "local" | "global";
 type MessageRole = "user" | "bot" | "typing";
@@ -28,11 +112,13 @@ const TYPING_DELAY_MS = 700;
 export interface ChatInteractionPanelProps {
   menuOpen?: boolean;
   canvasReady?: boolean;
+  onOpenTrace?: (msgId: string) => void;
 }
 
 export function ChatInteractionPanel({
   menuOpen = false,
   canvasReady = false,
+  onOpenTrace,
 }: ChatInteractionPanelProps) {
   const [mode, setMode] = useState<Mode>("local");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -391,6 +477,12 @@ export function ChatInteractionPanel({
                         <span className="chat-typing-dot" />
                         <span className="chat-typing-dot" />
                       </div>
+                    ) : msg.role === "bot" ? (
+                      <BotBubble
+                        msgId={msg.id}
+                        content={msg.content}
+                        onTrace={onOpenTrace ?? (() => {})}
+                      />
                     ) : (
                       <div className={`chat-bubble chat-bubble--${msg.role}`}>
                         {msg.content}

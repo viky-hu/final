@@ -29,6 +29,9 @@ importers:
       gsap:
         specifier: ^3.14.2
         version: 3.14.2
+      lucide-react:
+        specifier: ^0.577.0
+        version: 0.577.0(react@19.2.4)
       next:
         specifier: latest
         version: 16.1.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -50,6 +53,9 @@ importers:
       ui-components:
         specifier: workspace:*
         version: link:../../packages/ui-components
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
     devDependencies:
       '@final/configs':
         specifier: workspace:*
@@ -1137,6 +1143,11 @@ packages:
     resolution: {integrity: sha512-NXYBzinNrblfraPGyrbPoD19C1h9lfI/1mzgWYvXUTe414Gz/X1FD2XBZSZM7rRTrMA8JL3OtAaGifrIKhQ5yQ==}
     engines: {node: '>= 12.0.0'}
 
+  lucide-react@0.577.0:
+    resolution: {integrity: sha512-4LjoFv2eEPwYDPg/CUdBJQSDfPyzXCRrVW1X7jrx/trgxnxkHFjnVZINbzvzxjN70dxychOfg+FTYwBiS3pQ5A==}
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
   magic-string@0.30.21:
     resolution: {integrity: sha512-vd2F4YUyEXKGcLHoq+TEyCjxueSeHnFxyyjNp80yg0XV4vUhnDer/lvvlqM/arB5bXQN5K2/3oinyCRyx8T2CQ==}
 
@@ -1348,6 +1359,9 @@ packages:
         optional: true
       yaml:
         optional: true
+
+  zod@4.3.6:
+    resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
 
 snapshots:
 
@@ -2076,6 +2090,10 @@ snapshots:
       lightningcss-win32-arm64-msvc: 1.32.0
       lightningcss-win32-x64-msvc: 1.32.0
 
+  lucide-react@0.577.0(react@19.2.4):
+    dependencies:
+      react: 19.2.4
+
   magic-string@0.30.21:
     dependencies:
       '@jridgewell/sourcemap-codec': 1.5.5
@@ -2269,3 +2287,5 @@ snapshots:
       esbuild: 0.27.3
       fsevents: 2.3.3
       jiti: 2.6.1
+
+  zod@4.3.6: {}

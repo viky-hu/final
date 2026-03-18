@@ -4,21 +4,24 @@
  * LoginWindowDemo — 顶层窗口编排入口
  *
  * 职责：
- *   1. 维护当前激活窗口（login | product）
+ *   1. 维护当前激活窗口（login | product | main | database）
  *   2. 将切换回调分发给子窗口
  *   3. 不包含任何动画或业务逻辑
  *
  * 子窗口位置：
- *   - 第一窗口（登录/介绍）: ./windows/login/LoginIntroWindow
- *   - 第二窗口（产品介绍）:  ./windows/product/ProductIntroWindow
+ *   - 第一窗口（登录/介绍）:  ./windows/login/LoginIntroWindow
+ *   - 第二窗口（产品介绍）:   ./windows/product/ProductIntroWindow
+ *   - 第三窗口（交互对话）:   ./windows/main/MainWindow
+ *   - 第四窗口（数据库）:     ./windows/database/DatabaseWindow
  */
 
 import { useState } from "react";
 import { LoginIntroWindow } from "./windows/login/LoginIntroWindow";
 import { ProductIntroWindow } from "./windows/product/ProductIntroWindow";
 import { MainWindow } from "./windows/main/MainWindow";
+import { DatabaseWindow } from "./windows/database/DatabaseWindow";
 
-type ActiveWindow = "login" | "product" | "main";
+type ActiveWindow = "login" | "product" | "main" | "database";
 
 export function LoginWindowDemo() {
   const [activeWindow, setActiveWindow] = useState<ActiveWindow>("login");
@@ -31,9 +34,19 @@ export function LoginWindowDemo() {
     setLoginRenderKey((v) => v + 1);
   };
   const handleShoot = () => setActiveWindow("main");
+  const handleOpenDatabase = () => setActiveWindow("database");
+
+  if (activeWindow === "database") {
+    return (
+      <DatabaseWindow
+        onBack={handleBackToLogin}
+        onNavigateToMain={() => setActiveWindow("main")}
+      />
+    );
+  }
 
   if (activeWindow === "main") {
-    return <MainWindow onBack={handleBackToLogin} />;
+    return <MainWindow onBack={handleBackToLogin} onOpenDatabase={handleOpenDatabase} />;
   }
 
   if (activeWindow === "product") {

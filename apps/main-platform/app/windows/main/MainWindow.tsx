@@ -1,19 +1,30 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { DotGrid } from "./components/DotGrid";
 import { StaggeredMenu } from "./components/StaggeredMenu";
 import { ChatCanvasLines } from "./components/ChatCanvasLines";
 import { ChatInteractionPanel } from "./components/ChatInteractionPanel";
+import { TraceWindow } from "./components/TraceWindow";
 import type { StaggeredMenuItem } from "./components/StaggeredMenu";
 
 interface MainWindowProps {
   onBack?: () => void;
+  onOpenDatabase?: () => void;
 }
 
-export function MainWindow({ onBack }: MainWindowProps) {
+export function MainWindow({ onBack, onOpenDatabase }: MainWindowProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
+  const [traceMsgId, setTraceMsgId] = useState<string | null>(null);
+
+  const handleOpenTrace = useCallback((msgId: string) => {
+    setTraceMsgId(msgId);
+  }, []);
+
+  const handleCloseTrace = useCallback(() => {
+    setTraceMsgId(null);
+  }, []);
 
   const menuItems: StaggeredMenuItem[] = [
     {
@@ -31,6 +42,7 @@ export function MainWindow({ onBack }: MainWindowProps) {
       label: "数据库",
       ariaLabel: "数据库",
       link: "#",
+      onClick: onOpenDatabase,
     },
     {
       label: "宏观平台",
@@ -67,7 +79,16 @@ export function MainWindow({ onBack }: MainWindowProps) {
       </div>
 
       {/* ChatInteractionPanel: z-index 6, interactive chat layer above canvas, pointer-events on children only */}
-      <ChatInteractionPanel menuOpen={isMenuOpen} canvasReady={canvasReady} />
+      <ChatInteractionPanel
+        menuOpen={isMenuOpen}
+        canvasReady={canvasReady}
+        onOpenTrace={handleOpenTrace}
+      />
+
+      {/* TraceWindow: z-index 200, full-screen overlay, mounted only when a trace is active */}
+      {traceMsgId && (
+        <TraceWindow msgId={traceMsgId} onClose={handleCloseTrace} />
+      )}
 
       {/* StaggeredMenu: z-index 10, foreground overlay */}
       <div className="main-window-menu-layer">

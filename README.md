@@ -517,3 +517,147 @@ timeline
 
 
   我目前认为目前布置的这么多线条的坐标布局和样式我比较满意，所以希望你在实现这个布局的时候不要擅自修改我的以上规划，不要自以为是的做“优化”，先按我写的做。
+
+##### 重构你已经完成的知识溯源窗口
+
+目前存在的问题是：你没有理解我上面说的画布被线条分割成各个区域，而是认为我只是要做一个全屏的线条装饰————你要明白，知识溯源界面是一个下拉式的长窗口，你可以去学习awwwards中是怎么将线条做在下拉栏上的，我不是要做一个固定的框架锁定我的屏幕啊，而是要在画布上画一个框架，这个框架至少是印在画布上的吧，而不是像现在这样只是一个浮于画布之上的像相框一样的东西，它是印在长画布上的，所以我滚动鼠标滚轮是可以看到框架上移的。
+我现在需要你重构知识溯源窗口，具体构思如下：
+保留你一开始的知识溯源和介绍字样，下面的所有元素（包括文本溯源、文件溯源、知识图谱）都删掉
+然后开始滚动鼠标，保留你的在屏幕之中画线的一套设计，但是待到你完全画完这些线条后的一刻，线条框架向下层固定到下拉画布中，并且这段时间下拉画布下移锁定，不再可以向下滚动，接下来我的鼠标滚轮继续滚动，发生的事情是这些线条之间的从左到右5个分割成的大小不一的五个区域随着滚轮的滚动开始从左到右或从上到下浮现一个画布，这些画布严格由每根线的位置决定，严格框在对应上下左右四根线的内部，不是单纯的卡片，而是SVG+GSAP的效果，这些画布是用来盛放溯源文件的，也就是说待到画布都完全浮现出来后，画布中开始浮现由后端代码检索出的五个文件的title
+
+待到所有元素都呈现完毕，画布下拉滚轮解除锁定，此时整个框架不再固定在屏幕上，而是印在了下层的画布上，随着我的滚轮向下滚动，线条框架上移直到退出屏幕，同步的过程则是下面的下拉画布动态呈现出知识溯源的知识图谱，直到滚轮滚到最后，整个页面呈现结束，画面停止在一整个屏幕的知识图谱上。
+
+总结，你必须对SVG+GSAP以及线条的层级、线条互相框出的区域如何成为画布框架等有非常深刻的理解，而我的第一窗口和第二窗口对此有一些成熟代码可以供你学习，并且你也可以联网搜索awwwards中的高级实现和最佳实践，总之这样的效果绝非单靠你的知识储备可以完成的，你必须明确还需要使用什么高级的技术栈，需要用到什么先进的UI库，而不是闷头一路走到黑，多问我问题，一步步明确我们到底要做成什么样子
+
+
+当前数据溯源窗口存在如下问题：
+我们将这个下拉式窗口分为三个部分，一开始的全屏黑色介绍部分，左侧有知识溯源的大字楷书（下次试着改成别的字体，改成圆润一点的字体，你可以去google里找）、之后的线条绘画网格、最后的知识图谱，分别命名为p1\p2\p3
+1、p1样式较为单调，有大片的黑色背景，试着用一些先进的方式（可以联网搜索awwwards成熟实践）来添加一些元素
+2、p2的线条位置我们需要调整一下坐标参数，目前一共有三条横线三条竖线，我希望你略微左移第一、二、三根竖线，使得五个模块的宽度看上去不会相差太大，使布局更为合理；并且新增两根长横线作为这整个线条的上下框边界，可以最后加入时间轴里，照搬同样的动态呈现方式。线条位置参数的调整会涉及到画布坐标的调整，要智慧地协同修改参数。
+3、以（2、）的最下边一根长横线为坐标边界，调整整个知识图谱的出现时机————也就是往下移整个p3的位置，现在p3太靠上了，已经跟线条框架重合了，非常不美观
+4、p2各个画布的淡入由于是荧光绿色，导致太不明显了，尝试能不能牺牲一些透明度，让淡入的特效做的更清晰且酷炫（涉及到SVG+GSAP的技术栈，建议联网搜索最佳实践）
+
+## 第四个窗口：数据库
+我们要明确不管点开哪个窗口，菜单栏肯定是永远存在的，不可能说从第三个窗口跳到其它功能窗口后菜单就没了，当然返回初始log in页面就不用保留菜单栏了，现在就是这样的，不用改动。
+这个窗口的触发方式是点击第三个窗口的菜单栏，按下对应的“数据库”按钮，整个界面进入第四个窗口，这是一个新的窗口，是一个报纸的样式，具体提示词我跟gemini的交互对话内容发给你如下：
+
+这是一个前端窗口生成的AI IDE提示词，我想要照搬利用它，改造成一个数据库界面，是两个页面大小的区域，根目录中发了两张图片“第四窗口示例图1.png”“第四窗口示例图2.png”分别是我希望保留并照搬运用的界面模式图效果，我相信以上提示词一定也提到过
+
+我想要改造成的数据库界面的功能是像番茄小说一样可以新建文件夹，我们这里称作新建聚类，如图二有若干个线条分割的方形板块，我希望将其改造为能够储存一个向文件夹一样的交互按钮，上面会显示该文件夹的名称
+
+具体实现如下:
+
+我希望将这个模板的内部一些元素进行迭代，比如其中的文字：
+
+1、第一张图片的大字介绍改成：“你可以在此新增数据库聚类或向聚类中添加文件”，第一张图周围有许多AI随意生成的一些装饰字样，你可以根据我的数据库理念替换成一些中文介绍词等
+
+2、第一张图片中左侧超大字的右下角有一黑一白两个长方形按钮，我希望只保留一个，按钮的名称叫新建聚类（也就是新建文件夹），按下后会弹出弹窗，用户可以自主为新建的初始聚类命名，按下创建按钮后自然地会在第二个图片中新增一个线条围成的板块，这就是你新建的聚类
+
+3、第一张图片的右侧有一个右侧栏，右侧栏的上侧有一个类似数据展示的四行，我希望将其直接改成两三行就行，分别展示已有聚类数量，总文件数量，最近添加文件日期这三个指标，然后我们前端可以直接试着做出一些后端代码，配合（2、）的新建聚类功能实时地改变这里的指标数字，也就是说真实实现这个指标栏；右侧栏的下侧就不用做什么东西了，暂时空着就好，无需添加模块。
+
+4、再说第二个图片，虽然第二个图片是有两行，每一行都有好几个卡片，位置错开来，它们与不同卡片不同，而是真正通过线条的分割实现的，这种极简主义远比圆角div卡片的堆叠要美观，不像是AI做出来的。不过我优化后不需要做的这么复杂，因为新建聚类后就要新建卡片，位置和线条的增加就要思考很多的方面，代码不好实现——所以我希望你直接将第二张图的效果改成一条一条的横线分割成一个一个的横栏区域，就不需要在一行错位地做很多的聚类了，一行一个长条就行
+
+
+
+总结如上功能要求，我想让你重新撰写那些英文提示词，尽量照搬已有的部分，不要擅自优化叙述内容，仅对于我的功能需求进行删减添加改动。
+<role>
+You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a "Database Cluster Management Interface" using an existing strict design system. 
+
+Before proposing or writing any code, first build a clear mental model of the requirements:
+- Identify the tech stack (React, Tailwind CSS, Lucide React).
+- Understand the existing "Newsprint" design tokens (zero border-radius, strict black borders, off-white background, high-contrast typography).
+- Focus only on the top two sections of the page: The Hero section and the Cluster List section. Do not build anything beyond these two sections.
+- Implement functional React state management to make the UI interactive (creating new folders/clusters and updating sidebar metrics).
+
+Always aim to:
+- Preserve accessibility and responsive design.
+- Maintain absolute visual consistency with the provided "Newsprint" design system.
+- Make deliberate, creative design choices that express the design system’s personality (brutalist, editorial, structural) instead of producing a generic UI.
+</role>
+
+<design-system>
+# Design Style: Newsprint
+
+## 1. Design Philosophy
+**"All the News That's Fit to Print."**
+This style is an ode to the golden age of print journalism, reimagined for the web. It embodies **absolute clarity, hierarchy, and structure** through its unwavering commitment to high-contrast typography, grid-based layouts, and sharp geometric precision.
+
+### Core DNA
+- **Stark Geometry**: Zero border radius. Every element is a perfect rectangle with sharp 90-degree corners.
+- **High Information Density**: Tight padding, collapsed grid borders, and efficient use of space.
+- **Typographic Drama**: Massive serif headlines paired with smaller, highly legible body text.
+- **Visible Structure**: Grid lines aren't hidden—they're celebrated. Borders between columns and sections are explicit.
+- **Editorial Authority**: Serious, timeless, and trustworthy.
+
+## 2. Design Token System
+### Colors (Light Mode Only)
+- **Background:** `#F9F9F7` (Newsprint Off-White)
+- **Foreground & Borders:** `#111111` (Ink Black)
+- **Muted:** `#E5E5E0` (Divider Grey)
+- **Accent:** `#CC0000` (Editorial Red) - use extremely sparingly.
+
+### Typography
+- **Serif (Headlines):** `'Playfair Display', 'Times New Roman', serif`
+- **Serif (Body):** `'Lora', Georgia, serif`
+- **Sans-Serif (UI/Labels):** `'Inter', 'Helvetica Neue', sans-serif`
+- **Monospace (Data):** `'JetBrains Mono', 'Courier New', monospace`
+
+### Radius & Border
+- **Border Radius:** `0px` everywhere. No exceptions.
+- **Border Width:** Standard `1px` solid black (`border`, `border-r`, `border-b`). Use `border-b-4` for major section dividers.
+
+### Shadows/Effects
+- **Hover Effects:** Hard Offset Shadow: `box-shadow: 4px 4px 0px 0px #111111; transform: translate(-2px, -2px);`
+- **No Effects:** No blur, no soft drop shadows, no inner shadows.
+
+### Buttons & Inputs
+- **Primary Button:** Solid black background, white text. Hover: white background, black text/border. Sharp corners. Uppercase text with `tracking-widest`.
+- **Inputs:** Transparent background, only bottom border (2px solid black), monospace font. No border radius.
+</design-system>
+
+<functional-requirements>
+# Specific Page Layout & Interactivity
+
+You need to build a single-page React application with the following strict sections and logic:
+
+## 1. Hero Section (Left Column - Main Intro)
+- **Headline (H1):** Use the exact Chinese text: "你可以在此新增数据库聚类或向聚类中添加文件". Make it massive (e.g., `text-6xl lg:text-8xl`), using the Serif headline font, with very tight leading (`leading-[0.9]`).
+- **Subtext/Decor:** Add a few small decorative paragraphs or metadata tags around the headline using database-related Chinese context (e.g., "数据源管理系统 | v1.0", "高效、结构化、安全的数据聚类引擎"). Use uppercase sans-serif or monospace for these smaller labels to mimic newspaper edition markers.
+- **Action Button:** Below the headline, place exactly ONE primary button named "新建聚类" (Create Cluster). 
+
+## 2. Interactive Modal (Create Cluster)
+- When the "新建聚类" button is clicked, open a brutalist modal overlay.
+- The modal must follow the Newsprint style: thick black border, `#F9F9F7` background, 0px border radius, sharp hard shadow.
+- It should contain an input field (bottom border only, no radius) for the user to type the new cluster's name, and a "确认创建" (Confirm) button.
+- Submitting this form should add a new cluster object to the React state.
+
+## 3. Hero Section (Right Sidebar - Dynamic Metrics)
+- Create a right sidebar clearly separated from the left column by a vertical black border (`border-l`).
+- **Top Part (Stats):** Display exactly three metric rows:
+  1. "已有聚类数量" (Total Clusters)
+  2. "总文件数量" (Total Files)
+  3. "最近添加文件日期" (Last Added Date)
+- **Dynamic Logic:** The "已有聚类数量" must be tied to the React state. When a user creates a new cluster via the modal, this number must instantly increment.
+- **Bottom Part:** Leave the area below the stats completely empty (do not add any advertisement blocks or extra modules).
+
+## 4. Cluster List Section (Bottom Row Layout)
+- Instead of a complex, staggered multi-column card grid, use a strict, minimalist **Single-Column Horizontal Row layout**.
+- Map over the clusters in the React state. Each cluster should be rendered as a full-width horizontal bar/row.
+- Each row must be separated by a simple horizontal black line (`border-b border-[#111111]`). 
+- Do not use overlapping cards or side-by-side grids. "一行一个长条" (One long horizontal bar per row).
+- Inside each row, display the cluster's name (which the user inputted), an icon (from Lucide React), and a default file count (e.g., "文件数: 0").
+- **Initial State:** Provide 2 or 3 default clusters in the state so the list isn't empty on first load.
+
+## 5. Implementation Rules
+- Ensure you use React `useState` to manage the `clusters` array and the `isModalOpen` boolean.
+- Use Tailwind CSS for all styling, enforcing the `0px` border radius and black/white palette heavily.
+- Do not build any footers, sponsors sections, or extra marketing fluff. Stop after the Cluster List section.
+</functional-requirements>
+
+当前数据库界面存在以下问题：
+1、你对菜单栏的颜色做了改变，做成了深红色，这很好，但是按下菜单展开和菜单收起时的动态夹层做成了黑色，你可以将黑色改成你内部字体选用的深红色。
+2、第四个窗口最上面有一个黑色的滚动细栏，非常好看，为了不让它和菜单展开的按钮重合，我建议将这个页面的菜单展开按钮下移一些。
+3、”你可以在此
+新增数据库聚类
+或向聚类中
+添加文件“的字样字号太大，并且请你将字体换成google字体中好看的圆润的汉字设计，不要用这个，换成google字体里的ZCOOL 小薇 李大伟设计
