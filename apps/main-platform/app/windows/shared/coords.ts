@@ -121,3 +121,34 @@ export const MAIN_CANVAS_FILL = "#1e1919";
 export const MAIN_CANVAS_LINE_ACTIVE = "#27FF64";
 export const MAIN_CANVAS_LINE_INITIAL = "#ffffff";
 export const MAIN_CANVAS_STROKE_WIDTH = 1.5;
+
+// ─────────────────────────────────────────────
+// Window 3 · Model Config Canvas · 1440×900
+// 模型配置画布，独立于主画布，填充色为暖白
+// ─────────────────────────────────────────────
+export const MC_CANVAS_INITIAL = {
+  x1: 0.35 * VW, // 504
+  x2: 0.65 * VW, // 936
+  y1: 0.23 * VH, // 207
+  y2: 0.83 * VH, // 747
+};
+
+export const MC_CANVAS_EXPANDED = {
+  x1: 0.25 * VW, // 360
+  x2: 0.75 * VW, // 1080
+  y1: 0,
+  y2: VH,
+};
+
+// 菜单展开时，模型配置画布横向平移至左侧 2/3 区间（与主画布完全一致）
+export const MC_CANVAS_MENU_OPEN = {
+  x1: 0.10 * VW, // 144
+  x2: 0.60 * VW, // 864
+  y1: 0,
+  y2: VH,
+};
+
+export const MC_CANVAS_FILL = "#FFF6F6";
+export const MC_CANVAS_LINE_ACTIVE = "#27FF64";
+export const MC_CANVAS_LINE_INITIAL = "#ffffff";
+export const MC_CANVAS_STROKE_WIDTH = 1.5;

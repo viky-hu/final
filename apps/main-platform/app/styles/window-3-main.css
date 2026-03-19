@@ -38,7 +38,6 @@
 
 .cc-main-line {
   fill: none;
-  vector-effect: non-scaling-stroke;
   will-change: stroke-dashoffset;
 }
 
@@ -392,6 +391,7 @@
 
 /* ── 模式切换行 ── */
 .chat-mode-row {
+  --row-btn-height: 38px;
   display: flex;
   align-items: center;
   gap: 0.9rem;
@@ -401,12 +401,13 @@
 }
 
 .chat-mode-toggle {
+  min-height: var(--row-btn-height);
   display: inline-flex;
   align-items: center;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 100px;
-  padding: 3px;
+  padding: 4px;
   gap: 0;
 }
 
@@ -414,12 +415,12 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0.38em 1.1em;
+  padding: 0.55em 1.4em;
   border-radius: 100px;
   border: none;
   background: transparent;
   color: rgba(255, 255, 255, 0.4);
-  font-size: 0.8rem;
+  font-size: 0.95rem;
   font-weight: 500;
   font-family: "ZCOOL QingKe HuangYou", system-ui, sans-serif;
   letter-spacing: 0.07em;
@@ -1159,4 +1160,515 @@
 
 .trace-close-text {
   letter-spacing: 0.12em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   模型配置触发按钮 — 完全照搬 README animated-button
+   颜色统一使用项目荧光绿 #27FF64（原 README 为 greenyellow）
+   ═══════════════════════════════════════════════════════════════════ */
+
+.animated-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  min-height: var(--row-btn-height);
+  padding: 10px 24px;
+  border: 2px solid;
+  border-color: transparent;
+  font-size: 13px;
+  background-color: inherit;
+  border-radius: 100px;
+  font-weight: 600;
+  color: #27FF64;
+  box-shadow: 0 0 0 1px #27FF64;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.animated-button svg {
+  position: absolute;
+  width: 18px;
+  fill: #27FF64;
+  z-index: 9;
+  transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.animated-button .arr-1 {
+  right: 12px;
+}
+
+.animated-button .arr-2 {
+  left: -25%;
+}
+
+.animated-button .circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 16px;
+  height: 16px;
+  background-color: #27FF64;
+  border-radius: 50%;
+  opacity: 0;
+  transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.animated-button .text {
+  position: relative;
+  z-index: 1;
+  transform: translateX(-9px);
+  transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.animated-button:hover {
+  box-shadow: 0 0 0 12px transparent;
+  color: #212121;
+  border-radius: 12px;
+}
+
+.animated-button:hover .arr-1 {
+  right: -25%;
+}
+
+.animated-button:hover .arr-2 {
+  left: 12px;
+}
+
+.animated-button:hover .text {
+  transform: translateX(9px);
+}
+
+.animated-button:hover svg {
+  fill: #212121;
+}
+
+.animated-button:active {
+  scale: 0.95;
+  box-shadow: 0 0 0 4px #27FF64;
+}
+
+.animated-button:hover .circle {
+  width: 220px;
+  height: 220px;
+  opacity: 1;
+}
+
+.animated-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   模型配置画布层 & SVG
+   ═══════════════════════════════════════════════════════════════════ */
+
+.mc-canvas-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.mc-canvas-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.mc-main-line {
+  fill: none;
+  will-change: stroke-dashoffset;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   模型配置表单面板层
+   ═══════════════════════════════════════════════════════════════════ */
+
+.mc-panel-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 6vh 0 4vh;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+
+.mc-panel-layer::-webkit-scrollbar {
+  display: none;
+}
+
+.mc-panel {
+  pointer-events: auto;
+  width: min(540px, 44vw);
+  padding: 2rem 2.4rem 2.5rem;
+}
+
+/* ── 面板标题区 ── */
+
+.mc-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.6rem;
+}
+
+.mc-panel-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.mc-eyebrow {
+  font-family: "Michroma", monospace;
+  font-size: 0.58rem;
+  letter-spacing: 0.3em;
+  color: rgba(30, 25, 25, 0.4);
+  text-transform: uppercase;
+}
+
+.mc-panel-title {
+  margin: 0;
+  font-family: "ZCOOL QingKe HuangYou", system-ui, sans-serif;
+  font-size: 1.45rem;
+  font-weight: 400;
+  color: #1e1919;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
+}
+
+/* ── 关闭按钮（X 线条） ── */
+
+.mc-close-btn {
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid rgba(30, 25, 25, 0.22);
+  border-radius: 2px;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 0.2rem;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.mc-close-btn:hover {
+  border-color: rgba(30, 25, 25, 0.45);
+  background: rgba(30, 25, 25, 0.04);
+}
+
+.mc-close-x {
+  display: block;
+  position: relative;
+  width: 11px;
+  height: 11px;
+}
+
+.mc-close-x::before,
+.mc-close-x::after {
+  content: "";
+  position: absolute;
+  width: 100%;
+  height: 1.5px;
+  background: rgba(30, 25, 25, 0.55);
+  top: 50%;
+  left: 0;
+}
+
+.mc-close-x::before { transform: translateY(-50%) rotate(45deg); }
+.mc-close-x::after  { transform: translateY(-50%) rotate(-45deg); }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Provider 选择（线条分割的三段式可交互区域）
+   ═══════════════════════════════════════════════════════════════════ */
+
+.mc-provider-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid rgba(30, 25, 25, 0.14);
+  margin-bottom: 1.4rem;
+}
+
+.mc-provider-item {
+  flex: 1;
+  padding: 0.55em 0;
+  text-align: center;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  color: rgba(30, 25, 25, 0.38);
+  font-size: 0.82rem;
+  font-family: "ZCOOL QingKe HuangYou", system-ui, sans-serif;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: color 0.2s, border-bottom-color 0.2s;
+  position: relative;
+}
+
+/* 竖向分隔线（除最后一个以外） */
+.mc-provider-item:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 20%;
+  height: 60%;
+  width: 1px;
+  background: rgba(30, 25, 25, 0.12);
+}
+
+.mc-provider-item--active {
+  color: #1e1919;
+  border-bottom-color: #27FF64;
+  font-weight: 500;
+}
+
+.mc-provider-item:hover:not(.mc-provider-item--active) {
+  color: rgba(30, 25, 25, 0.65);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Model 选择（斜杠分割的内联文本按钮）
+   ═══════════════════════════════════════════════════════════════════ */
+
+.mc-model-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 1.6rem;
+}
+
+.mc-model-label {
+  font-size: 0.7rem;
+  color: rgba(30, 25, 25, 0.38);
+  font-family: system-ui, -apple-system, sans-serif;
+  letter-spacing: 0.06em;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.mc-model-options {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0;
+}
+
+.mc-model-slot {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.mc-model-divider {
+  color: rgba(30, 25, 25, 0.25);
+  font-size: 0.8rem;
+  padding: 0 0.3em;
+  user-select: none;
+}
+
+.mc-model-item {
+  background: transparent;
+  border: none;
+  padding: 0.1em 0.1em;
+  color: rgba(30, 25, 25, 0.4);
+  font-size: 0.8rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color 0.18s;
+  border-bottom: 1px solid transparent;
+}
+
+.mc-model-item--active {
+  color: #1e1919;
+  border-bottom-color: rgba(39, 255, 100, 0.7);
+}
+
+.mc-model-item:hover:not(.mc-model-item--active) {
+  color: rgba(30, 25, 25, 0.65);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   输入字段区（底边线风格）
+   ═══════════════════════════════════════════════════════════════════ */
+
+.mc-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 1.4rem;
+  margin-bottom: 1.8rem;
+}
+
+.mc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.mc-field-label {
+  font-size: 0.72rem;
+  color: rgba(30, 25, 25, 0.5);
+  font-family: system-ui, -apple-system, sans-serif;
+  letter-spacing: 0.06em;
+}
+
+.mc-field-input {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(30, 25, 25, 0.2);
+  padding: 0.5em 0;
+  color: #1e1919;
+  font-size: 0.88rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  outline: none;
+  transition: border-bottom-color 0.22s;
+  box-sizing: border-box;
+}
+
+.mc-field-input:focus {
+  border-bottom-color: #27FF64;
+}
+
+.mc-field-input::placeholder {
+  color: rgba(30, 25, 25, 0.25);
+}
+
+/* 本地路径行（输入框 + 浏览按钮） */
+
+.mc-field-path-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.6rem;
+}
+
+.mc-field-path-row .mc-field-input {
+  flex: 1;
+}
+
+.mc-browse-btn {
+  flex-shrink: 0;
+  padding: 0.4em 0.85em;
+  background: transparent;
+  border: 1px solid rgba(30, 25, 25, 0.22);
+  border-radius: 2px;
+  color: rgba(30, 25, 25, 0.55);
+  font-size: 0.78rem;
+  font-family: system-ui, -apple-system, sans-serif;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+  white-space: nowrap;
+  align-self: flex-end;
+  margin-bottom: 1px;
+}
+
+.mc-browse-btn:hover {
+  border-color: rgba(30, 25, 25, 0.45);
+  color: #1e1919;
+}
+
+.mc-field-hint {
+  font-size: 0.68rem;
+  color: rgba(30, 25, 25, 0.35);
+  font-family: system-ui, -apple-system, sans-serif;
+  letter-spacing: 0.03em;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   页脚：连接状态 + 保存按钮
+   ═══════════════════════════════════════════════════════════════════ */
+
+.mc-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.mc-connect-error {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #b91c1c;
+  font-family: system-ui, -apple-system, sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.mc-connect-success {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #16a34a;
+  font-family: system-ui, -apple-system, sans-serif;
+  letter-spacing: 0.02em;
+}
+
+.mc-save-btn {
+  width: 100%;
+  padding: 0.82em 1em;
+  background: transparent;
+  border: 1px solid rgba(30, 25, 25, 0.28);
+  border-radius: 2px;
+  color: #1e1919;
+  font-size: 0.88rem;
+  font-family: "ZCOOL QingKe HuangYou", system-ui, sans-serif;
+  letter-spacing: 0.12em;
+  cursor: pointer;
+  transition: border-color 0.22s, color 0.22s, background 0.22s;
+  position: relative;
+  overflow: hidden;
+}
+
+.mc-save-btn::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 2px;
+  width: 0;
+  background: #27FF64;
+  transition: width 0.36s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.mc-save-btn:hover:not(:disabled) {
+  border-color: rgba(39, 255, 100, 0.5);
+  color: #1e1919;
+}
+
+.mc-save-btn:hover:not(:disabled)::after {
+  width: 100%;
+}
+
+.mc-save-btn:active:not(:disabled) {
+  background: rgba(39, 255, 100, 0.06);
+}
+
+.mc-save-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── 响应式 ── */
+@media (max-width: 1024px) {
+  .mc-panel {
+    width: min(520px, 68vw);
+  }
+}
+
+@media (max-width: 640px) {
+  .mc-panel {
+    width: 88vw;
+    padding: 1.5rem 1.2rem 2rem;
+  }
+
+  .mc-panel-layer {
+    padding: 4vh 0 3vh;
+  }
 }
