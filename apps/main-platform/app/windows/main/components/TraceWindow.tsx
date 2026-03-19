@@ -14,86 +14,104 @@ import { LINE_DRAW_EASE } from "../../shared/animation";
 const TVW = 1440;
 const TVH = 900;
 
-// ─── Line definitions (identical coordinate system to original) ───────────────
+// ─── Vertical line x-positions (shifted left for 150% zoom visual balance) ───
+const VL = 384;   // main left  (was 432)
+const VM = 888;   // aux mid    (was 936)
+const VR = 1152;  // main right (was 1224)
+
+// ─── Line definitions ─────────────────────────────────────────────────────────
 const LINE_DEFS: { id: string; x1: number; y1: number; x2: number; y2: number }[] = [
-  { id: "tl-V-Main-L",   x1: 432,  y1: 0,   x2: 432,  y2: TVH },
-  { id: "tl-V-Main-R",   x1: 1224, y1: 0,   x2: 1224, y2: TVH },
-  { id: "tl-H-Main-T",   x1: 0,    y1: 135, x2: TVW,  y2: 135 },
-  { id: "tl-H-Main-B",   x1: TVW,  y1: 720, x2: 0,    y2: 720 },
-  { id: "tl-H-Aux-1",    x1: 432,  y1: 405, x2: 1224, y2: 405 },
-  { id: "tl-V-Aux-1",    x1: 936,  y1: 405, x2: 936,  y2: 720 },
-  { id: "tl-Deco-1",     x1: 403,  y1: 540, x2: 461,  y2: 540 },
-  { id: "tl-Cross-1-H",  x1: 918,  y1: 405, x2: 954,  y2: 405 },
-  { id: "tl-Cross-1-V",  x1: 936,  y1: 387, x2: 936,  y2: 423 },
+  // outer frame boundary lines (new)
+  { id: "tl-H-Bound-T",  x1: 0,   y1: 60,  x2: TVW, y2: 60  },
+  { id: "tl-H-Bound-B",  x1: TVW, y1: 800, x2: 0,   y2: 800 },
+  // main vertical lines — bounded to outer frame
+  { id: "tl-V-Main-L",   x1: VL,  y1: 60,  x2: VL,  y2: 800 },
+  { id: "tl-V-Main-R",   x1: VR,  y1: 60,  x2: VR,  y2: 800 },
+  // inner horizontal lines — full viewport width
+  { id: "tl-H-Main-T",   x1: 0,   y1: 135, x2: TVW, y2: 135 },
+  { id: "tl-H-Main-B",   x1: TVW, y1: 720, x2: 0,   y2: 720 },
+  // auxiliary lines
+  { id: "tl-H-Aux-1",    x1: VL,  y1: 405, x2: VR,  y2: 405 },
+  { id: "tl-V-Aux-1",    x1: VM,  y1: 405, x2: VM,  y2: 720 },
+  // decorative
+  { id: "tl-Deco-1",     x1: 355, y1: 540, x2: 413, y2: 540 },
+  { id: "tl-Cross-1-H",  x1: 870, y1: 405, x2: 906, y2: 405 },
+  { id: "tl-Cross-1-V",  x1: VM,  y1: 387, x2: VM,  y2: 423 },
 ];
 
 // ─── Node dots at key intersections ──────────────────────────────────────────
 const NODE_DOTS: { id: string; cx: number; cy: number }[] = [
-  { id: "nd-1", cx: 432,  cy: 135 },
-  { id: "nd-2", cx: 1224, cy: 135 },
-  { id: "nd-3", cx: 432,  cy: 405 },
-  { id: "nd-4", cx: 936,  cy: 405 },
-  { id: "nd-5", cx: 1224, cy: 405 },
-  { id: "nd-6", cx: 936,  cy: 720 },
-  { id: "nd-7", cx: 1224, cy: 720 },
+  // outer boundary corners
+  { id: "nd-bt-l", cx: VL,  cy: 60  },
+  { id: "nd-bt-r", cx: VR,  cy: 60  },
+  // inner frame intersections
+  { id: "nd-1",    cx: VL,  cy: 135 },
+  { id: "nd-2",    cx: VR,  cy: 135 },
+  { id: "nd-3",    cx: VL,  cy: 405 },
+  { id: "nd-4",    cx: VM,  cy: 405 },
+  { id: "nd-5",    cx: VR,  cy: 405 },
+  { id: "nd-6",    cx: VM,  cy: 720 },
+  { id: "nd-7",    cx: VR,  cy: 720 },
+  // outer boundary bottom corners
+  { id: "nd-bb-l", cx: VL,  cy: 800 },
+  { id: "nd-bb-r", cx: VR,  cy: 800 },
 ];
 
-// ─── 5 source regions strictly bounded by the drawn lines ────────────────────
-// Each region is an exact rectangle bounded by 4 lines.
+// ─── 5 source regions bounded by drawn lines ──────────────────────────────────
 const REGIONS = [
   {
     id: "left",
-    x: 0,    y: 135, w: 432, h: 585,
+    x: 0,   y: 135, w: VL,      h: 585,
     label: "SOURCE · 01",
     title: "核心架构设计规范_v4.pdf",
   },
   {
     id: "top-c",
-    x: 432,  y: 135, w: 792, h: 270,
+    x: VL,  y: 135, w: VR - VL, h: 270,
     label: "SOURCE · 02",
     title: "性能基准测试报告_2026Q1.pdf",
   },
   {
     id: "btm-cl",
-    x: 432,  y: 405, w: 504, h: 315,
+    x: VL,  y: 405, w: VM - VL, h: 315,
     label: "SOURCE · 03",
     title: "数据合规审计年度报告.docx",
   },
   {
     id: "btm-cr",
-    x: 936,  y: 405, w: 288, h: 315,
+    x: VM,  y: 405, w: VR - VM, h: 315,
     label: "SOURCE · 04",
     title: "模型微调实验日志.md",
   },
   {
     id: "right",
-    x: 1224, y: 135, w: 216, h: 585,
+    x: VR,  y: 135, w: TVW - VR, h: 585,
     label: "SOURCE · 05",
     title: "分布式系统设计文档.pdf",
   },
 ] as const;
 
 // ─── Phase type ────────────────────────────────────────────────────────────────
-type Phase = "lineDrawing" | "panelRevealLocked" | "freeScroll";
+// p1_draw   : scrollTop 0→vh; lines draw as user scrolls p1→p2
+// p2_locked : scrollTop locked at vh; 0.5s auto-reveal plays
+// p3_free   : scrollTop >vh; SVG translates up to simulate being "in" p2
+type Phase = "p1_draw" | "p2_locked" | "p3_free";
 
-// ─── Scroll constants ─────────────────────────────────────────────────────────
-// Lines finish drawing after user scrolls 1.5× viewport height
-const LINE_DRAW_VH = 1.5;
-// Wheel pixel accumulation required to fully reveal all 5 panels
-const REVEAL_WHEEL_TOTAL = 2500;
+// ─── Scroll constant: lines complete after exactly 1 viewport height of scroll ─
+const LINE_DRAW_VH = 1;
 
 // ─── Knowledge graph node/edge data ──────────────────────────────────────────
 const KG_NODES = [
-  { id: "c0", x: 720,  y: 450, r: 46, type: "center" as const, label: "本次回答",   sub: "KNOWLEDGE NODE" },
-  { id: "s1", x: 200,  y: 250, r: 27, type: "source" as const, label: "核心架构",   sub: "" },
-  { id: "s2", x: 590,  y: 165, r: 27, type: "source" as const, label: "性能测试",   sub: "" },
-  { id: "s3", x: 530,  y: 650, r: 27, type: "source" as const, label: "数据合规",   sub: "" },
-  { id: "s4", x: 920,  y: 640, r: 27, type: "source" as const, label: "模型微调",   sub: "" },
-  { id: "s5", x: 1200, y: 280, r: 27, type: "source" as const, label: "分布式系统", sub: "" },
-  { id: "k1", x: 290,  y: 520, r: 17, type: "concept" as const, label: "架构设计",  sub: "" },
-  { id: "k2", x: 860,  y: 185, r: 17, type: "concept" as const, label: "实验数据",  sub: "" },
-  { id: "k3", x: 1065, y: 570, r: 17, type: "concept" as const, label: "系统优化",  sub: "" },
-  { id: "k4", x: 380,  y: 715, r: 17, type: "concept" as const, label: "合规审计",  sub: "" },
+  { id: "c0", x: 720,  y: 510, r: 46, type: "center" as const, label: "本次回答",   sub: "KNOWLEDGE NODE" },
+  { id: "s1", x: 200,  y: 310, r: 27, type: "source" as const, label: "核心架构",   sub: "" },
+  { id: "s2", x: 590,  y: 225, r: 27, type: "source" as const, label: "性能测试",   sub: "" },
+  { id: "s3", x: 530,  y: 710, r: 27, type: "source" as const, label: "数据合规",   sub: "" },
+  { id: "s4", x: 920,  y: 700, r: 27, type: "source" as const, label: "模型微调",   sub: "" },
+  { id: "s5", x: 1200, y: 340, r: 27, type: "source" as const, label: "分布式系统", sub: "" },
+  { id: "k1", x: 290,  y: 580, r: 17, type: "concept" as const, label: "架构设计",  sub: "" },
+  { id: "k2", x: 860,  y: 245, r: 17, type: "concept" as const, label: "实验数据",  sub: "" },
+  { id: "k3", x: 1065, y: 630, r: 17, type: "concept" as const, label: "系统优化",  sub: "" },
+  { id: "k4", x: 380,  y: 775, r: 17, type: "concept" as const, label: "合规审计",  sub: "" },
 ];
 
 const KG_EDGES = [
@@ -231,11 +249,13 @@ export function TraceWindow({ msgId, onClose }: TraceWindowProps) {
   const svgLayerRef  = useRef<HTMLDivElement>(null);
   const svgRef       = useRef<SVGSVGElement>(null);
 
-  const phaseRef         = useRef<Phase>("lineDrawing");
+  const phaseRef         = useRef<Phase>("p1_draw");
   const lineDrawTlRef    = useRef<gsap.core.Timeline | null>(null);
   const revealTlRef      = useRef<gsap.core.Timeline | null>(null);
   const lockScrollTopRef = useRef(0);
-  const wheelAccumRef    = useRef(0);
+
+  // All active cleanup functions — called on unmount or re-cleanup
+  const cleanupFnsRef = useRef<(() => void)[]>([]);
 
   const [hint, setHint]         = useState("↓ 向下滚动开始绘制线框");
   const [showHint, setShowHint] = useState(true);
@@ -268,23 +288,28 @@ export function TraceWindow({ msgId, onClose }: TraceWindowProps) {
     REGIONS.forEach(({ id }) => {
       const fill    = svg.querySelector(`#rf-${id}`);
       const content = svg.querySelector(`#rc-${id}`);
+      const scan    = svg.querySelector(`#rs-${id}`);
       if (fill)    gsap.set(fill,    { attr: { height: 0 } });
       if (content) gsap.set(content, { opacity: 0 });
+      if (scan)    gsap.set(scan,    { opacity: 0 });
     });
 
     // Build line draw timeline — paused, driven by scroll progress
+    // Sequence: outer frame first → main verticals → inner horizontals → aux → deco
     const tl = gsap.timeline({ paused: true });
     const q  = (id: string) => svg.querySelector<SVGLineElement>(`#${id}`);
 
-    tl.to(q("tl-V-Main-L"),  { strokeDashoffset: 0, duration: 5, ease: LINE_DRAW_EASE }, 0);
-    tl.to(q("tl-V-Main-R"),  { strokeDashoffset: 0, duration: 5, ease: LINE_DRAW_EASE }, "-=3");
-    tl.to(q("tl-H-Main-T"),  { strokeDashoffset: 0, duration: 5, ease: LINE_DRAW_EASE }, "-=2");
-    tl.to(q("tl-H-Main-B"),  { strokeDashoffset: 0, duration: 5, ease: LINE_DRAW_EASE }, "-=3");
-    tl.to(q("tl-H-Aux-1"),   { strokeDashoffset: 0, duration: 4, ease: LINE_DRAW_EASE }, "-=1");
-    tl.to(q("tl-V-Aux-1"),   { strokeDashoffset: 0, duration: 4, ease: LINE_DRAW_EASE }, "-=2");
-    tl.to(q("tl-Deco-1"),    { strokeDashoffset: 0, duration: 2, ease: LINE_DRAW_EASE });
-    tl.to(q("tl-Cross-1-H"), { strokeDashoffset: 0, duration: 2, ease: LINE_DRAW_EASE }, "-=2");
-    tl.to(q("tl-Cross-1-V"), { strokeDashoffset: 0, duration: 2, ease: LINE_DRAW_EASE }, "-=2");
+    tl.to(q("tl-H-Bound-T"),  { strokeDashoffset: 0, duration: 4, ease: LINE_DRAW_EASE }, 0);
+    tl.to(q("tl-H-Bound-B"),  { strokeDashoffset: 0, duration: 4, ease: LINE_DRAW_EASE }, "-=2");
+    tl.to(q("tl-V-Main-L"),   { strokeDashoffset: 0, duration: 5, ease: LINE_DRAW_EASE }, "-=2");
+    tl.to(q("tl-V-Main-R"),   { strokeDashoffset: 0, duration: 5, ease: LINE_DRAW_EASE }, "-=3");
+    tl.to(q("tl-H-Main-T"),   { strokeDashoffset: 0, duration: 5, ease: LINE_DRAW_EASE }, "-=2");
+    tl.to(q("tl-H-Main-B"),   { strokeDashoffset: 0, duration: 5, ease: LINE_DRAW_EASE }, "-=3");
+    tl.to(q("tl-H-Aux-1"),    { strokeDashoffset: 0, duration: 4, ease: LINE_DRAW_EASE }, "-=1");
+    tl.to(q("tl-V-Aux-1"),    { strokeDashoffset: 0, duration: 4, ease: LINE_DRAW_EASE }, "-=2");
+    tl.to(q("tl-Deco-1"),     { strokeDashoffset: 0, duration: 2, ease: LINE_DRAW_EASE });
+    tl.to(q("tl-Cross-1-H"),  { strokeDashoffset: 0, duration: 2, ease: LINE_DRAW_EASE }, "-=2");
+    tl.to(q("tl-Cross-1-V"),  { strokeDashoffset: 0, duration: 2, ease: LINE_DRAW_EASE }, "-=2");
     tl.to(svg.querySelectorAll(".tl-node-dot"), {
       opacity: 1, scale: 1.5, yoyo: true, repeat: 1, duration: 1, stagger: 0.1,
     });
@@ -293,82 +318,131 @@ export function TraceWindow({ msgId, onClose }: TraceWindowProps) {
     return () => { tl.kill(); };
   }, []);
 
-  // ── All phase event-listener logic in one stable effect ────────────────────
+  // ── All phase event-listener logic ─────────────────────────────────────────
   useEffect(() => {
     const scroller = scrollerRef.current;
     if (!scroller) return;
 
-    // ── Phase 3: free scroll — SVG layer translates upward with canvas ──────
-    let freeScrollCleanup: (() => void) | null = null;
+    // ── Phase 3 (p3_free): SVG translates up with the canvas ──────────────
     const startFreeScroll = () => {
-      phaseRef.current = "freeScroll";
+      phaseRef.current = "p3_free";
       setShowHint(false);
 
       const svgLayer = svgLayerRef.current;
       if (!svgLayer) return;
 
       const lockTop = lockScrollTopRef.current;
+
+      // At this moment scrollTop === lockTop, so y=0 — no flash on unlock
+      gsap.set(svgLayer, { y: 0 });
+
       const handleFreeScroll = () => {
         const delta = scroller.scrollTop - lockTop;
         gsap.set(svgLayer, { y: -delta });
       };
 
-      freeScrollCleanup = () => scroller.removeEventListener("scroll", handleFreeScroll);
       scroller.addEventListener("scroll", handleFreeScroll, { passive: true });
+      cleanupFnsRef.current.push(() =>
+        scroller.removeEventListener("scroll", handleFreeScroll)
+      );
     };
 
-    // ── Phase 2: panel reveal locked — wheel drives GSAP timeline ───────────
-    let wheelCleanup: (() => void) | null = null;
+    // ── Phase 2 (p2_locked): hard-lock scroll, auto-play 0.5s reveal ─────
     const startPanelReveal = () => {
       const svg = svgRef.current;
       if (!svg) return;
 
-      phaseRef.current           = "panelRevealLocked";
-      lockScrollTopRef.current   = scroller.scrollTop;
-      wheelAccumRef.current      = 0;
-      setHint("继续滚动以显现溯源文件");
+      phaseRef.current = "p2_locked";
+      lockScrollTopRef.current = scroller.scrollTop;
+      setHint("线框已完成，正在显现溯源文件…");
 
-      // Build panel reveal timeline — paused, driven by wheel accumulation
-      const revealTl = gsap.timeline({ paused: true });
-      REGIONS.forEach(({ id, h }, i) => {
-        const fill    = svg.querySelector(`#rf-${id}`);
-        const content = svg.querySelector(`#rc-${id}`);
-        const at      = i * 1.5;
-        if (fill)    revealTl.to(fill,    { attr: { height: h }, duration: 1.2, ease: "power3.inOut" }, at);
-        if (content) revealTl.to(content, { opacity: 1, duration: 0.8, ease: "power2.out" }, at + 0.9);
-      });
-      // Node dots appear during reveal
-      revealTl.to(svg.querySelectorAll(".tl-node-dot"), {
-        opacity: 1, scale: 1, stagger: 0.08, duration: 0.5, ease: "back.out(2)",
-      }, 0.3);
-
-      revealTlRef.current = revealTl;
-
-      const handleWheel = (e: WheelEvent) => {
-        if (phaseRef.current !== "panelRevealLocked") return;
-        e.preventDefault();
-
-        wheelAccumRef.current = Math.min(
-          REVEAL_WHEEL_TOTAL,
-          Math.max(0, wheelAccumRef.current + e.deltaY),
-        );
-        const progress = wheelAccumRef.current / REVEAL_WHEEL_TOTAL;
-        revealTlRef.current?.progress(progress);
-
-        if (progress >= 1) {
-          wheelCleanup?.();
-          wheelCleanup = null;
-          startFreeScroll();
+      // ── Hard scroll lock: block all input sources ────────────────────────
+      const preventWheel = (e: WheelEvent) => { e.preventDefault(); };
+      const preventTouch = (e: TouchEvent) => { e.preventDefault(); };
+      const preventKeys  = (e: KeyboardEvent) => {
+        if (["ArrowDown", "ArrowUp", "PageDown", "PageUp", " "].includes(e.key)) {
+          e.preventDefault();
         }
       };
+      // Clamp scrollTop every frame in case scrollbar is dragged
+      const clampScroll = () => {
+        scroller.scrollTop = lockScrollTopRef.current;
+      };
 
-      wheelCleanup = () => scroller.removeEventListener("wheel", handleWheel);
-      scroller.addEventListener("wheel", handleWheel, { passive: false });
+      scroller.addEventListener("wheel",     preventWheel, { passive: false });
+      scroller.addEventListener("touchmove", preventTouch, { passive: false });
+      window.addEventListener("keydown",     preventKeys);
+      scroller.addEventListener("scroll",    clampScroll);
+
+      const unlock = () => {
+        scroller.removeEventListener("wheel",     preventWheel);
+        scroller.removeEventListener("touchmove", preventTouch);
+        window.removeEventListener("keydown",     preventKeys);
+        scroller.removeEventListener("scroll",    clampScroll);
+      };
+      // Register for unmount cleanup too
+      cleanupFnsRef.current.push(unlock);
+
+      // ── 0.5s auto-play reveal timeline ───────────────────────────────────
+      const revealTl = gsap.timeline({
+        onComplete: () => {
+          unlock();
+          // Remove this unlock from cleanup list (already called)
+          cleanupFnsRef.current = cleanupFnsRef.current.filter(fn => fn !== unlock);
+          startFreeScroll();
+        },
+      });
+
+      // Stage 0: node dots flash bright (0–0.15s)
+      revealTl.to(svg.querySelectorAll(".tl-node-dot"), {
+        opacity: 1, scale: 1.8, duration: 0.08, stagger: 0.015, ease: "back.out(3)",
+      }, 0);
+      revealTl.to(svg.querySelectorAll(".tl-node-dot"), {
+        scale: 1, duration: 0.1, stagger: 0.015, ease: "power2.out",
+      }, 0.09);
+
+      // Stages 1-3: per-region — fill wipe, scan sweep, text float
+      // Stagger 5 panels across 0.04–0.48s total
+      REGIONS.forEach(({ id, y, h }, i) => {
+        const fill    = svg.querySelector(`#rf-${id}`);
+        const content = svg.querySelector(`#rc-${id}`);
+        const scan    = svg.querySelector(`#rs-${id}`);
+        const at      = 0.04 + i * 0.05;
+
+        if (fill) {
+          revealTl.fromTo(
+            fill,
+            { attr: { height: 0, fill: "rgba(39,255,100,0.13)" } },
+            { attr: { height: h, fill: "rgba(39,255,100,0.07)" }, duration: 0.18, ease: "power3.out" },
+            at,
+          );
+        }
+
+        if (scan) {
+          revealTl.fromTo(
+            scan,
+            { attr: { y }, opacity: 0.85 },
+            { attr: { y: y + h }, opacity: 0, duration: 0.18, ease: "power1.in" },
+            at,
+          );
+        }
+
+        if (content) {
+          revealTl.fromTo(
+            content,
+            { opacity: 0, y: 10 },
+            { opacity: 1, y: 0, duration: 0.14, ease: "power3.out" },
+            at + 0.14,
+          );
+        }
+      });
+
+      revealTlRef.current = revealTl;
     };
 
-    // ── Phase 1: line drawing — scroll drives GSAP timeline ────────────────
+    // ── Phase 1 (p1_draw): scroll drives line-drawing timeline ────────────
     const handleLineScroll = () => {
-      if (phaseRef.current !== "lineDrawing") return;
+      if (phaseRef.current !== "p1_draw") return;
       const lineDrawEnd = window.innerHeight * LINE_DRAW_VH;
       const progress    = Math.min(scroller.scrollTop / lineDrawEnd, 1);
       lineDrawTlRef.current?.progress(progress);
@@ -380,11 +454,13 @@ export function TraceWindow({ msgId, onClose }: TraceWindowProps) {
     };
 
     scroller.addEventListener("scroll", handleLineScroll, { passive: true });
+    cleanupFnsRef.current.push(() =>
+      scroller.removeEventListener("scroll", handleLineScroll)
+    );
 
     return () => {
-      scroller.removeEventListener("scroll", handleLineScroll);
-      wheelCleanup?.();
-      freeScrollCleanup?.();
+      cleanupFnsRef.current.forEach(fn => fn());
+      cleanupFnsRef.current = [];
     };
   }, []); // stable — all mutable state accessed via refs
 
@@ -411,8 +487,10 @@ export function TraceWindow({ msgId, onClose }: TraceWindowProps) {
       <div className="trace-window-bg" aria-hidden="true" />
 
       {/* ── SVG frame layer ──────────────────────────────────────────────────
-           Position: absolute within fixed root (= visually fixed to viewport).
-           In freeScroll phase, GSAP applies translateY to simulate canvas scroll. */}
+           Always viewport-fixed (absolute in fixed root).
+           In p3_free phase, GSAP applies translateY(-(scrollTop-lockTop))
+           so the SVG appears to "scroll up with p2" as user moves into p3.
+           At the unlock moment scrollTop===lockTop so translateY=0 — no flash. */}
       <div ref={svgLayerRef} className="trace-svg-layer" aria-hidden="true">
         <svg
           ref={svgRef}
@@ -420,13 +498,21 @@ export function TraceWindow({ msgId, onClose }: TraceWindowProps) {
           preserveAspectRatio="xMidYMid slice"
           className="trace-frame-svg"
         >
-          {/* ClipPaths: one per region, exactly bounded by the four surrounding lines */}
           <defs>
+            {/* Clip paths: one per region */}
             {REGIONS.map(({ id, x, y, w, h }) => (
               <clipPath key={id} id={`clip-${id}`}>
                 <rect x={x} y={y} width={w} height={h} />
               </clipPath>
             ))}
+            {/* Scan-line glow filter */}
+            <filter id="tl-scan-glow" x="-5%" y="-200%" width="110%" height="500%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
           </defs>
 
           {/* Region fill rects — wipe from top (height: 0 → h via GSAP) */}
@@ -435,7 +521,19 @@ export function TraceWindow({ msgId, onClose }: TraceWindowProps) {
               key={id}
               id={`rf-${id}`}
               x={x} y={y} width={w} height={0}
-              fill="rgba(39,255,100,0.045)"
+              fill="rgba(39,255,100,0.07)"
+            />
+          ))}
+
+          {/* Scan sweep rects — bright bar that sweeps down during reveal */}
+          {REGIONS.map(({ id, x, y, w }) => (
+            <rect
+              key={id}
+              id={`rs-${id}`}
+              x={x} y={y} width={w} height={4}
+              fill="rgba(39,255,100,0.92)"
+              opacity={0}
+              filter="url(#tl-scan-glow)"
             />
           ))}
 
@@ -443,7 +541,6 @@ export function TraceWindow({ msgId, onClose }: TraceWindowProps) {
           {REGIONS.map(({ id, x, y, w, h, label, title }) => {
             const cx  = x + w / 2;
             const cy  = y + h / 2;
-            // Font sizes scale with region width to fit narrow columns
             const tfs = Math.max(9, Math.min(14, w / 20));
             const lfs = Math.max(7, Math.min(10, w / 30));
             return (
@@ -503,14 +600,18 @@ export function TraceWindow({ msgId, onClose }: TraceWindowProps) {
         </svg>
       </div>
 
-      {/* ── Long canvas scroll container (z-index 2, transparent) ─────────────
-           Hero: 100vh  |  Stamp zone: 150vh  |  Graph: 100vh  =  350vh total
-           maxScrollTop = 250vh → SVG exits exactly at max scroll */}
+      {/* ── Long canvas scroll container ──────────────────────────────────────
+           Strictly 3 screens: p1=100vh | p2=100vh | p3=100vh = 300vh total.
+           Line drawing completes when scrollTop reaches 1×viewport height
+           (i.e., exactly when p2 fills the screen). */}
       <div ref={scrollerRef} className="trace-scroller">
         <div className="trace-canvas">
 
-          {/* Section 1 — Hero header (100vh) */}
+          {/* Section 1 — Hero header (100vh, p1) */}
           <section className="trace-hero">
+            <div className="trace-hero-glow"   aria-hidden="true" />
+            <div className="trace-hero-scan"   aria-hidden="true" />
+            <div className="trace-hero-grid"   aria-hidden="true" />
             <div className="trace-hero-inner">
               <p className="trace-header-eyebrow">KNOWLEDGE TRACE</p>
               <h1 className="trace-header-title">知识溯源</h1>
@@ -523,11 +624,13 @@ export function TraceWindow({ msgId, onClose }: TraceWindowProps) {
             </div>
           </section>
 
-          {/* Section 2 — Stamp zone (150vh) — provides scroll distance for
-               line drawing (0→150vh) and houses the locked reveal interaction */}
+          {/* Section 2 — SVG reveal zone (100vh, p2)
+               Empty scroll buffer; the SVG layer renders above this section.
+               When scrollTop = 100vh this section fills the viewport exactly,
+               which is when lines finish drawing and reveal auto-plays. */}
           <div className="trace-stamp-zone" aria-hidden="true" />
 
-          {/* Section 3 — Knowledge graph (100vh) */}
+          {/* Section 3 — Knowledge graph (100vh, p3) */}
           <section className="trace-graph-zone">
             <div className="trace-graph-header">
               <p className="trace-graph-eyebrow">KNOWLEDGE GRAPH</p>

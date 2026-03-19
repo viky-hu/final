@@ -67,7 +67,9 @@
 }
 
 .db-hero-grid {
+  position: relative;
   flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: 1fr 280px;
   border-top: 1px solid #111111;
@@ -76,11 +78,25 @@
 /* Left column */
 .db-hero-left {
   padding: clamp(2.5rem, 5vw, 5rem) clamp(2rem, 4vw, 4rem);
-  border-right: 1px solid #111111;
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 2rem;
+}
+
+/* Right quarter divider: from top to bottom of viewport (screen boundaries) */
+.db-v-divider-svg {
+  position: fixed;
+  top: 0;
+  left: calc(100vw - 280px);
+  width: 2px;
+  height: 100dvh;
+  pointer-events: none;
+  z-index: 10;
+}
+
+#db-v-divider {
+  will-change: stroke-dashoffset;
 }
 
 /* Eyebrow label */
@@ -95,15 +111,37 @@
   opacity: 0.55;
 }
 
-/* Massive serif headline */
+/* Massive Chinese headline — ZCOOL XiaoWei for rounded strokes */
 .db-headline {
   margin: 0;
-  font-family: 'Playfair Display', 'Times New Roman', serif;
-  font-size: clamp(2.8rem, 6vw, 7rem);
-  font-weight: 900;
-  line-height: 0.95;
-  letter-spacing: -0.02em;
+  font-family: 'ZCOOL XiaoWei', 'Songti SC', 'SimSun', serif;
+  font-size: clamp(2rem, 4.2vw, 5rem);
+  font-weight: 400;
+  line-height: 1.18;
+  letter-spacing: 0.04em;
   color: #111111;
+}
+
+/* Horizontal draw line between headline and decor block */
+.db-h-line-wrap {
+  /* Extend past left/right padding to reach both column edges and meet the vertical divider */
+  margin-left: calc(-1 * clamp(2rem, 4vw, 4rem));
+  margin-right: calc(-1 * clamp(2rem, 4vw, 4rem));
+  width: calc(100% + 2 * clamp(2rem, 4vw, 4rem));
+  height: 2px;
+  flex-shrink: 0;
+  overflow: visible;
+}
+
+.db-h-line-svg {
+  display: block;
+  width: 100%;
+  height: 2px;
+  overflow: visible;
+}
+
+#db-h-line {
+  will-change: stroke-dashoffset;
 }
 
 /* Decorative info block */
@@ -365,12 +403,17 @@
   pointer-events: none;
 }
 
-/* Override menu toggle text color for light background */
-.db-menu-layer .sm-scope .sm-toggle {
-  color: #111111;
+/* Push menu header below ticker bar (36px) to avoid overlap */
+.db-menu-layer .staggered-menu-header {
+  padding-top: calc(36px + 1.2rem);
 }
 
-.db-menu-layer .sm-scope .sm-toggle:focus-visible {
+/* Override menu toggle text color for light background */
+.db-menu-layer .sm-toggle {
+  color: #111111 !important;
+}
+
+.db-menu-layer .sm-toggle:focus-visible {
   outline-color: #111111;
 }
 
@@ -551,6 +594,10 @@
 
   .db-hero-left {
     border-right: none;
+  }
+
+  .db-v-divider-svg {
+    display: none;
   }
 
   .db-cluster-row {

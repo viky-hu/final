@@ -4,6 +4,7 @@ import "./styles/window-2-product.css";
 import "./styles/window-3-main.css";
 import "./styles/window-4-database.css";
 import "@fontsource/zcool-qingke-huangyou";
+import "@fontsource/zcool-xiaowei";
 import "@fontsource/michroma";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";

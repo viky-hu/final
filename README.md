@@ -1,4 +1,4 @@
-## Final
+﻿## Final
 
 基于 **Monorepo** 架构的 Web 前端项目，通过「组件化拆分」先独立开发各功能窗口，再在主平台中整合。
 
@@ -416,6 +416,7 @@ app/
             ├── DotGrid.tsx         # 点阵背景（Canvas + GSAP Inertia）
             ├── ChatCanvasLines.tsx # SVG 画布（画线 + 扩张 + 菜单联动）
             ├── ChatInteractionPanel.tsx  # 聊天交互（Radix + GSAP）
+            ├── TraceWindow.tsx     # 知识溯源全屏覆盖层（P1/P2/P3 + 线条 + 五区 + 知识图谱）
             └── StaggeredMenu.tsx   # 侧滑菜单（GSAP timeline）
 ```
 
@@ -445,219 +446,987 @@ app/
 - 代码中无与 README 约束冲突的硬编码层级或百分比。
 
 
-#### 对第三窗口的回答信息溯源
+---
 
-我将继续构思第三窗口的新设计：
-基于我的react技术栈web前端，我想要在我的聊天对话窗口设计一个新功能。首先明确：我这个聊天对话是基于一个数据库，然后我输入问题，输出答案，都有气泡包装，答案是大模型生成的。现在我要新增一个数据溯源功能，即按下某个回答按钮后，整个页面会svg+gsap层进覆盖成一个新的画布窗口，是长画布，可下拉，在一开始动态呈现给用户此回答来源于哪些原文，呈现五句原文，下拉后再动态跳出五个文件卡片，这是原文的来源文件，按下这些卡片还可以弹出一个预览弹窗，可以给用户预览数据库的原文件。继续下拉，整个画布将会为用户呈现一个知识图谱，显示该数据库中有关回答的答案的关键词提取后层层筛选生成的球棍立体3D图谱。
+### 九、知识溯源功能（TraceWindow）
 
-所以第一步我们应该对每一个回答气泡增设可交互的功能，我让Gemini写了如下提示词：
-1. **左侧（气泡主体，当前已经实现的样子）：** 带有荧光绿色的边框（border）。
-   - 左右边角为大圆角。
-   - 内部文字为绿色：“这是模拟回答，后续将接入实际代码。”
-   - 默认带有一层微弱的荧光绿外发光（box-shadow）。
-2. **右侧（溯源按钮）：**
-   - 初始宽度为 0，`overflow: hidden`。
-   - 背景为实心荧光绿。
-   - 从气泡主题的右边界向右生长出来，右侧边角为同样的圆角（形似半个胶囊）。
-   - 内部包含一个子元素：白色的底块，上面写着绿色的文字“溯源”。
+知识溯源为第三窗口的**覆盖式子模块**：用户点击回答气泡上的「溯源」按钮后，全屏展示可下拉的长画布，动态呈现该回答的原文来源、来源文件与知识图谱。
 
-**【交互与动画逻辑 (使用 GSAP Timeline)】**
-当鼠标 Hover 靠近或进入整体容器时，触发以下 GSAP 动画序列：
-1. **阶段 1（发光增强）：** 左侧气泡主体的荧光绿边框外发光（box-shadow）亮度/扩散范围明显增加。
-2. **阶段 2（向右生长）：** 紧接着，从气泡右侧圆角边界平滑展开右侧的“溯源按钮”到固定宽度（例如 80px 左右），看起来像是从气泡右侧生长出来的绿胶囊瓣。
-3. **阶段 3（内容浮现）：** 当按钮宽度展开到 80% 或完全展开后，内部的“白底溯源字样”透明度从 0 淡入到 1。文字在整个展开过程中不能发生拉伸或挤压变形。
-4. **鼠标移出（MouseLeave）：** 按照上述过程的相反顺序平滑收回（文字淡出 -> 宽度收缩 -> 辉光减弱）。
+#### 9.1 功能概述
 
-**【技术细节】**
-- 左右两部分的连接处必须无缝，不能有间隙。
-- 请提供完整的 HTML/JSX 结构、CSS 样式（重点是圆角和隐藏溢出的设置），以及 GSAP 的 timeline 动画逻辑代码。
+| 阶段 | 内容 |
+|------|------|
+| **入口** | 回答气泡 Hover 展开「溯源」按钮，点击后覆盖式打开 TraceWindow |
+| **画布结构** | 下拉式长画布，分为 P1（介绍）、P2（线条框架 + 五区画布）、P3（知识图谱）三部分 |
+| **数据流** | 原文 → 来源文件（五句原文对应五个文件）→ 知识图谱（球棍式 3D 节点与边） |
+
+#### 9.2 回答气泡溯源按钮（BotBubble）
+
+**视觉规范：**
+
+- **左侧（气泡主体）**：荧光绿边框、大圆角、微弱外发光（`box-shadow`），内部文字为绿色模拟回答；
+- **右侧（溯源按钮）**：初始宽度 0、`overflow: hidden`，实心荧光绿背景，从气泡右边界向右生长，形似半个胶囊；内部白底绿字「溯源」。
+
+**交互与动画（GSAP Timeline）：**
+
+| 阶段 | 触发 | 动效 |
+|------|------|------|
+| 1 发光增强 | `mouseenter` | 气泡 `box-shadow` 亮度/扩散范围增加 |
+| 2 向右生长 | 紧接着 | 溯源按钮宽度 0 → 80px，缓动 `LINE_DRAW_EASE`（慢→快→慢） |
+| 3 内容浮现 | 按钮展开约 80% 后 | 内部「溯源」文字 `opacity` 0 → 1 |
+| 4 收回 | `mouseleave` | 按相反顺序执行 `timeline.reverse()` |
+
+**技术约束**：左右连接处无缝；实现见 [`ChatInteractionPanel.tsx`](apps/main-platform/app/windows/main/components/ChatInteractionPanel.tsx) 中 `BotBubble` 组件。
+
+#### 9.3 设计语言：Wireframe UI / Architectural Grid
+
+- **原则**：使用全屏 SVG 的 `<line>` / `<path>` 绘制网格，**禁止**用多个 `<div>` 的 `border` 拼凑；
+- **线条生长**：通过原生 `stroke-dasharray` + `stroke-dashoffset` 驱动，无需 GSAP DrawSVG 插件；
+- **画布归属**：线条框架**印在长画布上**，随滚轮滚动上移，而非固定于视口的相框式装饰。
+
+#### 9.4 线条坐标系与绘制顺序（TraceWindow 实现）
+
+画布基准：`TVW = 1440`，`TVH = 900`。竖线 x 坐标：`VL = 384`，`VM = 888`，`VR = 1152`。线条 ID：`tl-H-Bound-T/B`（上下边界）、`tl-V-Main-L/R`（纵主干）、`tl-H-Main-T/B`（横主干）、`tl-H-Aux-1`、`tl-V-Aux-1`（辅线）、`tl-Deco-1`、`tl-Cross-1-H/V`（装饰）。**绘制节奏**：慢→快→慢（`LINE_DRAW_EASE`）。
+
+#### 9.5 三阶段滚动逻辑（P1 / P2 / P3）
+
+P1 介绍 → 滚轮绘制线条 → P2 框架固定、锁定 0.5s、五区画布浮现 → 解除锁定 → P3 知识图谱入场。五区画布由线条围成，展示 `REGIONS` 中 `label` 与 `title`（来源文件名称）。
+
+#### 9.6 知识图谱与文件结构
+
+- **KnowledgeGraph**：`KG_NODES` + `KG_EDGES`，`IntersectionObserver` 触发 GSAP 入场；
+- **代码**：[`TraceWindow.tsx`](apps/main-platform/app/windows/main/components/TraceWindow.tsx)、[`ChatInteractionPanel.tsx`](apps/main-platform/app/windows/main/components/ChatInteractionPanel.tsx)。
+
+---
+
+### 十、大模型选取功能
+新增一个button位于第三个窗口的信息流画布的最上层的模式切换按钮旁边
+html：
+<button class="animated-button">
+  <svg viewBox="0 0 24 24" class="arr-2" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"
+    ></path>
+  </svg>
+  <span class="text">Modern Button</span>
+  <span class="circle"></span>
+  <svg viewBox="0 0 24 24" class="arr-1" xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z"
+    ></path>
+  </svg>
+</button>
+
+css：
+.animated-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 16px 36px;
+  border: 4px solid;
+  border-color: transparent;
+  font-size: 16px;
+  background-color: inherit;
+  border-radius: 100px;
+  font-weight: 600;
+  color: greenyellow;
+  box-shadow: 0 0 0 2px greenyellow;
+  cursor: pointer;
+  overflow: hidden;
+  transition: all 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.animated-button svg {
+  position: absolute;
+  width: 24px;
+  fill: greenyellow;
+  z-index: 9;
+  transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.animated-button .arr-1 {
+  right: 16px;
+}
+
+.animated-button .arr-2 {
+  left: -25%;
+}
+
+.animated-button .circle {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  background-color: greenyellow;
+  border-radius: 50%;
+  opacity: 0;
+  transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.animated-button .text {
+  position: relative;
+  z-index: 1;
+  transform: translateX(-12px);
+  transition: all 0.8s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.animated-button:hover {
+  box-shadow: 0 0 0 12px transparent;
+  color: #212121;
+  border-radius: 12px;
+}
+
+.animated-button:hover .arr-1 {
+  right: -25%;
+}
+
+.animated-button:hover .arr-2 {
+  left: 16px;
+}
+
+.animated-button:hover .text {
+  transform: translateX(12px);
+}
+
+.animated-button:hover svg {
+  fill: #212121;
+}
+
+.animated-button:active {
+  scale: 0.95;
+  box-shadow: 0 0 0 4px greenyellow;
+}
+
+.animated-button:hover .circle {
+  width: 220px;
+  height: 220px;
+  opacity: 1;
+}
+请将按钮的颜色换成同样的荧光绿色，并且将按钮上的文字改成中文“模型配置”
+按下按钮后，照搬第三个窗口的信息流四条线绘制方式和显现其中画布的成熟代码实现，也开一个画布出来盛放大模型选取功能框，各参数照搬即可，你无需擅自改动，但是展开的速度需要比其略快，并且画布改成FFF6F6颜色。另外还需要新增一个动画倒退的功能，因为在这个窗口操作完是肯定要关闭它的，所以需要内容动态淡出，如时间倒流般把之前线条和画布反过来退回去。
+再说模型选取功能画布完全打开后的同时，才浮现模型选取的功能的一系列元素，具体如下：
+可选择的三种模型服务商：OpenAI Ollama Local
+分别可选用的模型是gpt qwen deepseek；lamma deepseek gemma qwen；Auto lamma gemma qwen
+如果选用的是openai或者ollama，
+接口地址 (Base URL)
+输入框
+API Key
+输入框
+
+如果选择的是local：
+模型路径 (Model Path)
+（此为输入框） 浏览（此为打开文件管理器的交互按钮）
+请选择本地模型文件 (.gguf, .bin) 或项目环境路径（输入框下方小字）
+
+服务端口 (Localhost URL)
+（此为输入框）模拟默认内容（淡色）：http://localhost:8000/v1
+
+统一的最下方按钮：
+保存并连接
+如果输入的无效或者有问题，显示红字：连接失败，请检查 API Key 和网络设置
+
+希望你做按钮的时候不要做成AI千篇一律的button，完全可以学习我们web的整体线条简约高级风格，用线条来分割区域作为可交互的按钮，可以联网搜索可实现的技术栈或者高级的UI库，切勿盲目随意设计，元素确保切合我们主题
 
 
-抛弃千篇一律的卡片布局，我将采用这种被称为 “Wireframe UI”（线框风格）或 “Architectural Grid” （建筑级网格） 的设计语言，是提升 Web 质感、拉开与普通页面差距的杀手锏，用“针线穿梭”的切割感来重塑信息呈现，不仅视觉张力极强，而且在处理类似动态准星游走、或是复杂信息层层剥茧的场景时，这种由线条严格划定视界的方式，能带给用户一种极强的秩序感和极客感。全屏 SVG 与 Stroke 动画
-绝对不要用多个 的 border 来拼凑。你需要一整块覆盖满屏（或当前滚动区域）的 。所有的网格线都是  或 。<div><svg><path><line>
-实现“如针如箭”射出的画线原理： 如果不使用 GSAP 的收费插件 ，我们完全可以利用原生的 和 来实现极速且丝滑的线条生长动画。DrawSVGPluginstroke-dasharraystroke-dashoffset
+## 第四个窗口：数据库（Database Window）
 
-最成熟的实践方案是： 在页面顶层放置一个 的全屏 SVG。当用户向下滚动长画布时，通过  的  特性，动态改变这个固定 SVG 内线条的 （绘制/擦除）甚至  坐标（平移），让网格在不同区域呈现不同的切割形态。position: fixed; width: 100vw; height: 100vh;GSAP ScrollTriggerscrubstroke-dashoffsetx/y
+第四窗口为**数据库聚类管理界面**，采用 Newsprint（报纸）设计风格。**菜单栏在第三、第四窗口中常驻**，仅返回登录页时隐藏。
 
-我为你设计了一套基于非对称美学（Asymmetric Layout）和黄金比例的初始视口线框时间轴。这套方案包含贯穿屏幕的“主干线”，以及精准连接特定主线的“辅线/装饰线”。🎨 16:9 全屏线框绘制时间轴与坐标系映射 (视口阶段一：0% - 25% 滚动进度)注：坐标系统采用 vw （视口宽度） 和 vh （视口高度）。原点 (0,0) 在左上角。绘制顺序线条代号类型起点 （x1， y1）终点 （x2， y2）绘制方向滚动触发区间（Scroll Progress）运动曲线 （Ease）视觉作用与区隔 (针对溯源设计)01V-Main-L纵向主干30vw， 0vh30VW，100VH⬇️ 从上至下0% ➔ 5%power3.out溯源主轴线。 划分左侧留白/导航区，右侧为主内容区。02V-Main-R纵向主干85VW，0VH85VW，100VH⬇️ 从上至下2% ➔ 7%power3.out右侧边界线。85vw-100vw 用于放置滚动提示或次要信息。03H-Main-T横向主干0vw，15VH100伏，15伏赫➡️ 从左至右5% ➔ 10%power2.inOut顶部切割。15vh 以上为全局 Header 和状态栏信息。04H-Main-B横向主干0大气，80VH100伏，80伏⬅️ 从右至左7% ➔ 12%power2.inOut底部切割。形成中央核心视界 （15vh - 80vh）。05H-Aux-1横向辅线30伏，45伏赫85伏，45伏赫➡️ 从左至右10% ➔ 15%expo.out内容分割线。 精准连接两条主纵线，将右侧大内容区分为上下两块（可用于放原文与解释）。06V-Aux-1纵向辅线65伏，45伏赫65伏，80伏⬇️ 从上至下13% ➔ 18%expo.out局部黄金分割。从 H-Aux-1 垂直到 H-Main-B，进一步切分右下角卡片区。07Deco-1装饰短线28伏，60伏32伏车，60伏➡️ 穿透主轴18% ➔ 20%linear刻度节点。贯穿 V-Main-L，营造精密仪器或时间轴刻度感。08Cross-1十字准星65伏，45伏赫
+### 一、入口与触发
 
-(MVP) 上面的线条绘制速度只是一个模拟数据，我希望你一律做成 慢->快->慢 的绘制效果
-(MVP) 第一窗口和第二窗口的SVG+GSAP代码中有非常多成熟的实现代码，你可以仿照已经写好的那些代码来映射到此处。
+- **触发**：第三窗口侧滑菜单点击「数据库」，`activeWindow` 切换为 `"database"`；
+- **返回**：菜单项「返回初始界面」执行 `onBack`。
 
-我让Gemini撰写的JavaScript（当然如果与第一窗口、第二窗口的实现方法不同，还是按照原有的方法做，这是给你做参考的）
-import gsap from "gsap";
-import ScrollTrigger from "gsap/ScrollTrigger";
+### 二、设计系统：Newsprint
 
-gsap.registerPlugin(ScrollTrigger);
+零圆角、黑边框、`#F9F9F7` 背景、ZCOOL Xiaowei 字体。主标题：「你可以在此新增数据库聚类或向聚类中添加文件」。
 
-// 假设这些线条是 <line> 标签，初始在 CSS 中设置了 stroke-dasharray 和对应的 stroke-dashoffset
-const timeline = gsap.timeline({
-  scrollTrigger: {
-    trigger: ".long-scroll-container", // 整个长画布容器
-    start: "top top",
-    end: "25% top", // 在向下滚动前 25% 的距离内，完成上面表格的动画
-    scrub: 1, // 1秒的平滑延迟，让线条有“追赶”滚轮的丝滑感
+### 三、页面布局
+
+- **Hero 左栏**：主标题、装饰文案、「新建聚类」按钮；
+- **创建聚类弹窗**：Newsprint 风格，输入框 +「确认创建」，调用 `POST /api/database/clusters`；
+- **右侧栏**：已有聚类数量、总文件数量、最近添加文件日期（`GET /api/database/metrics`）；
+- **聚类列表**：单列横条，`border-b` 分隔，每行显示名称、图标、文件数。
+
+### 四、入场动效与特殊规范
+
+- 窗口淡入后，0.8s GSAP 时间轴依次呈现各模块；线条绘制与第一、第二窗口一致；
+- **菜单**：深红色主题，夹层颜色与字体深红一致；顶部有滚动细栏时，菜单按钮下移；
+- **主标题**：字号适度缩小，字体 ZCOOL Xiaowei。
+
+### 五、API 与文件结构
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/database/clusters` | 获取聚类列表 |
+| POST | `/api/database/clusters` | 新建聚类 |
+| GET | `/api/database/metrics` | 获取指标 |
+
+文件：`api/database/clusters/route.ts`、`metrics/route.ts`、`lib/database-store.ts`、`windows/database/DatabaseWindow.tsx`。
+
+### 六、新增装饰图案
+这是一个显示0和1的酷炫同心圆旋转特效，我准备将其安置在数据库第一页黑色大字字体右侧和右四等分点竖线左侧的空白区域，这样可以显得整个页面不单调，更酷炫。
+html：
+<div class="spinning-number">
+  <div
+    style="color:hwb(240 0% 0%);--l:3em;--m:22;--t:22s;--r1:normal;--s:1"
+    class="wheel"
+  >
+    <div style="--a:0deg;--i:0" class="number"></div>
+    <div style="--a:16deg;--i:1;--r:reverse" class="number"></div>
+    <div style="--a:32deg;--i:2;--r:reverse" class="number"></div>
+    <div style="--a:49deg;--i:3" class="number"></div>
+    <div style="--a:65deg;--i:4;--r:reverse" class="number"></div>
+    <div style="--a:81deg;--i:5;--r:reverse" class="number"></div>
+    <div style="--a:98deg;--i:6;--r:reverse" class="number"></div>
+    <div style="--a:114deg;--i:7;--r:reverse" class="number"></div>
+    <div style="--a:130deg;--i:8;--r:reverse" class="number"></div>
+    <div style="--a:147deg;--i:9" class="number"></div>
+    <div style="--a:163deg;--i:10;--r:reverse" class="number"></div>
+    <div style="--a:180deg;--i:11" class="number"></div>
+    <div style="--a:196deg;--i:12;--r:reverse" class="number"></div>
+    <div style="--a:212deg;--i:13" class="number"></div>
+    <div style="--a:229deg;--i:14" class="number"></div>
+    <div style="--a:245deg;--i:15" class="number"></div>
+    <div style="--a:261deg;--i:16;--r:reverse" class="number"></div>
+    <div style="--a:278deg;--i:17" class="number"></div>
+    <div style="--a:294deg;--i:18;--r:reverse" class="number"></div>
+    <div style="--a:310deg;--i:19;--r:reverse" class="number"></div>
+    <div style="--a:327deg;--i:20" class="number"></div>
+    <div style="--a:343deg;--i:21;--r:reverse" class="number"></div>
+  </div>
+  <div
+    style="color:hwb(243 0% 0%);--l:4em;--m:29;--t:29s;--r1:reverse;--s:0.9977810650887574"
+    class="wheel"
+  >
+    <div style="--a:0deg;--i:0" class="number"></div>
+    <div style="--a:12deg;--i:1" class="number"></div>
+    <div style="--a:24deg;--i:2;--r:reverse" class="number"></div>
+    <div style="--a:37deg;--i:3;--r:reverse" class="number"></div>
+    <div style="--a:49deg;--i:4;--r:reverse" class="number"></div>
+    <div style="--a:62deg;--i:5;--r:reverse" class="number"></div>
+    <div style="--a:74deg;--i:6" class="number"></div>
+    <div style="--a:86deg;--i:7" class="number"></div>
+    <div style="--a:99deg;--i:8;--r:reverse" class="number"></div>
+    <div style="--a:111deg;--i:9;--r:reverse" class="number"></div>
+    <div style="--a:124deg;--i:10" class="number"></div>
+    <div style="--a:136deg;--i:11;--r:reverse" class="number"></div>
+    <div style="--a:148deg;--i:12;--r:reverse" class="number"></div>
+    <div style="--a:161deg;--i:13;--r:reverse" class="number"></div>
+    <div style="--a:173deg;--i:14" class="number"></div>
+    <div style="--a:186deg;--i:15" class="number"></div>
+    <div style="--a:198deg;--i:16;--r:reverse" class="number"></div>
+    <div style="--a:211deg;--i:17" class="number"></div>
+    <div style="--a:223deg;--i:18" class="number"></div>
+    <div style="--a:235deg;--i:19" class="number"></div>
+    <div style="--a:248deg;--i:20" class="number"></div>
+    <div style="--a:260deg;--i:21;--r:reverse" class="number"></div>
+    <div style="--a:273deg;--i:22;--r:reverse" class="number"></div>
+    <div style="--a:285deg;--i:23" class="number"></div>
+    <div style="--a:297deg;--i:24;--r:reverse" class="number"></div>
+    <div style="--a:310deg;--i:25;--r:reverse" class="number"></div>
+    <div style="--a:322deg;--i:26;--r:reverse" class="number"></div>
+    <div style="--a:335deg;--i:27" class="number"></div>
+    <div style="--a:347deg;--i:28;--r:reverse" class="number"></div>
+  </div>
+  <div
+    style="color:hwb(247 0% 0%);--l:5em;--m:36;--t:36s;--r1:reverse;--s:0.9911242603550295"
+    class="wheel"
+  >
+    <div style="--a:0deg;--i:0" class="number"></div>
+    <div style="--a:10deg;--i:1" class="number"></div>
+    <div style="--a:20deg;--i:2" class="number"></div>
+    <div style="--a:29deg;--i:3;--r:reverse" class="number"></div>
+    <div style="--a:40deg;--i:4" class="number"></div>
+    <div style="--a:50deg;--i:5" class="number"></div>
+    <div style="--a:59deg;--i:6;--r:reverse" class="number"></div>
+    <div style="--a:70deg;--i:7" class="number"></div>
+    <div style="--a:80deg;--i:8;--r:reverse" class="number"></div>
+    <div style="--a:90deg;--i:9;--r:reverse" class="number"></div>
+    <div style="--a:100deg;--i:10" class="number"></div>
+    <div style="--a:110deg;--i:11;--r:reverse" class="number"></div>
+    <div style="--a:119deg;--i:12" class="number"></div>
+    <div style="--a:130deg;--i:13;--r:reverse" class="number"></div>
+    <div style="--a:140deg;--i:14" class="number"></div>
+    <div style="--a:150deg;--i:15" class="number"></div>
+    <div style="--a:160deg;--i:16;--r:reverse" class="number"></div>
+    <div style="--a:170deg;--i:17;--r:reverse" class="number"></div>
+    <div style="--a:180deg;--i:18" class="number"></div>
+    <div style="--a:190deg;--i:19" class="number"></div>
+    <div style="--a:200deg;--i:20" class="number"></div>
+    <div style="--a:209deg;--i:21;--r:reverse" class="number"></div>
+    <div style="--a:220deg;--i:22;--r:reverse" class="number"></div>
+    <div style="--a:229deg;--i:23;--r:reverse" class="number"></div>
+    <div style="--a:239deg;--i:24" class="number"></div>
+    <div style="--a:249deg;--i:25" class="number"></div>
+    <div style="--a:260deg;--i:26;--r:reverse" class="number"></div>
+    <div style="--a:270deg;--i:27;--r:reverse" class="number"></div>
+    <div style="--a:280deg;--i:28" class="number"></div>
+    <div style="--a:290deg;--i:29;--r:reverse" class="number"></div>
+    <div style="--a:300deg;--i:30;--r:reverse" class="number"></div>
+    <div style="--a:310deg;--i:31" class="number"></div>
+    <div style="--a:320deg;--i:32" class="number"></div>
+    <div style="--a:329deg;--i:33;--r:reverse" class="number"></div>
+    <div style="--a:340deg;--i:34" class="number"></div>
+    <div style="--a:350deg;--i:35;--r:reverse" class="number"></div>
+  </div>
+  <div
+    style="color:hwb(251 0% 0%);--l:6em;--m:44;--t:44s;--r1:reverse;--s:0.9800295857988166"
+    class="wheel"
+  >
+    <div style="--a:0deg;--i:0;--r:reverse" class="number"></div>
+    <div style="--a:8deg;--i:1" class="number"></div>
+    <div style="--a:24deg;--i:3;--r:reverse" class="number"></div>
+    <div style="--a:49deg;--i:6;--r:reverse" class="number"></div>
+    <div style="--a:57deg;--i:7;--r:reverse" class="number"></div>
+    <div style="--a:65deg;--i:8" class="number"></div>
+    <div style="--a:73deg;--i:9" class="number"></div>
+    <div style="--a:81deg;--i:10;--r:reverse" class="number"></div>
+    <div style="--a:90deg;--i:11;--r:reverse" class="number"></div>
+    <div style="--a:98deg;--i:12;--r:reverse" class="number"></div>
+    <div style="--a:106deg;--i:13" class="number"></div>
+    <div style="--a:114deg;--i:14" class="number"></div>
+    <div style="--a:122deg;--i:15" class="number"></div>
+    <div style="--a:130deg;--i:16" class="number"></div>
+    <div style="--a:139deg;--i:17;--r:reverse" class="number"></div>
+    <div style="--a:147deg;--i:18;--r:reverse" class="number"></div>
+    <div style="--a:155deg;--i:19;--r:reverse" class="number"></div>
+    <div style="--a:163deg;--i:20;--r:reverse" class="number"></div>
+    <div style="--a:171deg;--i:21" class="number"></div>
+    <div style="--a:180deg;--i:22" class="number"></div>
+    <div style="--a:188deg;--i:23" class="number"></div>
+    <div style="--a:196deg;--i:24" class="number"></div>
+    <div style="--a:204deg;--i:25;--r:reverse" class="number"></div>
+    <div style="--a:212deg;--i:26" class="number"></div>
+    <div style="--a:220deg;--i:27" class="number"></div>
+    <div style="--a:229deg;--i:28;--r:reverse" class="number"></div>
+    <div style="--a:237deg;--i:29;--r:reverse" class="number"></div>
+    <div style="--a:245deg;--i:30;--r:reverse" class="number"></div>
+    <div style="--a:253deg;--i:31;--r:reverse" class="number"></div>
+    <div style="--a:261deg;--i:32;--r:reverse" class="number"></div>
+    <div style="--a:270deg;--i:33;--r:reverse" class="number"></div>
+    <div style="--a:278deg;--i:34" class="number"></div>
+    <div style="--a:286deg;--i:35;--r:reverse" class="number"></div>
+    <div style="--a:294deg;--i:36" class="number"></div>
+    <div style="--a:302deg;--i:37;--r:reverse" class="number"></div>
+    <div style="--a:310deg;--i:38;--r:reverse" class="number"></div>
+    <div style="--a:319deg;--i:39;--r:reverse" class="number"></div>
+    <div style="--a:327deg;--i:40" class="number"></div>
+    <div style="--a:335deg;--i:41" class="number"></div>
+    <div style="--a:343deg;--i:42;--r:reverse" class="number"></div>
+    <div style="--a:351deg;--i:43" class="number"></div>
+  </div>
+  <div
+    style="color:hwb(255 0% 0%);--l:7em;--m:51;--t:51s;--r1:normal;--s:0.9644970414201184"
+    class="wheel"
+  >
+    <div style="--a:0deg;--i:0;--r:reverse" class="number"></div>
+    <div style="--a:7deg;--i:1;--r:reverse" class="number"></div>
+    <div style="--a:14deg;--i:2;--r:reverse" class="number"></div>
+    <div style="--a:21deg;--i:3" class="number"></div>
+    <div style="--a:28deg;--i:4;--r:reverse" class="number"></div>
+    <div style="--a:35deg;--i:5;--r:reverse" class="number"></div>
+    <div style="--a:42deg;--i:6" class="number"></div>
+    <div style="--a:49deg;--i:7;--r:reverse" class="number"></div>
+    <div style="--a:56deg;--i:8" class="number"></div>
+    <div style="--a:63deg;--i:9" class="number"></div>
+    <div style="--a:70deg;--i:10" class="number"></div>
+    <div style="--a:77deg;--i:11" class="number"></div>
+    <div style="--a:84deg;--i:12" class="number"></div>
+    <div style="--a:91deg;--i:13;--r:reverse" class="number"></div>
+    <div style="--a:98deg;--i:14;--r:reverse" class="number"></div>
+    <div style="--a:105deg;--i:15" class="number"></div>
+    <div style="--a:112deg;--i:16" class="number"></div>
+    <div style="--a:119deg;--i:17;--r:reverse" class="number"></div>
+    <div style="--a:127deg;--i:18;--r:reverse" class="number"></div>
+    <div style="--a:134deg;--i:19;--r:reverse" class="number"></div>
+    <div style="--a:148deg;--i:21;--r:reverse" class="number"></div>
+    <div style="--a:155deg;--i:22;--r:reverse" class="number"></div>
+    <div style="--a:162deg;--i:23" class="number"></div>
+    <div style="--a:169deg;--i:24;--r:reverse" class="number"></div>
+    <div style="--a:176deg;--i:25;--r:reverse" class="number"></div>
+    <div style="--a:183deg;--i:26;--r:reverse" class="number"></div>
+    <div style="--a:190deg;--i:27;--r:reverse" class="number"></div>
+    <div style="--a:197deg;--i:28;--r:reverse" class="number"></div>
+    <div style="--a:204deg;--i:29;--r:reverse" class="number"></div>
+    <div style="--a:211deg;--i:30;--r:reverse" class="number"></div>
+    <div style="--a:218deg;--i:31;--r:reverse" class="number"></div>
+    <div style="--a:225deg;--i:32;--r:reverse" class="number"></div>
+    <div style="--a:232deg;--i:33;--r:reverse" class="number"></div>
+    <div style="--a:239deg;--i:34;--r:reverse" class="number"></div>
+    <div style="--a:247deg;--i:35;--r:reverse" class="number"></div>
+    <div style="--a:254deg;--i:36" class="number"></div>
+    <div style="--a:261deg;--i:37" class="number"></div>
+    <div style="--a:268deg;--i:38;--r:reverse" class="number"></div>
+    <div style="--a:275deg;--i:39" class="number"></div>
+    <div style="--a:282deg;--i:40;--r:reverse" class="number"></div>
+    <div style="--a:296deg;--i:42;--r:reverse" class="number"></div>
+    <div style="--a:310deg;--i:44;--r:reverse" class="number"></div>
+    <div style="--a:317deg;--i:45" class="number"></div>
+    <div style="--a:324deg;--i:46" class="number"></div>
+    <div style="--a:331deg;--i:47" class="number"></div>
+    <div style="--a:338deg;--i:48" class="number"></div>
+    <div style="--a:345deg;--i:49;--r:reverse" class="number"></div>
+    <div style="--a:352deg;--i:50" class="number"></div>
+  </div>
+  <div
+    style="color:hwb(259 0% 0%);--l:8em;--m:59;--t:59s;--r1:normal;--s:0.9445266272189349"
+    class="wheel"
+  >
+    <div style="--a:0deg;--i:0;--r:reverse" class="number"></div>
+    <div style="--a:6deg;--i:1" class="number"></div>
+    <div style="--a:12deg;--i:2" class="number"></div>
+    <div style="--a:18deg;--i:3;--r:reverse" class="number"></div>
+    <div style="--a:24deg;--i:4" class="number"></div>
+    <div style="--a:30deg;--i:5;--r:reverse" class="number"></div>
+    <div style="--a:36deg;--i:6;--r:reverse" class="number"></div>
+    <div style="--a:54deg;--i:9" class="number"></div>
+    <div style="--a:61deg;--i:10" class="number"></div>
+    <div style="--a:67deg;--i:11" class="number"></div>
+    <div style="--a:73deg;--i:12" class="number"></div>
+    <div style="--a:79deg;--i:13;--r:reverse" class="number"></div>
+    <div style="--a:85deg;--i:14;--r:reverse" class="number"></div>
+    <div style="--a:91deg;--i:15;--r:reverse" class="number"></div>
+    <div style="--a:103deg;--i:17" class="number"></div>
+    <div style="--a:115deg;--i:19;--r:reverse" class="number"></div>
+    <div style="--a:122deg;--i:20;--r:reverse" class="number"></div>
+    <div style="--a:128deg;--i:21" class="number"></div>
+    <div style="--a:134deg;--i:22;--r:reverse" class="number"></div>
+    <div style="--a:140deg;--i:23" class="number"></div>
+    <div style="--a:146deg;--i:24" class="number"></div>
+    <div style="--a:152deg;--i:25" class="number"></div>
+    <div style="--a:164deg;--i:27" class="number"></div>
+    <div style="--a:170deg;--i:28" class="number"></div>
+    <div style="--a:176deg;--i:29" class="number"></div>
+    <div style="--a:183deg;--i:30" class="number"></div>
+    <div style="--a:189deg;--i:31;--r:reverse" class="number"></div>
+    <div style="--a:195deg;--i:32;--r:reverse" class="number"></div>
+    <div style="--a:201deg;--i:33" class="number"></div>
+    <div style="--a:207deg;--i:34;--r:reverse" class="number"></div>
+    <div style="--a:213deg;--i:35;--r:reverse" class="number"></div>
+    <div style="--a:219deg;--i:36" class="number"></div>
+    <div style="--a:231deg;--i:38" class="number"></div>
+    <div style="--a:237deg;--i:39" class="number"></div>
+    <div style="--a:244deg;--i:40;--r:reverse" class="number"></div>
+    <div style="--a:250deg;--i:41;--r:reverse" class="number"></div>
+    <div style="--a:256deg;--i:42" class="number"></div>
+    <div style="--a:262deg;--i:43;--r:reverse" class="number"></div>
+    <div style="--a:268deg;--i:44;--r:reverse" class="number"></div>
+    <div style="--a:274deg;--i:45;--r:reverse" class="number"></div>
+    <div style="--a:280deg;--i:46;--r:reverse" class="number"></div>
+    <div style="--a:292deg;--i:48" class="number"></div>
+    <div style="--a:298deg;--i:49" class="number"></div>
+    <div style="--a:311deg;--i:51" class="number"></div>
+    <div style="--a:317deg;--i:52;--r:reverse" class="number"></div>
+    <div style="--a:323deg;--i:53;--r:reverse" class="number"></div>
+    <div style="--a:329deg;--i:54" class="number"></div>
+    <div style="--a:335deg;--i:55;--r:reverse" class="number"></div>
+    <div style="--a:341deg;--i:56;--r:reverse" class="number"></div>
+    <div style="--a:347deg;--i:57;--r:reverse" class="number"></div>
+    <div style="--a:353deg;--i:58;--r:reverse" class="number"></div>
+  </div>
+  <div
+    style="color:hwb(263 0% 0%);--l:9em;--m:66;--t:66s;--r1:normal;--s:0.9201183431952662"
+    class="wheel"
+  >
+    <div style="--a:5deg;--i:1" class="number"></div>
+    <div style="--a:10deg;--i:2;--r:reverse" class="number"></div>
+    <div style="--a:16deg;--i:3" class="number"></div>
+    <div style="--a:21deg;--i:4;--r:reverse" class="number"></div>
+    <div style="--a:27deg;--i:5;--r:reverse" class="number"></div>
+    <div style="--a:32deg;--i:6;--r:reverse" class="number"></div>
+    <div style="--a:38deg;--i:7;--r:reverse" class="number"></div>
+    <div style="--a:43deg;--i:8;--r:reverse" class="number"></div>
+    <div style="--a:49deg;--i:9;--r:reverse" class="number"></div>
+    <div style="--a:54deg;--i:10;--r:reverse" class="number"></div>
+    <div style="--a:59deg;--i:11;--r:reverse" class="number"></div>
+    <div style="--a:65deg;--i:12;--r:reverse" class="number"></div>
+    <div style="--a:70deg;--i:13" class="number"></div>
+    <div style="--a:76deg;--i:14" class="number"></div>
+    <div style="--a:81deg;--i:15;--r:reverse" class="number"></div>
+    <div style="--a:87deg;--i:16" class="number"></div>
+    <div style="--a:92deg;--i:17" class="number"></div>
+    <div style="--a:103deg;--i:19;--r:reverse" class="number"></div>
+    <div style="--a:109deg;--i:20;--r:reverse" class="number"></div>
+    <div style="--a:114deg;--i:21" class="number"></div>
+    <div style="--a:119deg;--i:22;--r:reverse" class="number"></div>
+    <div style="--a:130deg;--i:24" class="number"></div>
+    <div style="--a:136deg;--i:25;--r:reverse" class="number"></div>
+    <div style="--a:141deg;--i:26;--r:reverse" class="number"></div>
+    <div style="--a:147deg;--i:27;--r:reverse" class="number"></div>
+    <div style="--a:152deg;--i:28;--r:reverse" class="number"></div>
+    <div style="--a:158deg;--i:29" class="number"></div>
+    <div style="--a:163deg;--i:30;--r:reverse" class="number"></div>
+    <div style="--a:169deg;--i:31;--r:reverse" class="number"></div>
+    <div style="--a:180deg;--i:33" class="number"></div>
+    <div style="--a:185deg;--i:34;--r:reverse" class="number"></div>
+    <div style="--a:190deg;--i:35" class="number"></div>
+    <div style="--a:196deg;--i:36" class="number"></div>
+    <div style="--a:207deg;--i:38;--r:reverse" class="number"></div>
+    <div style="--a:212deg;--i:39;--r:reverse" class="number"></div>
+    <div style="--a:218deg;--i:40;--r:reverse" class="number"></div>
+    <div style="--a:223deg;--i:41;--r:reverse" class="number"></div>
+    <div style="--a:234deg;--i:43;--r:reverse" class="number"></div>
+    <div style="--a:239deg;--i:44;--r:reverse" class="number"></div>
+    <div style="--a:245deg;--i:45" class="number"></div>
+    <div style="--a:250deg;--i:46;--r:reverse" class="number"></div>
+    <div style="--a:256deg;--i:47" class="number"></div>
+    <div style="--a:272deg;--i:50;--r:reverse" class="number"></div>
+    <div style="--a:283deg;--i:52" class="number"></div>
+    <div style="--a:289deg;--i:53;--r:reverse" class="number"></div>
+    <div style="--a:294deg;--i:54" class="number"></div>
+    <div style="--a:299deg;--i:55;--r:reverse" class="number"></div>
+    <div style="--a:305deg;--i:56" class="number"></div>
+    <div style="--a:310deg;--i:57;--r:reverse" class="number"></div>
+    <div style="--a:321deg;--i:59;--r:reverse" class="number"></div>
+    <div style="--a:327deg;--i:60" class="number"></div>
+    <div style="--a:338deg;--i:62;--r:reverse" class="number"></div>
+    <div style="--a:343deg;--i:63;--r:reverse" class="number"></div>
+    <div style="--a:349deg;--i:64;--r:reverse" class="number"></div>
+    <div style="--a:354deg;--i:65" class="number"></div>
+  </div>
+  <div
+    style="color:hwb(266 0% 0%);--l:10em;--m:73;--t:73s;--r1:reverse;--s:0.8912721893491125"
+    class="wheel"
+  >
+    <div style="--a:0deg;--i:0" class="number"></div>
+    <div style="--a:4deg;--i:1;--r:reverse" class="number"></div>
+    <div style="--a:9deg;--i:2;--r:reverse" class="number"></div>
+    <div style="--a:14deg;--i:3" class="number"></div>
+    <div style="--a:19deg;--i:4" class="number"></div>
+    <div style="--a:24deg;--i:5" class="number"></div>
+    <div style="--a:29deg;--i:6" class="number"></div>
+    <div style="--a:34deg;--i:7" class="number"></div>
+    <div style="--a:39deg;--i:8;--r:reverse" class="number"></div>
+    <div style="--a:44deg;--i:9;--r:reverse" class="number"></div>
+    <div style="--a:49deg;--i:10" class="number"></div>
+    <div style="--a:54deg;--i:11" class="number"></div>
+    <div style="--a:59deg;--i:12;--r:reverse" class="number"></div>
+    <div style="--a:64deg;--i:13" class="number"></div>
+    <div style="--a:69deg;--i:14;--r:reverse" class="number"></div>
+    <div style="--a:73deg;--i:15" class="number"></div>
+    <div style="--a:78deg;--i:16;--r:reverse" class="number"></div>
+    <div style="--a:83deg;--i:17" class="number"></div>
+    <div style="--a:88deg;--i:18" class="number"></div>
+    <div style="--a:93deg;--i:19" class="number"></div>
+    <div style="--a:113deg;--i:23" class="number"></div>
+    <div style="--a:118deg;--i:24" class="number"></div>
+    <div style="--a:123deg;--i:25;--r:reverse" class="number"></div>
+    <div style="--a:128deg;--i:26" class="number"></div>
+    <div style="--a:133deg;--i:27" class="number"></div>
+    <div style="--a:147deg;--i:30;--r:reverse" class="number"></div>
+    <div style="--a:152deg;--i:31" class="number"></div>
+    <div style="--a:157deg;--i:32" class="number"></div>
+    <div style="--a:162deg;--i:33;--r:reverse" class="number"></div>
+    <div style="--a:167deg;--i:34" class="number"></div>
+    <div style="--a:172deg;--i:35" class="number"></div>
+    <div style="--a:187deg;--i:38;--r:reverse" class="number"></div>
+    <div style="--a:192deg;--i:39" class="number"></div>
+    <div style="--a:197deg;--i:40" class="number"></div>
+    <div style="--a:202deg;--i:41" class="number"></div>
+    <div style="--a:212deg;--i:43" class="number"></div>
+    <div style="--a:221deg;--i:45;--r:reverse" class="number"></div>
+    <div style="--a:236deg;--i:48" class="number"></div>
+    <div style="--a:241deg;--i:49" class="number"></div>
+    <div style="--a:246deg;--i:50;--r:reverse" class="number"></div>
+    <div style="--a:256deg;--i:52;--r:reverse" class="number"></div>
+    <div style="--a:261deg;--i:53" class="number"></div>
+    <div style="--a:276deg;--i:56;--r:reverse" class="number"></div>
+    <div style="--a:281deg;--i:57;--r:reverse" class="number"></div>
+    <div style="--a:286deg;--i:58" class="number"></div>
+    <div style="--a:290deg;--i:59;--r:reverse" class="number"></div>
+    <div style="--a:295deg;--i:60" class="number"></div>
+    <div style="--a:300deg;--i:61" class="number"></div>
+    <div style="--a:310deg;--i:63;--r:reverse" class="number"></div>
+    <div style="--a:315deg;--i:64;--r:reverse" class="number"></div>
+    <div style="--a:320deg;--i:65" class="number"></div>
+    <div style="--a:325deg;--i:66;--r:reverse" class="number"></div>
+    <div style="--a:335deg;--i:68" class="number"></div>
+    <div style="--a:340deg;--i:69" class="number"></div>
+    <div style="--a:350deg;--i:71;--r:reverse" class="number"></div>
+    <div style="--a:355deg;--i:72;--r:reverse" class="number"></div>
+  </div>
+  <div
+    style="color:hwb(270 0% 0%);--l:11em;--m:81;--t:81s;--r1:reverse;--s:0.8579881656804733"
+    class="wheel"
+  >
+    <div style="--a:0deg;--i:0" class="number"></div>
+    <div style="--a:4deg;--i:1" class="number"></div>
+    <div style="--a:8deg;--i:2;--r:reverse" class="number"></div>
+    <div style="--a:13deg;--i:3" class="number"></div>
+    <div style="--a:22deg;--i:5" class="number"></div>
+    <div style="--a:26deg;--i:6;--r:reverse" class="number"></div>
+    <div style="--a:31deg;--i:7;--r:reverse" class="number"></div>
+    <div style="--a:35deg;--i:8" class="number"></div>
+    <div style="--a:40deg;--i:9;--r:reverse" class="number"></div>
+    <div style="--a:44deg;--i:10" class="number"></div>
+    <div style="--a:48deg;--i:11;--r:reverse" class="number"></div>
+    <div style="--a:53deg;--i:12" class="number"></div>
+    <div style="--a:62deg;--i:14;--r:reverse" class="number"></div>
+    <div style="--a:66deg;--i:15;--r:reverse" class="number"></div>
+    <div style="--a:71deg;--i:16;--r:reverse" class="number"></div>
+    <div style="--a:75deg;--i:17;--r:reverse" class="number"></div>
+    <div style="--a:80deg;--i:18;--r:reverse" class="number"></div>
+    <div style="--a:84deg;--i:19" class="number"></div>
+    <div style="--a:93deg;--i:21" class="number"></div>
+    <div style="--a:97deg;--i:22" class="number"></div>
+    <div style="--a:102deg;--i:23" class="number"></div>
+    <div style="--a:106deg;--i:24;--r:reverse" class="number"></div>
+    <div style="--a:111deg;--i:25" class="number"></div>
+    <div style="--a:115deg;--i:26" class="number"></div>
+    <div style="--a:119deg;--i:27" class="number"></div>
+    <div style="--a:124deg;--i:28" class="number"></div>
+    <div style="--a:128deg;--i:29;--r:reverse" class="number"></div>
+    <div style="--a:137deg;--i:31;--r:reverse" class="number"></div>
+    <div style="--a:142deg;--i:32" class="number"></div>
+    <div style="--a:146deg;--i:33;--r:reverse" class="number"></div>
+    <div style="--a:151deg;--i:34" class="number"></div>
+    <div style="--a:155deg;--i:35" class="number"></div>
+    <div style="--a:160deg;--i:36" class="number"></div>
+    <div style="--a:164deg;--i:37" class="number"></div>
+    <div style="--a:168deg;--i:38" class="number"></div>
+    <div style="--a:173deg;--i:39" class="number"></div>
+    <div style="--a:177deg;--i:40;--r:reverse" class="number"></div>
+    <div style="--a:182deg;--i:41;--r:reverse" class="number"></div>
+    <div style="--a:200deg;--i:45" class="number"></div>
+    <div style="--a:208deg;--i:47;--r:reverse" class="number"></div>
+    <div style="--a:217deg;--i:49" class="number"></div>
+    <div style="--a:222deg;--i:50" class="number"></div>
+    <div style="--a:226deg;--i:51" class="number"></div>
+    <div style="--a:231deg;--i:52;--r:reverse" class="number"></div>
+    <div style="--a:235deg;--i:53" class="number"></div>
+    <div style="--a:239deg;--i:54;--r:reverse" class="number"></div>
+    <div style="--a:244deg;--i:55" class="number"></div>
+    <div style="--a:248deg;--i:56" class="number"></div>
+    <div style="--a:257deg;--i:58" class="number"></div>
+    <div style="--a:262deg;--i:59" class="number"></div>
+    <div style="--a:266deg;--i:60;--r:reverse" class="number"></div>
+    <div style="--a:271deg;--i:61" class="number"></div>
+    <div style="--a:284deg;--i:64;--r:reverse" class="number"></div>
+    <div style="--a:297deg;--i:67" class="number"></div>
+    <div style="--a:302deg;--i:68" class="number"></div>
+    <div style="--a:306deg;--i:69;--r:reverse" class="number"></div>
+    <div style="--a:311deg;--i:70;--r:reverse" class="number"></div>
+    <div style="--a:315deg;--i:71" class="number"></div>
+    <div style="--a:320deg;--i:72;--r:reverse" class="number"></div>
+    <div style="--a:324deg;--i:73" class="number"></div>
+    <div style="--a:328deg;--i:74;--r:reverse" class="number"></div>
+    <div style="--a:333deg;--i:75;--r:reverse" class="number"></div>
+    <div style="--a:337deg;--i:76" class="number"></div>
+    <div style="--a:342deg;--i:77;--r:reverse" class="number"></div>
+    <div style="--a:346deg;--i:78;--r:reverse" class="number"></div>
+    <div style="--a:351deg;--i:79;--r:reverse" class="number"></div>
+    <div style="--a:355deg;--i:80" class="number"></div>
+  </div>
+  <div
+    style="color:hwb(274 0% 0%);--l:12em;--m:88;--t:88s;--r1:normal;--s:0.8202662721893491"
+    class="wheel"
+  >
+    <div style="--a:8deg;--i:2;--r:reverse" class="number"></div>
+    <div style="--a:12deg;--i:3;--r:reverse" class="number"></div>
+    <div style="--a:16deg;--i:4" class="number"></div>
+    <div style="--a:20deg;--i:5;--r:reverse" class="number"></div>
+    <div style="--a:24deg;--i:6;--r:reverse" class="number"></div>
+    <div style="--a:28deg;--i:7" class="number"></div>
+    <div style="--a:32deg;--i:8;--r:reverse" class="number"></div>
+    <div style="--a:36deg;--i:9" class="number"></div>
+    <div style="--a:40deg;--i:10;--r:reverse" class="number"></div>
+    <div style="--a:45deg;--i:11" class="number"></div>
+    <div style="--a:49deg;--i:12" class="number"></div>
+    <div style="--a:53deg;--i:13;--r:reverse" class="number"></div>
+    <div style="--a:69deg;--i:17" class="number"></div>
+    <div style="--a:73deg;--i:18" class="number"></div>
+    <div style="--a:77deg;--i:19" class="number"></div>
+    <div style="--a:81deg;--i:20" class="number"></div>
+    <div style="--a:90deg;--i:22;--r:reverse" class="number"></div>
+    <div style="--a:94deg;--i:23;--r:reverse" class="number"></div>
+    <div style="--a:98deg;--i:24" class="number"></div>
+    <div style="--a:102deg;--i:25" class="number"></div>
+    <div style="--a:106deg;--i:26" class="number"></div>
+    <div style="--a:114deg;--i:28" class="number"></div>
+    <div style="--a:118deg;--i:29;--r:reverse" class="number"></div>
+    <div style="--a:135deg;--i:33" class="number"></div>
+    <div style="--a:139deg;--i:34" class="number"></div>
+    <div style="--a:143deg;--i:35;--r:reverse" class="number"></div>
+    <div style="--a:147deg;--i:36;--r:reverse" class="number"></div>
+    <div style="--a:155deg;--i:38" class="number"></div>
+    <div style="--a:163deg;--i:40" class="number"></div>
+    <div style="--a:171deg;--i:42" class="number"></div>
+    <div style="--a:175deg;--i:43;--r:reverse" class="number"></div>
+    <div style="--a:180deg;--i:44" class="number"></div>
+    <div style="--a:192deg;--i:47;--r:reverse" class="number"></div>
+    <div style="--a:196deg;--i:48;--r:reverse" class="number"></div>
+    <div style="--a:200deg;--i:49;--r:reverse" class="number"></div>
+    <div style="--a:204deg;--i:50" class="number"></div>
+    <div style="--a:208deg;--i:51;--r:reverse" class="number"></div>
+    <div style="--a:216deg;--i:53" class="number"></div>
+    <div style="--a:225deg;--i:55;--r:reverse" class="number"></div>
+    <div style="--a:229deg;--i:56" class="number"></div>
+    <div style="--a:233deg;--i:57" class="number"></div>
+    <div style="--a:241deg;--i:59" class="number"></div>
+    <div style="--a:245deg;--i:60;--r:reverse" class="number"></div>
+    <div style="--a:249deg;--i:61" class="number"></div>
+    <div style="--a:261deg;--i:64;--r:reverse" class="number"></div>
+    <div style="--a:270deg;--i:66" class="number"></div>
+    <div style="--a:274deg;--i:67" class="number"></div>
+    <div style="--a:278deg;--i:68;--r:reverse" class="number"></div>
+    <div style="--a:282deg;--i:69;--r:reverse" class="number"></div>
+    <div style="--a:290deg;--i:71" class="number"></div>
+    <div style="--a:302deg;--i:74" class="number"></div>
+    <div style="--a:310deg;--i:76" class="number"></div>
+    <div style="--a:319deg;--i:78;--r:reverse" class="number"></div>
+    <div style="--a:323deg;--i:79;--r:reverse" class="number"></div>
+    <div style="--a:327deg;--i:80" class="number"></div>
+    <div style="--a:331deg;--i:81" class="number"></div>
+    <div style="--a:335deg;--i:82;--r:reverse" class="number"></div>
+    <div style="--a:339deg;--i:83;--r:reverse" class="number"></div>
+    <div style="--a:347deg;--i:85" class="number"></div>
+    <div style="--a:351deg;--i:86;--r:reverse" class="number"></div>
+    <div style="--a:355deg;--i:87;--r:reverse" class="number"></div>
+  </div>
+  <div
+    style="color:hwb(278 0% 0%);--l:13em;--m:96;--t:96s;--r1:reverse;--s:0.7781065088757396"
+    class="wheel"
+  >
+    <div style="--a:11deg;--i:3;--r:reverse" class="number"></div>
+    <div style="--a:14deg;--i:4" class="number"></div>
+    <div style="--a:18deg;--i:5" class="number"></div>
+    <div style="--a:22.5deg;--i:6" class="number"></div>
+    <div style="--a:29deg;--i:8;--r:reverse" class="number"></div>
+    <div style="--a:33deg;--i:9;--r:reverse" class="number"></div>
+    <div style="--a:37deg;--i:10;--r:reverse" class="number"></div>
+    <div style="--a:41deg;--i:11;--r:reverse" class="number"></div>
+    <div style="--a:48deg;--i:13" class="number"></div>
+    <div style="--a:67.5deg;--i:18" class="number"></div>
+    <div style="--a:71deg;--i:19" class="number"></div>
+    <div style="--a:74deg;--i:20" class="number"></div>
+    <div style="--a:78deg;--i:21;--r:reverse" class="number"></div>
+    <div style="--a:82deg;--i:22" class="number"></div>
+    <div style="--a:90deg;--i:24" class="number"></div>
+    <div style="--a:93deg;--i:25" class="number"></div>
+    <div style="--a:97.5deg;--i:26" class="number"></div>
+    <div style="--a:112deg;--i:30;--r:reverse" class="number"></div>
+    <div style="--a:116deg;--i:31" class="number"></div>
+    <div style="--a:123deg;--i:33;--r:reverse" class="number"></div>
+    <div style="--a:127deg;--i:34" class="number"></div>
+    <div style="--a:131deg;--i:35;--r:reverse" class="number"></div>
+    <div style="--a:138deg;--i:37" class="number"></div>
+    <div style="--a:142.5deg;--i:38" class="number"></div>
+    <div style="--a:157.5deg;--i:42" class="number"></div>
+    <div style="--a:161deg;--i:43" class="number"></div>
+    <div style="--a:168deg;--i:45;--r:reverse" class="number"></div>
+    <div style="--a:172deg;--i:46;--r:reverse" class="number"></div>
+    <div style="--a:176deg;--i:47" class="number"></div>
+    <div style="--a:187.5deg;--i:50;--r:reverse" class="number"></div>
+    <div style="--a:191deg;--i:51" class="number"></div>
+    <div style="--a:202deg;--i:54;--r:reverse" class="number"></div>
+    <div style="--a:206deg;--i:55;--r:reverse" class="number"></div>
+    <div style="--a:209deg;--i:56" class="number"></div>
+    <div style="--a:217deg;--i:58" class="number"></div>
+    <div style="--a:221deg;--i:59;--r:reverse" class="number"></div>
+    <div style="--a:224deg;--i:60;--r:reverse" class="number"></div>
+    <div style="--a:232.5deg;--i:62;--r:reverse" class="number"></div>
+    <div style="--a:243deg;--i:65;--r:reverse" class="number"></div>
+    <div style="--a:247deg;--i:66;--r:reverse" class="number"></div>
+    <div style="--a:251deg;--i:67" class="number"></div>
+    <div style="--a:254deg;--i:68;--r:reverse" class="number"></div>
+    <div style="--a:258deg;--i:69" class="number"></div>
+    <div style="--a:262deg;--i:70" class="number"></div>
+    <div style="--a:266deg;--i:71" class="number"></div>
+    <div style="--a:270deg;--i:72;--r:reverse" class="number"></div>
+    <div style="--a:273deg;--i:73" class="number"></div>
+    <div style="--a:281deg;--i:75" class="number"></div>
+    <div style="--a:285deg;--i:76" class="number"></div>
+    <div style="--a:288deg;--i:77;--r:reverse" class="number"></div>
+    <div style="--a:303deg;--i:81" class="number"></div>
+    <div style="--a:307deg;--i:82;--r:reverse" class="number"></div>
+    <div style="--a:311deg;--i:83" class="number"></div>
+    <div style="--a:315deg;--i:84;--r:reverse" class="number"></div>
+    <div style="--a:318deg;--i:85" class="number"></div>
+    <div style="--a:322.5deg;--i:86;--r:reverse" class="number"></div>
+    <div style="--a:326deg;--i:87" class="number"></div>
+    <div style="--a:337deg;--i:90" class="number"></div>
+    <div style="--a:341deg;--i:91" class="number"></div>
+    <div style="--a:356deg;--i:95;--r:reverse" class="number"></div>
+  </div>
+  <div
+    style="color:hwb(282 0% 0%);--l:14em;--m:103;--t:103s;--r1:normal;--s:0.731508875739645"
+    class="wheel"
+  >
+    <div style="--a:6deg;--i:2" class="number"></div>
+    <div style="--a:13deg;--i:4" class="number"></div>
+    <div style="--a:17deg;--i:5;--r:reverse" class="number"></div>
+    <div style="--a:20deg;--i:6;--r:reverse" class="number"></div>
+    <div style="--a:27deg;--i:8" class="number"></div>
+    <div style="--a:31deg;--i:9;--r:reverse" class="number"></div>
+    <div style="--a:41deg;--i:12;--r:reverse" class="number"></div>
+    <div style="--a:48deg;--i:14" class="number"></div>
+    <div style="--a:52deg;--i:15" class="number"></div>
+    <div style="--a:59deg;--i:17;--r:reverse" class="number"></div>
+    <div style="--a:62deg;--i:18;--r:reverse" class="number"></div>
+    <div style="--a:73deg;--i:21" class="number"></div>
+    <div style="--a:76deg;--i:22" class="number"></div>
+    <div style="--a:80deg;--i:23" class="number"></div>
+    <div style="--a:83deg;--i:24" class="number"></div>
+    <div style="--a:87deg;--i:25;--r:reverse" class="number"></div>
+    <div style="--a:90deg;--i:26" class="number"></div>
+    <div style="--a:94deg;--i:27" class="number"></div>
+    <div style="--a:97deg;--i:28" class="number"></div>
+    <div style="--a:111deg;--i:32" class="number"></div>
+    <div style="--a:118deg;--i:34" class="number"></div>
+    <div style="--a:122deg;--i:35" class="number"></div>
+    <div style="--a:129deg;--i:37" class="number"></div>
+    <div style="--a:132deg;--i:38" class="number"></div>
+    <div style="--a:136deg;--i:39;--r:reverse" class="number"></div>
+    <div style="--a:143deg;--i:41" class="number"></div>
+    <div style="--a:146deg;--i:42" class="number"></div>
+    <div style="--a:157deg;--i:45" class="number"></div>
+    <div style="--a:160deg;--i:46;--r:reverse" class="number"></div>
+    <div style="--a:171deg;--i:49" class="number"></div>
+    <div style="--a:181deg;--i:52;--r:reverse" class="number"></div>
+    <div style="--a:185deg;--i:53" class="number"></div>
+    <div style="--a:192deg;--i:55" class="number"></div>
+    <div style="--a:199deg;--i:57;--r:reverse" class="number"></div>
+    <div style="--a:209deg;--i:60" class="number"></div>
+    <div style="--a:213deg;--i:61" class="number"></div>
+    <div style="--a:216deg;--i:62" class="number"></div>
+    <div style="--a:223deg;--i:64" class="number"></div>
+    <div style="--a:227deg;--i:65" class="number"></div>
+    <div style="--a:234deg;--i:67;--r:reverse" class="number"></div>
+    <div style="--a:237deg;--i:68;--r:reverse" class="number"></div>
+    <div style="--a:241deg;--i:69" class="number"></div>
+    <div style="--a:244deg;--i:70;--r:reverse" class="number"></div>
+    <div style="--a:251deg;--i:72" class="number"></div>
+    <div style="--a:255deg;--i:73" class="number"></div>
+    <div style="--a:258deg;--i:74;--r:reverse" class="number"></div>
+    <div style="--a:265deg;--i:76;--r:reverse" class="number"></div>
+    <div style="--a:272deg;--i:78" class="number"></div>
+    <div style="--a:279deg;--i:80" class="number"></div>
+    <div style="--a:283deg;--i:81;--r:reverse" class="number"></div>
+    <div style="--a:286deg;--i:82;--r:reverse" class="number"></div>
+    <div style="--a:307deg;--i:88;--r:reverse" class="number"></div>
+    <div style="--a:311deg;--i:89;--r:reverse" class="number"></div>
+    <div style="--a:314deg;--i:90;--r:reverse" class="number"></div>
+    <div style="--a:318deg;--i:91;--r:reverse" class="number"></div>
+    <div style="--a:321deg;--i:92;--r:reverse" class="number"></div>
+    <div style="--a:328deg;--i:94" class="number"></div>
+    <div style="--a:342deg;--i:98" class="number"></div>
+    <div style="--a:346deg;--i:99" class="number"></div>
+    <div style="--a:349deg;--i:100;--r:reverse" class="number"></div>
+  </div>
+  <div
+    style="color:hwb(286 0% 0%);--l:15em;--m:110;--t:110s;--r1:reverse;--s:0.680473372781065"
+    class="wheel"
+  >
+    <div style="--a:6deg;--i:2;--r:reverse" class="number"></div>
+    <div style="--a:13deg;--i:4;--r:reverse" class="number"></div>
+    <div style="--a:16deg;--i:5" class="number"></div>
+    <div style="--a:22deg;--i:7;--r:reverse" class="number"></div>
+    <div style="--a:29deg;--i:9" class="number"></div>
+    <div style="--a:32deg;--i:10" class="number"></div>
+    <div style="--a:36deg;--i:11" class="number"></div>
+    <div style="--a:42deg;--i:13;--r:reverse" class="number"></div>
+    <div style="--a:45deg;--i:14;--r:reverse" class="number"></div>
+    <div style="--a:52deg;--i:16" class="number"></div>
+    <div style="--a:62deg;--i:19;--r:reverse" class="number"></div>
+    <div style="--a:65deg;--i:20;--r:reverse" class="number"></div>
+    <div style="--a:72deg;--i:22" class="number"></div>
+    <div style="--a:78deg;--i:24" class="number"></div>
+    <div style="--a:81deg;--i:25" class="number"></div>
+    <div style="--a:85deg;--i:26;--r:reverse" class="number"></div>
+    <div style="--a:88deg;--i:27;--r:reverse" class="number"></div>
+    <div style="--a:98deg;--i:30;--r:reverse" class="number"></div>
+    <div style="--a:104deg;--i:32" class="number"></div>
+    <div style="--a:114deg;--i:35" class="number"></div>
+    <div style="--a:124deg;--i:38" class="number"></div>
+    <div style="--a:130deg;--i:40;--r:reverse" class="number"></div>
+    <div style="--a:134deg;--i:41" class="number"></div>
+    <div style="--a:137deg;--i:42;--r:reverse" class="number"></div>
+    <div style="--a:140deg;--i:43;--r:reverse" class="number"></div>
+    <div style="--a:150deg;--i:46;--r:reverse" class="number"></div>
+    <div style="--a:157deg;--i:48" class="number"></div>
+    <div style="--a:160deg;--i:49;--r:reverse" class="number"></div>
+    <div style="--a:170deg;--i:52" class="number"></div>
+    <div style="--a:196deg;--i:60;--r:reverse" class="number"></div>
+    <div style="--a:199deg;--i:61;--r:reverse" class="number"></div>
+    <div style="--a:202deg;--i:62;--r:reverse" class="number"></div>
+    <div style="--a:209deg;--i:64;--r:reverse" class="number"></div>
+    <div style="--a:212deg;--i:65;--r:reverse" class="number"></div>
+    <div style="--a:216deg;--i:66" class="number"></div>
+    <div style="--a:225deg;--i:69" class="number"></div>
+    <div style="--a:232deg;--i:71;--r:reverse" class="number"></div>
+    <div style="--a:248deg;--i:76;--r:reverse" class="number"></div>
+    <div style="--a:252deg;--i:77" class="number"></div>
+    <div style="--a:258deg;--i:79" class="number"></div>
+    <div style="--a:261deg;--i:80;--r:reverse" class="number"></div>
+    <div style="--a:265deg;--i:81;--r:reverse" class="number"></div>
+    <div style="--a:268deg;--i:82" class="number"></div>
+    <div style="--a:274deg;--i:84;--r:reverse" class="number"></div>
+    <div style="--a:291deg;--i:89" class="number"></div>
+    <div style="--a:304deg;--i:93" class="number"></div>
+    <div style="--a:317deg;--i:97;--r:reverse" class="number"></div>
+    <div style="--a:320deg;--i:98;--r:reverse" class="number"></div>
+    <div style="--a:327deg;--i:100;--r:reverse" class="number"></div>
+    <div style="--a:333deg;--i:102" class="number"></div>
+    <div style="--a:340deg;--i:104" class="number"></div>
+    <div style="--a:350deg;--i:107" class="number"></div>
+    <div style="--a:356deg;--i:109" class="number"></div>
+  </div>
+</div>
+
+css：
+
+/*
+Inspired by www.doi.org
+More comprehensive version at shenanigans.shoghisimon.ca/collection/spinning-numbers/
+ */
+
+.spinning-number {
+  position: relative;
+  font-size: 0.5em;
+}
+
+.spinning-number .wheel {
+  animation: spinning-number-spin var(--t) linear infinite var(--r1);
+}
+
+@keyframes spinning-number-spin {
+  0% {
+    transform: rotate(0deg);
   }
-});
+  to {
+    transform: rotate(360deg);
+  }
+}
 
-// 按照表格顺序编排时间轴
-timeline
-  .to("#V-Main-L", { strokeDashoffset: 0, duration: 5 }) // duration 在 scrub 模式下代表比例
-  .to("#V-Main-R", { strokeDashoffset: 0, duration: 5 }, "-=3") // 提前交错执行
-  .to("#H-Main-T", { strokeDashoffset: 0, duration: 5 }, "-=2")
-  .to("#H-Main-B", { strokeDashoffset: 0, duration: 5 }, "-=3")
-  // 注意：辅线的 offset 动画
-  .to("#H-Aux-1",  { strokeDashoffset: 0, duration: 4 }, "-=1")
-  .to("#V-Aux-1",  { strokeDashoffset: 0, duration: 4 }, "-=2")
-  // 装饰线
-  .to("#Deco-1",   { strokeDashoffset: 0, duration: 2 })
-  // 节点闪烁及内容显影
-  .to(".node-dot", { opacity: 1, scale: 1.5, yoyo: true, repeat: 1, duration: 1 })
-  .to(".cell-content", { opacity: 1, y: 0, duration: 3 });
+.spinning-number .number {
+  position: absolute;
+  transform: translate(-50%, -50%) rotate(var(--a))
+    translateY(calc(var(--l) * -1)) scale(var(--s));
+}
 
+.spinning-number .number::before {
+  content: "1";
+  --z: 1.9;
+  --r: normal;
+  transform: translate(-50%, -50%);
+  animation: spinning-number-changing calc(var(--t) * var(--z))
+    calc(-1 * var(--z) * var(--t) * var(--i) / var(--m) - 60s) linear infinite
+    var(--r);
+}
 
-  我目前认为目前布置的这么多线条的坐标布局和样式我比较满意，所以希望你在实现这个布局的时候不要擅自修改我的以上规划，不要自以为是的做“优化”，先按我写的做。
+@keyframes spinning-number-changing {
+  0% {
+    content: "1";
+  }
+  to {
+    content: "0";
+  }
+}
+请将图案的颜色全部改成黑灰色系，并且考虑到这个图案安置上去可能会出现卡顿，可联网搜索优化方案。切勿对代码擅自修改。
 
-##### 重构你已经完成的知识溯源窗口
-
-目前存在的问题是：你没有理解我上面说的画布被线条分割成各个区域，而是认为我只是要做一个全屏的线条装饰————你要明白，知识溯源界面是一个下拉式的长窗口，你可以去学习awwwards中是怎么将线条做在下拉栏上的，我不是要做一个固定的框架锁定我的屏幕啊，而是要在画布上画一个框架，这个框架至少是印在画布上的吧，而不是像现在这样只是一个浮于画布之上的像相框一样的东西，它是印在长画布上的，所以我滚动鼠标滚轮是可以看到框架上移的。
-我现在需要你重构知识溯源窗口，具体构思如下：
-保留你一开始的知识溯源和介绍字样，下面的所有元素（包括文本溯源、文件溯源、知识图谱）都删掉
-然后开始滚动鼠标，保留你的在屏幕之中画线的一套设计，但是待到你完全画完这些线条后的一刻，线条框架向下层固定到下拉画布中，并且这段时间下拉画布下移锁定，不再可以向下滚动，接下来我的鼠标滚轮继续滚动，发生的事情是这些线条之间的从左到右5个分割成的大小不一的五个区域随着滚轮的滚动开始从左到右或从上到下浮现一个画布，这些画布严格由每根线的位置决定，严格框在对应上下左右四根线的内部，不是单纯的卡片，而是SVG+GSAP的效果，这些画布是用来盛放溯源文件的，也就是说待到画布都完全浮现出来后，画布中开始浮现由后端代码检索出的五个文件的title
-
-待到所有元素都呈现完毕，画布下拉滚轮解除锁定，此时整个框架不再固定在屏幕上，而是印在了下层的画布上，随着我的滚轮向下滚动，线条框架上移直到退出屏幕，同步的过程则是下面的下拉画布动态呈现出知识溯源的知识图谱，直到滚轮滚到最后，整个页面呈现结束，画面停止在一整个屏幕的知识图谱上。
-
-总结，你必须对SVG+GSAP以及线条的层级、线条互相框出的区域如何成为画布框架等有非常深刻的理解，而我的第一窗口和第二窗口对此有一些成熟代码可以供你学习，并且你也可以联网搜索awwwards中的高级实现和最佳实践，总之这样的效果绝非单靠你的知识储备可以完成的，你必须明确还需要使用什么高级的技术栈，需要用到什么先进的UI库，而不是闷头一路走到黑，多问我问题，一步步明确我们到底要做成什么样子
-
-
-当前数据溯源窗口存在如下问题：
-我们将这个下拉式窗口分为三个部分，一开始的全屏黑色介绍部分，左侧有知识溯源的大字楷书（下次试着改成别的字体，改成圆润一点的字体，你可以去google里找）、之后的线条绘画网格、最后的知识图谱，分别命名为p1\p2\p3
-1、p1样式较为单调，有大片的黑色背景，试着用一些先进的方式（可以联网搜索awwwards成熟实践）来添加一些元素
-2、p2的线条位置我们需要调整一下坐标参数，目前一共有三条横线三条竖线，我希望你略微左移第一、二、三根竖线，使得五个模块的宽度看上去不会相差太大，使布局更为合理；并且新增两根长横线作为这整个线条的上下框边界，可以最后加入时间轴里，照搬同样的动态呈现方式。线条位置参数的调整会涉及到画布坐标的调整，要智慧地协同修改参数。
-3、以（2、）的最下边一根长横线为坐标边界，调整整个知识图谱的出现时机————也就是往下移整个p3的位置，现在p3太靠上了，已经跟线条框架重合了，非常不美观
-4、p2各个画布的淡入由于是荧光绿色，导致太不明显了，尝试能不能牺牲一些透明度，让淡入的特效做的更清晰且酷炫（涉及到SVG+GSAP的技术栈，建议联网搜索最佳实践）
-
-## 第四个窗口：数据库
-我们要明确不管点开哪个窗口，菜单栏肯定是永远存在的，不可能说从第三个窗口跳到其它功能窗口后菜单就没了，当然返回初始log in页面就不用保留菜单栏了，现在就是这样的，不用改动。
-这个窗口的触发方式是点击第三个窗口的菜单栏，按下对应的“数据库”按钮，整个界面进入第四个窗口，这是一个新的窗口，是一个报纸的样式，具体提示词我跟gemini的交互对话内容发给你如下：
-
-这是一个前端窗口生成的AI IDE提示词，我想要照搬利用它，改造成一个数据库界面，是两个页面大小的区域，根目录中发了两张图片“第四窗口示例图1.png”“第四窗口示例图2.png”分别是我希望保留并照搬运用的界面模式图效果，我相信以上提示词一定也提到过
-
-我想要改造成的数据库界面的功能是像番茄小说一样可以新建文件夹，我们这里称作新建聚类，如图二有若干个线条分割的方形板块，我希望将其改造为能够储存一个向文件夹一样的交互按钮，上面会显示该文件夹的名称
-
-具体实现如下:
-
-我希望将这个模板的内部一些元素进行迭代，比如其中的文字：
-
-1、第一张图片的大字介绍改成：“你可以在此新增数据库聚类或向聚类中添加文件”，第一张图周围有许多AI随意生成的一些装饰字样，你可以根据我的数据库理念替换成一些中文介绍词等
-
-2、第一张图片中左侧超大字的右下角有一黑一白两个长方形按钮，我希望只保留一个，按钮的名称叫新建聚类（也就是新建文件夹），按下后会弹出弹窗，用户可以自主为新建的初始聚类命名，按下创建按钮后自然地会在第二个图片中新增一个线条围成的板块，这就是你新建的聚类
-
-3、第一张图片的右侧有一个右侧栏，右侧栏的上侧有一个类似数据展示的四行，我希望将其直接改成两三行就行，分别展示已有聚类数量，总文件数量，最近添加文件日期这三个指标，然后我们前端可以直接试着做出一些后端代码，配合（2、）的新建聚类功能实时地改变这里的指标数字，也就是说真实实现这个指标栏；右侧栏的下侧就不用做什么东西了，暂时空着就好，无需添加模块。
-
-4、再说第二个图片，虽然第二个图片是有两行，每一行都有好几个卡片，位置错开来，它们与不同卡片不同，而是真正通过线条的分割实现的，这种极简主义远比圆角div卡片的堆叠要美观，不像是AI做出来的。不过我优化后不需要做的这么复杂，因为新建聚类后就要新建卡片，位置和线条的增加就要思考很多的方面，代码不好实现——所以我希望你直接将第二张图的效果改成一条一条的横线分割成一个一个的横栏区域，就不需要在一行错位地做很多的聚类了，一行一个长条就行
-
-
-
-总结如上功能要求，我想让你重新撰写那些英文提示词，尽量照搬已有的部分，不要擅自优化叙述内容，仅对于我的功能需求进行删减添加改动。
-<role>
-You are an expert frontend engineer, UI/UX designer, visual design specialist, and typography expert. Your goal is to build a "Database Cluster Management Interface" using an existing strict design system. 
-
-Before proposing or writing any code, first build a clear mental model of the requirements:
-- Identify the tech stack (React, Tailwind CSS, Lucide React).
-- Understand the existing "Newsprint" design tokens (zero border-radius, strict black borders, off-white background, high-contrast typography).
-- Focus only on the top two sections of the page: The Hero section and the Cluster List section. Do not build anything beyond these two sections.
-- Implement functional React state management to make the UI interactive (creating new folders/clusters and updating sidebar metrics).
-
-Always aim to:
-- Preserve accessibility and responsive design.
-- Maintain absolute visual consistency with the provided "Newsprint" design system.
-- Make deliberate, creative design choices that express the design system’s personality (brutalist, editorial, structural) instead of producing a generic UI.
-</role>
-
-<design-system>
-# Design Style: Newsprint
-
-## 1. Design Philosophy
-**"All the News That's Fit to Print."**
-This style is an ode to the golden age of print journalism, reimagined for the web. It embodies **absolute clarity, hierarchy, and structure** through its unwavering commitment to high-contrast typography, grid-based layouts, and sharp geometric precision.
-
-### Core DNA
-- **Stark Geometry**: Zero border radius. Every element is a perfect rectangle with sharp 90-degree corners.
-- **High Information Density**: Tight padding, collapsed grid borders, and efficient use of space.
-- **Typographic Drama**: Massive serif headlines paired with smaller, highly legible body text.
-- **Visible Structure**: Grid lines aren't hidden—they're celebrated. Borders between columns and sections are explicit.
-- **Editorial Authority**: Serious, timeless, and trustworthy.
-
-## 2. Design Token System
-### Colors (Light Mode Only)
-- **Background:** `#F9F9F7` (Newsprint Off-White)
-- **Foreground & Borders:** `#111111` (Ink Black)
-- **Muted:** `#E5E5E0` (Divider Grey)
-- **Accent:** `#CC0000` (Editorial Red) - use extremely sparingly.
-
-### Typography
-- **Serif (Headlines):** `'Playfair Display', 'Times New Roman', serif`
-- **Serif (Body):** `'Lora', Georgia, serif`
-- **Sans-Serif (UI/Labels):** `'Inter', 'Helvetica Neue', sans-serif`
-- **Monospace (Data):** `'JetBrains Mono', 'Courier New', monospace`
-
-### Radius & Border
-- **Border Radius:** `0px` everywhere. No exceptions.
-- **Border Width:** Standard `1px` solid black (`border`, `border-r`, `border-b`). Use `border-b-4` for major section dividers.
-
-### Shadows/Effects
-- **Hover Effects:** Hard Offset Shadow: `box-shadow: 4px 4px 0px 0px #111111; transform: translate(-2px, -2px);`
-- **No Effects:** No blur, no soft drop shadows, no inner shadows.
-
-### Buttons & Inputs
-- **Primary Button:** Solid black background, white text. Hover: white background, black text/border. Sharp corners. Uppercase text with `tracking-widest`.
-- **Inputs:** Transparent background, only bottom border (2px solid black), monospace font. No border radius.
-</design-system>
-
-<functional-requirements>
-# Specific Page Layout & Interactivity
-
-You need to build a single-page React application with the following strict sections and logic:
-
-## 1. Hero Section (Left Column - Main Intro)
-- **Headline (H1):** Use the exact Chinese text: "你可以在此新增数据库聚类或向聚类中添加文件". Make it massive (e.g., `text-6xl lg:text-8xl`), using the Serif headline font, with very tight leading (`leading-[0.9]`).
-- **Subtext/Decor:** Add a few small decorative paragraphs or metadata tags around the headline using database-related Chinese context (e.g., "数据源管理系统 | v1.0", "高效、结构化、安全的数据聚类引擎"). Use uppercase sans-serif or monospace for these smaller labels to mimic newspaper edition markers.
-- **Action Button:** Below the headline, place exactly ONE primary button named "新建聚类" (Create Cluster). 
-
-## 2. Interactive Modal (Create Cluster)
-- When the "新建聚类" button is clicked, open a brutalist modal overlay.
-- The modal must follow the Newsprint style: thick black border, `#F9F9F7` background, 0px border radius, sharp hard shadow.
-- It should contain an input field (bottom border only, no radius) for the user to type the new cluster's name, and a "确认创建" (Confirm) button.
-- Submitting this form should add a new cluster object to the React state.
-
-## 3. Hero Section (Right Sidebar - Dynamic Metrics)
-- Create a right sidebar clearly separated from the left column by a vertical black border (`border-l`).
-- **Top Part (Stats):** Display exactly three metric rows:
-  1. "已有聚类数量" (Total Clusters)
-  2. "总文件数量" (Total Files)
-  3. "最近添加文件日期" (Last Added Date)
-- **Dynamic Logic:** The "已有聚类数量" must be tied to the React state. When a user creates a new cluster via the modal, this number must instantly increment.
-- **Bottom Part:** Leave the area below the stats completely empty (do not add any advertisement blocks or extra modules).
-
-## 4. Cluster List Section (Bottom Row Layout)
-- Instead of a complex, staggered multi-column card grid, use a strict, minimalist **Single-Column Horizontal Row layout**.
-- Map over the clusters in the React state. Each cluster should be rendered as a full-width horizontal bar/row.
-- Each row must be separated by a simple horizontal black line (`border-b border-[#111111]`). 
-- Do not use overlapping cards or side-by-side grids. "一行一个长条" (One long horizontal bar per row).
-- Inside each row, display the cluster's name (which the user inputted), an icon (from Lucide React), and a default file count (e.g., "文件数: 0").
-- **Initial State:** Provide 2 or 3 default clusters in the state so the list isn't empty on first load.
-
-## 5. Implementation Rules
-- Ensure you use React `useState` to manage the `clusters` array and the `isModalOpen` boolean.
-- Use Tailwind CSS for all styling, enforcing the `0px` border radius and black/white palette heavily.
-- Do not build any footers, sponsors sections, or extra marketing fluff. Stop after the Cluster List section.
-</functional-requirements>
-
-当前数据库界面存在以下问题：
-1、你对菜单栏的颜色做了改变，做成了深红色，这很好，但是按下菜单展开和菜单收起时的动态夹层做成了黑色，你可以将黑色改成你内部字体选用的深红色。
-2、第四个窗口最上面有一个黑色的滚动细栏，非常好看，为了不让它和菜单展开的按钮重合，我建议将这个页面的菜单展开按钮下移一些。
-3、”你可以在此
-新增数据库聚类
-或向聚类中
-添加文件“的字样字号太大，并且请你将字体换成google字体中好看的圆润的汉字设计，不要用这个，换成google字体里的ZCOOL 小薇 李大伟设计
+### 七、单个聚类窗口
+实现每个聚类长条可交互点入，弹出窗口可以查看存在的文件，也可以在其中上传新文件，这些功能都要仿照

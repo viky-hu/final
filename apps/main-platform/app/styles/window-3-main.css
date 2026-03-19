@@ -933,28 +933,86 @@
   justify-content: flex-start;
   padding: 0 0 0 6vw;
   position: relative;
+  overflow: hidden;
+}
+
+/* ── P1 tech-grid-glow layers ─────────────────────────────────────────────── */
+
+/* Radial glow blob anchored near the hero text */
+.trace-hero-glow {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 55% 65% at 22% 52%, rgba(39, 255, 100, 0.10) 0%, rgba(39, 255, 100, 0.03) 55%, transparent 75%),
+    radial-gradient(ellipse 28% 40% at 8%  78%, rgba(39, 255, 100, 0.05) 0%, transparent 65%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Scanline texture — slow vertical drift */
+.trace-hero-scan {
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 3px,
+      rgba(39, 255, 100, 0.022) 3px,
+      rgba(39, 255, 100, 0.022) 4px
+    );
+  background-size: 100% 4px;
+  pointer-events: none;
+  z-index: 0;
+  animation: heroScanDrift 20s linear infinite;
+}
+
+/* Subtle tech grid overlay */
+.trace-hero-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(39, 255, 100, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(39, 255, 100, 0.028) 1px, transparent 1px);
+  background-size: 72px 72px;
+  pointer-events: none;
+  z-index: 0;
+  mask-image: radial-gradient(ellipse 70% 80% at 30% 50%, black 30%, transparent 80%);
+  -webkit-mask-image: radial-gradient(ellipse 70% 80% at 30% 50%, black 30%, transparent 80%);
+}
+
+@keyframes heroScanDrift {
+  0%   { background-position: 0 0; }
+  100% { background-position: 0 -120px; }
 }
 
 .trace-hero-inner {
   max-width: 520px;
+  position: relative;
+  z-index: 1;
 }
 
 .trace-header-eyebrow {
   font-family: 'Michroma', monospace;
   font-size: clamp(0.58rem, 0.75vw, 0.7rem);
   letter-spacing: 0.28em;
-  color: rgba(39, 255, 100, 0.55);
+  color: rgba(39, 255, 100, 0.6);
   margin: 0 0 1.1rem;
   text-transform: uppercase;
 }
 
+/* 知识溯源 title: switch to ZCOOL QingKe HuangYou for rounder Chinese glyphs */
 .trace-header-title {
-  font-family: 'Michroma', monospace;
-  font-size: clamp(2.2rem, 4.5vw, 3.6rem);
+  font-family: 'ZCOOL QingKe HuangYou', 'Michroma', system-ui, sans-serif;
+  font-weight: 400;
+  font-size: clamp(2.4rem, 5vw, 4rem);
   color: #fcf8f8;
-  margin: 0 0 0.7rem;
-  letter-spacing: 0.04em;
+  margin: 0 0 0.8rem;
+  letter-spacing: 0.10em;
   line-height: 1.1;
+  text-shadow:
+    0 0 40px rgba(39, 255, 100, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.5);
 }
 
 .trace-header-intro {
@@ -983,7 +1041,7 @@
 }
 
 .trace-stamp-zone {
-  height: 150vh;
+  height: 100vh;
 }
 
 .trace-graph-zone {
@@ -994,7 +1052,7 @@
 
 .trace-graph-header {
   position: absolute;
-  top: 4.5vh;
+  top: 7vh;
   left: 50%;
   transform: translateX(-50%);
   text-align: center;
