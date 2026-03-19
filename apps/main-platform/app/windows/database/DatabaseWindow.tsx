@@ -13,6 +13,7 @@ import { StaggeredMenu } from "../main/components/StaggeredMenu";
 import type { StaggeredMenuItem } from "../main/components/StaggeredMenu";
 import type { Cluster, Metrics } from "@/app/lib/database-store";
 import { LINE_DRAW_EASE } from "../shared/animation";
+import { ClusterDetailWindow } from "./components/ClusterDetailWindow";
 
 interface DatabaseWindowProps {
   onBack: () => void;
@@ -30,13 +31,13 @@ export function DatabaseWindow({ onBack, onNavigateToMain }: DatabaseWindowProps
   const [newClusterName, setNewClusterName] = useState("");
   const [inputError, setInputError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
 
   const createBtnRef  = useRef<HTMLButtonElement>(null);
   const inputRef      = useRef<HTMLInputElement>(null);
 
   // ── Animation refs ────────────────────────────────────────────────────────
   const rootRef      = useRef<HTMLDivElement>(null);
-  const eyebrowRef   = useRef<HTMLParagraphElement>(null);
   const headlineRef  = useRef<HTMLHeadingElement>(null);
   const decorRef     = useRef<HTMLDivElement>(null);
   const btnRowRef    = useRef<HTMLDivElement>(null);
@@ -94,7 +95,6 @@ export function DatabaseWindow({ onBack, onNavigateToMain }: DatabaseWindowProps
     // Pre-hide all module elements
     gsap.set(
       [
-        eyebrowRef.current,
         headlineRef.current,
         decorRef.current,
         btnRowRef.current,
@@ -109,11 +109,6 @@ export function DatabaseWindow({ onBack, onNavigateToMain }: DatabaseWindowProps
       onComplete: () => {
         // Phase 2: module stagger timeline (0.8s total)
         const modTl = gsap.timeline();
-
-        modTl.to(eyebrowRef.current, {
-          autoAlpha: 1, y: 0,
-          duration: 0.2, ease: "power2.out",
-        }, 0);
 
         modTl.fromTo(headlineRef.current,
           { autoAlpha: 0, y: 24 },
@@ -261,8 +256,6 @@ export function DatabaseWindow({ onBack, onNavigateToMain }: DatabaseWindowProps
 
             {/* Left column */}
             <div className="db-hero-left">
-              <p ref={eyebrowRef} className="db-eyebrow">数据源管理系统&nbsp;|&nbsp;v1.0</p>
-
               <h1 ref={headlineRef} className="db-headline">
                 你可以在此<br />新增数据库聚类<br />或向聚类中<br />添加文件
               </h1>
@@ -288,7 +281,6 @@ export function DatabaseWindow({ onBack, onNavigateToMain }: DatabaseWindowProps
               <div ref={decorRef} className="db-decor-group" aria-hidden="true">
                 <p className="db-decor-label">高效、结构化、安全的数据聚类引擎</p>
                 <p className="db-decor-label">数据治理 · 向量检索 · 语义索引</p>
-                <p className="db-decor-mono">CLUSTER ENGINE · INDEX READY · LATENCY ≤ 10ms</p>
               </div>
 
               <div ref={btnRowRef} className="db-btn-row">
@@ -368,7 +360,15 @@ export function DatabaseWindow({ onBack, onNavigateToMain }: DatabaseWindowProps
               </div>
             ) : (
               clusters.map((cluster) => (
-                <div key={cluster.id} className="db-cluster-row" role="listitem">
+                <div
+                  key={cluster.id}
+                  className="db-cluster-row"
+                  role="listitem"
+                  tabIndex={0}
+                  onClick={() => setSelectedCluster(cluster)}
+                  onKeyDown={(e) => e.key === "Enter" && setSelectedCluster(cluster)}
+                  aria-label={`进入聚类：${cluster.name}`}
+                >
                   <div className="db-cluster-icon" aria-hidden="true">
                     <FolderOpen size={16} strokeWidth={1.5} />
                   </div>
@@ -396,6 +396,14 @@ export function DatabaseWindow({ onBack, onNavigateToMain }: DatabaseWindowProps
           accentColor="#CC0000"
         />
       </div>
+
+      {/* ── Cluster Detail Overlay ───────────────────────────────────────── */}
+      {selectedCluster && (
+        <ClusterDetailWindow
+          cluster={selectedCluster}
+          onBack={() => setSelectedCluster(null)}
+        />
+      )}
 
       {/* ── Create Cluster Modal ─────────────────────────────────────────── */}
       {isModalOpen && (

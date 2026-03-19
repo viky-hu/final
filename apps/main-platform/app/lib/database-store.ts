@@ -1,5 +1,7 @@
 // In-memory database store — MVP.
-// Replace `clusters` array with Prisma + SQLite in the next iteration without changing the API contract.
+// Replace with Prisma + SQLite/S3 in the next iteration without changing the API contract.
+
+import type { ClusterFile, AddClusterFileBody } from "./cluster-files-contract";
 
 export interface Cluster {
   id: string;
@@ -23,7 +25,11 @@ const DEFAULT_CLUSTERS: Cluster[] = [
 // Module-level singleton — lives for the lifetime of the Node.js process.
 const store = {
   clusters: [...DEFAULT_CLUSTERS] as Cluster[],
+  // Map<clusterId, ClusterFile[]> — replaced with DB query in persistent mode.
+  clusterFiles: new Map<string, ClusterFile[]>(),
 };
+
+// ── Cluster functions ─────────────────────────────────────────────────────────
 
 export function getClusters(): Cluster[] {
   return [...store.clusters];
@@ -50,4 +56,37 @@ export function getMetrics(): Metrics {
     totalFiles,
     lastAddedDate: sortedDates[0] ?? null,
   };
+}
+
+// ── Cluster file functions ────────────────────────────────────────────────────
+
+export function listClusterFiles(clusterId: string): ClusterFile[] {
+  return [...(store.clusterFiles.get(clusterId) ?? [])];
+}
+
+export function addClusterFile(
+  clusterId: string,
+  body: AddClusterFileBody,
+): ClusterFile {
+  const today = new Date().toISOString().slice(0, 10);
+  const file: ClusterFile = {
+    id: `file-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    clusterId,
+    addedAt: today,
+    ...body,
+  };
+
+  const existing = store.clusterFiles.get(clusterId) ?? [];
+  store.clusterFiles.set(clusterId, [...existing, file]);
+
+  // Keep fileCount on Cluster in sync
+  const clusterIdx = store.clusters.findIndex((c) => c.id === clusterId);
+  if (clusterIdx >= 0) {
+    store.clusters[clusterIdx] = {
+      ...store.clusters[clusterIdx],
+      fileCount: store.clusters[clusterIdx].fileCount + 1,
+    };
+  }
+
+  return file;
 }

@@ -1,0 +1,38 @@
+// Shared contract types for cluster files.
+// Keep this file dependency-free so it can be imported by both client components and API routes.
+// When switching from in-memory to Prisma/S3, only the implementation changes — not these types.
+
+export interface ClusterFile {
+  id: string;
+  clusterId: string;
+  name: string;
+  size: number;       // bytes
+  mimeType: string;
+  addedAt: string;    // ISO date YYYY-MM-DD
+  localPath?: string; // populated only in Electron/desktop context
+}
+
+export interface ListClusterFilesResponse {
+  files: ClusterFile[];
+}
+
+export interface AddClusterFileBody {
+  name: string;
+  size: number;
+  mimeType: string;
+  localPath?: string;
+}
+
+export interface AddClusterFileResponse {
+  file: ClusterFile;
+}
+
+export interface OpenFileRequest {
+  fileId: string;
+  localPath?: string;
+}
+
+export interface OpenFileResponse {
+  ok: boolean;
+  error?: string;
+}
