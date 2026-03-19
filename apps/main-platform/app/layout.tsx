@@ -3,7 +3,7 @@ import "./styles/window-1-login.css";
 import "./styles/window-2-product.css";
 import "./styles/window-3-main.css";
 import "./styles/window-4-database.css";
-import "@fontsource/zcool-qingke-huangyou";
+import "cn-fontsource-ding-talk-jin-bu-ti-regular/font.css";
 import "@fontsource/zcool-xiaowei";
 import "@fontsource/michroma";
 import type { Metadata } from "next";

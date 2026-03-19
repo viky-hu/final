@@ -95,7 +95,7 @@ export function PanelBlueMain({ isActive }: PanelBlueMainProps) {
             respectReducedMotion
             autoReplayMs={1500}
             className="panel-blue-main-shuffle-text"
-            style={{ fontFamily: '"ZCOOL QingKe HuangYou", system-ui, sans-serif' }}
+            style={{ fontFamily: '"DingTalk JinBuTi", system-ui, sans-serif' }}
             tag="p"
             textAlign="center"
           />

@@ -20,15 +20,15 @@ importers:
       '@fontsource/michroma':
         specifier: ^5.2.8
         version: 5.2.8
-      '@fontsource/zcool-qingke-huangyou':
-        specifier: ^5.2.8
-        version: 5.2.8
       '@fontsource/zcool-xiaowei':
         specifier: ^5.2.8
         version: 5.2.8
       '@radix-ui/react-toggle-group':
         specifier: ^1.1.11
         version: 1.1.11(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      cn-fontsource-ding-talk-jin-bu-ti-regular:
+        specifier: ^1.0.3
+        version: 1.0.3
       gsap:
         specifier: ^3.14.2
         version: 3.14.2
@@ -297,9 +297,6 @@ packages:
 
   '@fontsource/michroma@5.2.8':
     resolution: {integrity: sha512-52Ml9TU/yC5YluqHxXqLK/AVUWbIeI3lCTZcTRnIkvfKHPZ0GSvSFi49ti872oCdo+YAMUk8RIfxVxXa6Cjigw==}
-
-  '@fontsource/zcool-qingke-huangyou@5.2.8':
-    resolution: {integrity: sha512-ChEhJ6tb8ss6x35JJUzwYhbrY3jJVTe9UlP/whHUjaTxqT683jJ35QobKYw6SP4c0nAmJrl74AYIqR8y5ysMgw==}
 
   '@fontsource/zcool-xiaowei@5.2.8':
     resolution: {integrity: sha512-HppFdc8Y0djYbSpK6FbMFhEaZJwfGE5yIKLN3d5q5V239NQxm3sULJjfbMYyAMKswhG6hNTtXQkt8lOl4OmoLA==}
@@ -978,6 +975,9 @@ packages:
   client-only@0.0.1:
     resolution: {integrity: sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA==}
 
+  cn-fontsource-ding-talk-jin-bu-ti-regular@1.0.3:
+    resolution: {integrity: sha512-DeSn8ooCvRnYxC2306F/rFb5jI9AquYGwGlTlc1LeJjpoSE/rKPndGlGrjyFFXsPyJq4vbrlU+Rwtp2DzWXEJw==}
+
   csstype@3.2.3:
     resolution: {integrity: sha512-z1HGKcYy2xA8AGQfwrn0PAy+PB7X/GSj3UVJW9qKyn43xWa+gl5nXmU4qqLMRzWVLFC8KusUX8T/0kCiOYpAIQ==}
 
@@ -1471,8 +1471,6 @@ snapshots:
 
   '@fontsource/michroma@5.2.8': {}
 
-  '@fontsource/zcool-qingke-huangyou@5.2.8': {}
-
   '@fontsource/zcool-xiaowei@5.2.8': {}
 
   '@img/colour@1.1.0':
@@ -1957,6 +1955,8 @@ snapshots:
   caniuse-lite@1.0.30001777: {}
 
   client-only@0.0.1: {}
+
+  cn-fontsource-ding-talk-jin-bu-ti-regular@1.0.3: {}
 
   csstype@3.2.3: {}
 
