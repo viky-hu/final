@@ -11,9 +11,10 @@ import type { StaggeredMenuItem } from "./components/StaggeredMenu";
 interface MainWindowProps {
   onBack?: () => void;
   onOpenDatabase?: () => void;
+  onOpenMacro?: () => void;
 }
 
-export function MainWindow({ onBack, onOpenDatabase }: MainWindowProps) {
+export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
   const [traceMsgId, setTraceMsgId] = useState<string | null>(null);
@@ -48,6 +49,7 @@ export function MainWindow({ onBack, onOpenDatabase }: MainWindowProps) {
       label: "宏观平台",
       ariaLabel: "宏观平台",
       link: "#",
+      onClick: onOpenMacro,
     },
   ];
 

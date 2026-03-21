@@ -152,3 +152,11 @@ export const MC_CANVAS_FILL = "#FFF6F6";
 export const MC_CANVAS_LINE_ACTIVE = "#27FF64";
 export const MC_CANVAS_LINE_INITIAL = "#ffffff";
 export const MC_CANVAS_STROKE_WIDTH = 1.5;
+
+// ─────────────────────────────────────────────
+// Window 5 · Macro Platform  (viewBox 1440 × 900)
+// ─────────────────────────────────────────────
+export const MACRO_BG = "#1e1919";
+export const MACRO_LINE_INITIAL = "#ffffff";
+export const MACRO_LINE_SETTLED = "#888888";
+export const MACRO_STROKE_WIDTH = 1.5;
