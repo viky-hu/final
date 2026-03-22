@@ -858,3 +858,47 @@ d5——语义地点词汇云图（Word Cloud）：
 ——————————————————————————————————————————————————————————————————————————————————————————————————————————————————
 
 上述gemini的答复仅供参考，你在实际过程中遇到必要时候还是要自己联网搜索而不是完全依赖这段回答，只要你明确相关技术栈或是引用新的技术栈制作得正确美观，我便放开手让你做。
+
+### 防 FOUC 的通用提示词
+
+**Role & Context:**
+You are an expert Frontend Developer specializing in React and GSAP animations. 
+
+**Task:**
+When writing or refactoring GSAP animations in a React application, you must strictly follow the "CSS-First Initial State" pattern to prevent FOUC (Flash of Unstyled Content).
+
+**Rules:**
+1. **NO JS-DRIVEN INITIAL HIDING:** Never rely on `gsap.set()` or `gsap.from()` inside `useEffect` / `useGSAP` to establish the initial hidden state of an element. (React paints the DOM before these hooks run, causing a flash).
+2. **CSS-FIRST:** Always define the initial hidden state (e.g., `opacity: 0`, `visibility: hidden`, `transform: translateY(20px)`) directly in the CSS/SCSS or inline styles.
+3. **ANIMATE TO:** Because the element is hidden via CSS, use `gsap.to()` to animate the element into its final visible state (e.g., `opacity: 1`, `transform: none`).
+4. **USE AUTOALPHA:** When fading elements, prefer setting `visibility: hidden; opacity: 0;` in CSS, and animate using `gsap.to(el, { autoAlpha: 1 })`. This ensures hidden elements do not block clicks or screen readers.
+5. **USE @gsap/react:** Always use the `useGSAP()` hook instead of `useEffect()` for proper context management and memory cleanup in React strict mode.
+
+### React + GSAP 动画最佳实践解析
+
+
+除了上面的提示词，这里也为你梳理了业内公认的解决此类问题的标准实践方案：
+
+1. 核心理念：CSS 负责“初始不可见”，GSAP 负责“显现”
+不要让 JS 去追赶浏览器的渲染速度。确保在浏览器解析 DOM 的那一刻起，元素就是隐藏的。
+
+2. 使用  替代单纯的autoAlphaopacity
+单纯使用  时，元素虽然看不见，但仍然占据原本的位置，并且可以被点击（占据交互层），这可能会导致页面出现意想不到的 Bug 或是阻挡下方元素的交互。opacity: 0
+
+最佳实践：在 CSS 中设置 。visibility: hidden; opacity: 0;
+
+GSAP 侧：使用 。gsap.to(element, { autoAlpha: 1 })
+
+原理：GSAP 的 是一个智能属性，它会自动处理 ，并在透明度变为大于 0 时将 设为 /，这在处理复杂的错开动画（Stagger）时极为优雅。autoAlphaopacityvisibilityinheritvisible
+
+3. 放弃 ，拥抱  或者gsap.from()gsap.to()gsap.fromTo()
+gsap.from()会以元素当前的 CSS 状态作为终点，这意味着你不能在 CSS 里把元素写死为隐藏状态（否则它会从你设定的初始值动画过渡到隐藏状态）。在 React 中，CSS 初始隐藏 + gsap.to（） 是最无脑且最安全的打法，完全避免了时序竞争。
+
+4. 使用官方的 HookuseGSAP
+在 React 18+ 的严格模式下， 会在开发环境中触发两次，导致 GSAP 动画时间轴被意外创建两次甚至发生闪烁。官方特别推出了 包中的 hook。useEffect@gsap/reactuseGSAP
+
+优势：它自动处理了作用域（Scope）和组件卸载时的清理（Cleanup），再也不用手动去写 ，大大减少了动画带来的内存泄漏和错乱问题。ctx.revert()
+
+
+第五窗口左下d2内容：
+d2区域将会展示一个数据可视化的柱状图，是横柱，呈现的可视化数据是更新情况，

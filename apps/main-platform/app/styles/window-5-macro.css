@@ -34,11 +34,11 @@
   display: grid;
   /*
    * 三列两行网格：
-   *  列: 27.5%      |  45%        |  27.5%
+   *  列: 25%      |  50%        |  25%
    *  行: 1/2        |  1/2
    * d3 横跨中间列整两行
    */
-  grid-template-columns: 27.5fr 45fr 27.5fr;
+  grid-template-columns: 25fr 50fr 25fr;
   grid-template-rows: 1fr 1fr;
   pointer-events: none;
   will-change: transform;
@@ -77,7 +77,7 @@
   grid-row: 2;
 }
 
-/* 区域标签 */
+/* 区域标签（仅供 d2 / d4 / d5 / d3 占位用） */
 .macro-zone-label {
   font-family: "DingTalk JinBuTi", system-ui, sans-serif;
   font-size: clamp(0.7rem, 1vw, 0.9rem);
@@ -89,6 +89,244 @@
 .macro-zone--d3 .macro-zone-label {
   color: rgba(255, 255, 255, 0.35);
   font-size: clamp(0.85rem, 1.2vw, 1.1rem);
+}
+
+/* ========== D1 时间轴 ========== */
+
+/* d1 区域自身需填满格子 */
+.macro-zone--d1 {
+  align-items: stretch;
+  justify-content: stretch;
+  overflow: hidden;
+}
+
+/* 根容器 */
+.d1tl-root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
+  color: #1e1919;
+  overflow: hidden;
+}
+
+/* ── 标题栏 ── */
+.d1tl-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 12px 8px 10px;
+  border-bottom: 1px solid rgba(30,25,25,0.1);
+  flex-shrink: 0;
+}
+
+.d1tl-header-dot {
+  width: 24px;
+  height: 7px;
+  border-radius: 0;
+  background: transparent;
+  flex-shrink: 0;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.d1tl-header-dot::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #3b82f6;
+  box-shadow: 0 0 8px 3px rgba(59, 130, 246, 0.75);
+  animation: d1tl-blink 1.8s ease-in-out infinite;
+}
+
+.d1tl-header-title {
+  font-size: clamp(0.6rem, 0.85vw, 0.82rem);
+  letter-spacing: 0.12em;
+  color: #1e1919;
+  font-weight: 600;
+  flex: 1;
+}
+
+/* ── 滚动容器 ── */
+.d1tl-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  /* 隐藏所有浏览器原生滚动条 */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.d1tl-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ── 内部轨道 ── */
+.d1tl-track {
+  padding: 12px 12px 20px 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── 单条记录 ── */
+/* 初始不可见，由 GSAP 负责动画入场，防止画布展开期间闪现 */
+.d1tl-item {
+  display: flex;
+  gap: 16px;
+  position: relative;
+  opacity: 0;
+  transform: translateY(15px);
+  will-change: opacity, transform;
+}
+
+/* ── 左轴 ── */
+.d1tl-axis {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 24px;
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+
+/* 物理阻尼声呐节点 (Framer Motion) */
+.d1tl-dot-sonar {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.sonar-core {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #3b82f6;
+  box-shadow: 0 0 10px 3px rgba(59, 130, 246, 0.8), 0 0 20px 6px rgba(59, 130, 246, 0.4);
+  z-index: 3;
+  animation: d1tl-sonar-core 2s ease-in-out infinite;
+}
+
+.sonar-wave {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  border: 1.5px solid #60a5fa;
+  z-index: 1;
+  animation: d1tl-sonar-wave 2s ease-out infinite;
+}
+
+.sonar-wave-delay {
+  animation-delay: 1s;
+}
+
+/* 同心圆普通节点 */
+.d1tl-dot-concentric {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+
+.concentric-inner {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3b82f6;
+  z-index: 2;
+}
+
+.concentric-outer {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(59, 130, 246, 0.4);
+  z-index: 1;
+}
+
+/* 分段式链条连接线 */
+.d1tl-chain {
+  flex: 1;
+  width: 2px;
+  min-height: 22px;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(59, 130, 246, 0.4) 0px,
+    rgba(59, 130, 246, 0.4) 6px,
+    transparent 6px,
+    transparent 10px
+  );
+  margin-top: 6px;
+  margin-bottom: 2px;
+}
+
+/* ── 右侧内容 ── */
+.d1tl-content {
+  flex: 1;
+  padding-bottom: 20px;
+}
+
+.d1tl-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.d1tl-time {
+  font-size: clamp(0.6rem, 0.85vw, 0.8rem);
+  font-weight: 700;
+  color: #1e1919;
+  letter-spacing: 0.04em;
+}
+
+.d1tl-date {
+  font-size: clamp(0.55rem, 0.75vw, 0.72rem);
+  color: rgba(30,25,25,0.5);
+  letter-spacing: 0.05em;
+}
+
+.d1tl-text {
+  font-size: clamp(0.65rem, 0.9vw, 0.82rem);
+  color: rgba(30,25,25,0.8);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.d1tl-actor {
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #3b82f6;
+}
+
+/* ── Keyframes ── */
+
+@keyframes d1tl-sonar-core {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(0.85); opacity: 0.85; }
+}
+
+@keyframes d1tl-sonar-wave {
+  0% { transform: scale(1); opacity: 0.8; }
+  100% { transform: scale(2.5); opacity: 0; }
+}
+
+@keyframes d1tl-blink {
+  0%, 100% { opacity: 1;   }
+  50%       { opacity: 0.5; }
 }
 
 /* 菜单层 */

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { D1Timeline } from "./components/D1Timeline";
 import { gsap } from "gsap";
 import { StaggeredMenu } from "../main/components/StaggeredMenu";
 import type { StaggeredMenuItem } from "../main/components/StaggeredMenu";
@@ -16,8 +17,8 @@ import {
 
 /* ─── 坐标常量 ────────────────────────────────────────────── */
 // viewBox = 1440 × 900 (same as Window 1 / 3)
-const X_LEFT = VW * 0.275;        // 396  – p1 (27.5%)
-const X_RIGHT = VW * 0.725;       // 1044 – p2 (72.5%)
+const X_LEFT = VW * 0.25;         // 360  – p1 (25%)
+const X_RIGHT = VW * 0.75;        // 1080 – p2 (75%)
 const Y_MID = VH / 2;             // 450  – p3 / p4
 
 /* ─── 菜单展开时画面整体水平偏移目标（与 Window 3 一致） ─── */
@@ -37,6 +38,7 @@ export function MacroWindow({
   const svgRef = useRef<SVGSVGElement>(null);
   const modulesRef = useRef<HTMLDivElement>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [d1Visible, setD1Visible] = useState(false);
 
   // 菜单联动补间
   const menuTweenRef = useRef<gsap.core.Tween | null>(null);
@@ -83,6 +85,7 @@ export function MacroWindow({
     const tl = gsap.timeline({
       onComplete: () => {
         entryDoneRef.current = true;
+        setD1Visible(true);
         // 如果入场期间菜单已打开，补一次偏移
         if (pendingMenuOpenRef.current !== null) {
           const shouldShift = pendingMenuOpenRef.current;
@@ -253,7 +256,7 @@ export function MacroWindow({
       <div ref={modulesRef} className="macro-modules-layer">
         {/* d1 区 — 左上 */}
         <section className="macro-zone macro-zone--d1">
-          <span className="macro-zone-label">D1 · 待定模块</span>
+          <D1Timeline visible={d1Visible} />
         </section>
         {/* d2 区 — 左下 */}
         <section className="macro-zone macro-zone--d2">
@@ -279,11 +282,11 @@ export function MacroWindow({
           position="right"
           items={menuItems}
           displayItemNumbering={true}
-          menuButtonColor="#000"
-          openMenuButtonColor="#000"
+          menuButtonColor="#111111"
+          openMenuButtonColor="#111111"
           changeMenuColorOnOpen={false}
-          colors={["#333333", "#000000"]}
-          accentColor="#000000"
+          colors={["#D8B4FE", "#A855F7"]}
+          accentColor="#A855F7"
           onMenuOpen={() => setIsMenuOpen(true)}
           onMenuClose={() => setIsMenuOpen(false)}
         />
