@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { D1Timeline } from "./components/D1Timeline";
 import { D2Visualization } from "./components/D2Visualization";
+import { D4Visualization } from "./components/D4Visualization";
 import { gsap } from "gsap";
 import { StaggeredMenu } from "../main/components/StaggeredMenu";
 import type { StaggeredMenuItem } from "../main/components/StaggeredMenu";
@@ -269,7 +270,7 @@ export function MacroWindow({
         </section>
         {/* d4 区 — 右上 */}
         <section className="macro-zone macro-zone--d4">
-          <span className="macro-zone-label">D4 · 待定模块</span>
+          <D4Visualization visible={d1Visible} />
         </section>
         {/* d5 区 — 右下 */}
         <section className="macro-zone macro-zone--d5">
