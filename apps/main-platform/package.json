@@ -12,7 +12,11 @@
   "dependencies": {
     "@fontsource/michroma": "^5.2.8",
     "@fontsource/zcool-xiaowei": "^5.2.8",
+    "@gsap/react": "^2.1.2",
     "@radix-ui/react-toggle-group": "^1.1.11",
+    "@react-three/drei": "^10.7.7",
+    "@react-three/fiber": "^9.5.0",
+    "@react-three/postprocessing": "^3.0.4",
     "cn-fontsource-ding-talk-jin-bu-ti-regular": "^1.0.3",
     "gsap": "^3.14.2",
     "lucide-react": "^0.577.0",
