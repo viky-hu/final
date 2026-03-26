@@ -379,6 +379,8 @@
   height: 100%;
   min-width: 0;
   min-height: 0;
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
+  color: #eeeeee;
   overflow: hidden;
   isolation: isolate;
 }
@@ -400,6 +402,26 @@
 .d3viz-dot::after {
   background: #00d2ff;
   box-shadow: 0 0 8px 3px rgba(0, 210, 255, 0.6);
+}
+
+.d3viz-header .d1tl-header-title {
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
+  font-size: clamp(0.6rem, 0.85vw, 0.82rem);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: #eeeeee;
+}
+
+.d3viz-header input,
+.d3viz-header textarea {
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
+  font-size: clamp(0.6rem, 0.85vw, 0.82rem);
+  color: #eeeeee;
+}
+
+.d3viz-header input::placeholder,
+.d3viz-header textarea::placeholder {
+  color: rgba(238, 238, 238, 0.6);
 }
 
 /* 右侧时间段选择器组 */

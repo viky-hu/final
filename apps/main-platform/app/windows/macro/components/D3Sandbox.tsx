@@ -89,7 +89,6 @@ const radarFragmentShader = `
 
 function Radar() {
   const materialRef = useRef<THREE.ShaderMaterial>(null);
-  const sweepArmRef = useRef<THREE.Group>(null);
   const sweepRef = useRef(0);
   const uniforms = useMemo(
     () => ({
@@ -105,10 +104,6 @@ function Radar() {
     if (materialRef.current) {
       materialRef.current.uniforms.uSweep.value = sweepRef.current;
       materialRef.current.uniformsNeedUpdate = true;
-    }
-
-    if (sweepArmRef.current) {
-      sweepArmRef.current.rotation.y = sweepRef.current;
     }
   });
 
@@ -127,31 +122,6 @@ function Radar() {
           toneMapped={false}
         />
       </mesh>
-
-      <group ref={sweepArmRef} position={[0, 0.026, 0]}>
-        <mesh position={[0, 0, 7.4]}>
-          <boxGeometry args={[0.22, 0.02, 14.8]} />
-          <meshBasicMaterial
-            color={[0.05, 0.75, 1.25]}
-            transparent
-            opacity={0.18}
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-            toneMapped={false}
-          />
-        </mesh>
-        <mesh position={[0, 0, 14.3]}>
-          <sphereGeometry args={[0.22, 18, 18]} />
-          <meshBasicMaterial
-            color={[0.2, 0.9, 1.45]}
-            transparent
-            opacity={0.58}
-            depthWrite={false}
-            blending={THREE.AdditiveBlending}
-            toneMapped={false}
-          />
-        </mesh>
-      </group>
     </group>
   );
 }
