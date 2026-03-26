@@ -30,7 +30,7 @@ interface RectBox {
 
 const DEFAULT_SIZE = { width: 360, height: 250 };
 
-function buildDenseWords(source: WordCloudDatum[], targetCount = 34): WordCloudDatum[] {
+function buildDenseWords(source: WordCloudDatum[], targetCount = 48): WordCloudDatum[] {
   const seedSuffix = [
     "核心区",
     "热区",
@@ -61,8 +61,8 @@ function buildDenseWords(source: WordCloudDatum[], targetCount = 34): WordCloudD
     const suffix = seedSuffix[suffixIndex % seedSuffix.length];
     const text = `${base.text}${suffix}`;
     if (!unique.has(text)) {
-      const decay = 0.7 - (round % 4) * 0.08;
-      unique.set(text, Math.max(8, Math.round(base.weight * decay)));
+      const decay = 0.72 - (round % 4) * 0.08;
+      unique.set(text, Math.max(10, Math.round(base.weight * decay)));
     }
     suffixIndex += 1;
     round += 1;
@@ -78,15 +78,18 @@ function buildWordCloudLayout(source: WordCloudDatum[], width: number, height: n
   const placedBoxes: RectBox[] = [];
   const boxesByIndex: RectBox[] = [];
   const words: LayoutWord[] = [];
+  const deferred: Array<{ word: WordCloudDatum; index: number; ratio: number; rotate: number; color: string }> = [];
   const centerX = width / 2;
   const centerY = height / 2 + 8;
   const riskPalette = ["#ff4d4f", "#ff7a45", "#ff9c3d"];
   const techPalette = ["#38bdf8", "#4f9fff", "#647dff", "#56a8ff", "#45d2ff", "#8ea2ff"];
-  const rotationPreset = [0, 0, 0, 0, 8, -8, 12, -12];
+  const rotationPreset = [0, 0, 0, 6, -6, 10, -10];
+  const minFont = 9;
+  const maxFont = Math.min(42, Math.max(30, width / 7));
 
   const normalize = (weight: number) => {
     if (maxWeight === minWeight) return 1;
-    return Math.pow((weight - minWeight) / (maxWeight - minWeight), 0.65);
+    return Math.pow((weight - minWeight) / (maxWeight - minWeight), 0.72);
   };
 
   const intersects = (box: RectBox) =>
@@ -107,7 +110,7 @@ function buildWordCloudLayout(source: WordCloudDatum[], width: number, height: n
 
   sorted.forEach((word, index) => {
     const ratio = normalize(word.weight);
-    const baseFontSize = 12 + ratio * 50;
+    const baseFontSize = minFont + ratio * (maxFont - minFont);
     const rotate = rotationPreset[index % rotationPreset.length];
     const color = index < 3 ? riskPalette[index % riskPalette.length] : techPalette[(index + word.text.length) % techPalette.length];
     const margin = 10;
@@ -117,15 +120,15 @@ function buildWordCloudLayout(source: WordCloudDatum[], width: number, height: n
     let placedFont = baseFontSize;
     let placedBox: RectBox | null = null;
 
-    for (let shrink = 0; shrink <= 5 && !found; shrink += 1) {
-      const fontSize = Math.max(11, baseFontSize * (1 - shrink * 0.08));
-      const maxAttempts = index < 6 ? 1300 : 900;
+    for (let shrink = 0; shrink <= 8 && !found; shrink += 1) {
+      const fontSize = Math.max(minFont, baseFontSize * (1 - shrink * 0.1));
+      const maxAttempts = index < 6 ? 1700 : 1200;
       for (let step = 0; step < maxAttempts && !found; step += 1) {
-        const theta = step * 0.31 + index * 0.58;
-        const radius = 2 + step * 0.95;
+        const theta = step * 0.29 + index * 0.55;
+        const radius = 1 + step * 0.78;
         const x = centerX + Math.cos(theta) * radius * 1.08;
         const y = centerY + Math.sin(theta) * radius * 0.76;
-        const box = toRect(x, y, fontSize, rotate, word.text, index < 5 ? 6 : 4);
+        const box = toRect(x, y, fontSize, rotate, word.text, index < 4 ? 5 : 3);
         const inside = box.left >= margin && box.right <= width - margin && box.top >= margin && box.bottom <= height - margin;
         if (inside && !intersects(box)) {
           placedBox = box;
@@ -137,7 +140,10 @@ function buildWordCloudLayout(source: WordCloudDatum[], width: number, height: n
       }
     }
 
-    if (!placedBox) return;
+    if (!placedBox) {
+      deferred.push({ word, index, ratio, rotate, color });
+      return;
+    }
     placedBoxes.push(placedBox);
     boxesByIndex.push(placedBox);
     words.push({
@@ -152,6 +158,36 @@ function buildWordCloudLayout(source: WordCloudDatum[], width: number, height: n
       fontWeight: index < 2 ? 700 : index < 8 ? 600 : 500,
     });
   });
+
+  if (deferred.length > 0) {
+    const columns = Math.max(5, Math.floor(width / 72));
+    const rows = Math.max(5, Math.ceil(deferred.length / columns) + 2);
+    const cellW = (width - 20) / columns;
+    const cellH = (height - 20) / rows;
+    deferred.forEach((item, idx) => {
+      const col = idx % columns;
+      const row = Math.floor(idx / columns);
+      const x = 10 + cellW * col + cellW / 2;
+      const y = 10 + cellH * row + cellH / 2;
+      const fontSize = Math.max(minFont, Math.min(14, minFont + item.ratio * 6));
+      const box = toRect(x, y, fontSize, 0, item.word.text, 1);
+      const inside = box.left >= 6 && box.right <= width - 6 && box.top >= 6 && box.bottom <= height - 6;
+      if (!inside || intersects(box)) return;
+      placedBoxes.push(box);
+      boxesByIndex.push(box);
+      words.push({
+        ...item.word,
+        x,
+        y,
+        startY: y + 8,
+        rotate: 0,
+        fontSize,
+        color: item.color,
+        letterSpacing: 0,
+        fontWeight: 500,
+      });
+    });
+  }
 
   if (!words.length) return [];
   const minX = Math.min(...boxesByIndex.map((box) => box.left));
@@ -173,8 +209,8 @@ function buildWordCloudLayout(source: WordCloudDatum[], width: number, height: n
       ...word,
       x,
       y,
-      startY: y + 16,
-      fontSize: Math.max(11, word.fontSize * scale),
+      startY: y + 12,
+      fontSize: Math.max(minFont, word.fontSize * scale),
       letterSpacing: Math.max(0, word.letterSpacing * scale),
     };
   });
@@ -253,7 +289,7 @@ export function D5WordCloud({ visible, selectedNodeId }: D5WordCloudProps) {
           duration: 0.6,
           ease: "power3.out",
           stagger: {
-            each: 0.05,
+            each: 0.018,
             from: "random",
           },
         },

@@ -475,7 +475,7 @@
 .d5cloud-word {
   opacity: 0;
   visibility: hidden;
-  font-family: "ZCOOL XiaoWei", "DingTalk JinBuTi", system-ui, sans-serif;
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
   letter-spacing: 0.03em;
   font-weight: 500;
   paint-order: stroke fill;
