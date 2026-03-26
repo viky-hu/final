@@ -145,8 +145,8 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
            tl.to(children, { autoAlpha: 1, x: 0, duration: 0.4, stagger: 0.03, ease: "power2.out" }, 0.15);
         } else {
            tl.fromTo(children,
-              { opacity: 0, x: -10 },
-              { opacity: 1, x: 0, duration: 0.4, stagger: 0.03, ease: "power2.out" },
+              { autoAlpha: 0, x: -10 },
+              { autoAlpha: 1, x: 0, duration: 0.4, stagger: 0.03, ease: "power2.out" },
               0
            );
         }

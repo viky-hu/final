@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, forwardRef } from "react";
+import { useMemo, useRef, forwardRef } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Grid } from "@react-three/drei";
 import { EffectComposer, Bloom } from "@react-three/postprocessing";
@@ -34,8 +34,8 @@ export function D3Sandbox({ visible }: D3SandboxProps) {
         <span className="d1tl-header-title text-[#eeeeee]">全局节点地图</span>
       </header>
 
-      <div className="w-full h-full pt-[36px]">
-        <Canvas camera={{ position: [0, 15, 25], fov: 45 }}>
+      <div className="w-full h-full pt-[36px] d3viz-canvas-wrap">
+        <Canvas className="d3viz-canvas" frameloop="always" camera={{ position: [0, 15, 25], fov: 45 }}>
           <color attach="background" args={["#1e1919"]} />
           <ambientLight intensity={0.5} />
           <D3Scene visible={visible} />
@@ -89,32 +89,70 @@ const radarFragmentShader = `
 
 function Radar() {
   const materialRef = useRef<THREE.ShaderMaterial>(null);
+  const sweepArmRef = useRef<THREE.Group>(null);
+  const sweepRef = useRef(0);
+  const uniforms = useMemo(
+    () => ({
+      uColor: { value: new THREE.Color(0, 0.58, 1.25) },
+      uSweep: { value: 0 },
+    }),
+    [],
+  );
 
-  // Instead of updating a single uniform float, we can also force a uniform update this way
-  useFrame((state) => {
+  useFrame((_, delta) => {
+    sweepRef.current = (sweepRef.current + delta * 1.2) % (Math.PI * 2);
+
     if (materialRef.current) {
-      // make it rotate visibly
-      materialRef.current.uniforms.uSweep.value = (state.clock.elapsedTime * 1.5) % (Math.PI * 2);
+      materialRef.current.uniforms.uSweep.value = sweepRef.current;
+      materialRef.current.uniformsNeedUpdate = true;
+    }
+
+    if (sweepArmRef.current) {
+      sweepArmRef.current.rotation.y = sweepRef.current;
     }
   });
 
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
-      <planeGeometry args={[40, 40]} />
-      <shaderMaterial
-        ref={materialRef}
-        uniforms={{
-          uColor: { value: new THREE.Color(0, 0.5, 1.2) }, // Darker blue color
-          uSweep: { value: 0 },
-        }}
-        vertexShader={radarVertexShader}
-        fragmentShader={radarFragmentShader}
-        transparent
-        depthWrite={false}
-        blending={THREE.AdditiveBlending}
-        toneMapped={false}
-      />
-    </mesh>
+    <group>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0]}>
+        <planeGeometry args={[40, 40]} />
+        <shaderMaterial
+          ref={materialRef}
+          uniforms={uniforms}
+          vertexShader={radarVertexShader}
+          fragmentShader={radarFragmentShader}
+          transparent
+          depthWrite={false}
+          blending={THREE.AdditiveBlending}
+          toneMapped={false}
+        />
+      </mesh>
+
+      <group ref={sweepArmRef} position={[0, 0.026, 0]}>
+        <mesh position={[0, 0, 7.4]}>
+          <boxGeometry args={[0.22, 0.02, 14.8]} />
+          <meshBasicMaterial
+            color={[0.05, 0.75, 1.25]}
+            transparent
+            opacity={0.18}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+            toneMapped={false}
+          />
+        </mesh>
+        <mesh position={[0, 0, 14.3]}>
+          <sphereGeometry args={[0.22, 18, 18]} />
+          <meshBasicMaterial
+            color={[0.2, 0.9, 1.45]}
+            transparent
+            opacity={0.58}
+            depthWrite={false}
+            blending={THREE.AdditiveBlending}
+            toneMapped={false}
+          />
+        </mesh>
+      </group>
+    </group>
   );
 }
 

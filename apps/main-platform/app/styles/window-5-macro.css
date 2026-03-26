@@ -65,6 +65,11 @@
 .macro-zone--d3 {
   grid-column: 2;
   grid-row: 1 / -1;
+  align-items: stretch;
+  justify-content: stretch;
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
 }
 
 .macro-zone--d4 {
@@ -367,6 +372,28 @@
   justify-content: flex-start;
   gap: 10px;
   flex-wrap: nowrap;
+}
+
+.d3viz-root {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.d3viz-canvas-wrap {
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+
+.d3viz-canvas {
+  display: block !important;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 /* D3 专属青色点（使用类似 D4 的色调或特定色调） */
