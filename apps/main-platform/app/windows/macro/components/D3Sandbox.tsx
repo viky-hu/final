@@ -19,6 +19,11 @@ interface D3SandboxProps {
 
 export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxProps) {
   const headerRef = useRef<HTMLElement>(null);
+  const selectedNodeLabel = useMemo(
+    () => MACRO_NODES.find((node) => node.id === selectedNodeId)?.label ?? MACRO_NODES[0]?.label ?? DEFAULT_SELECTED_NODE_ID,
+    [selectedNodeId],
+  );
+  const totalNodeCount = MACRO_NODES.length;
 
   useGSAP(() => {
     if (!visible || !headerRef.current) return;
@@ -37,7 +42,18 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
         <span className="d1tl-header-title text-[#eeeeee]">全局节点地图</span>
       </header>
 
-      <div className="w-full h-full pt-[36px] d3viz-canvas-wrap">
+      <div className="d3viz-ticker" aria-hidden="true">
+        <div className="d3viz-ticker-track">
+          <span>当前节点：{selectedNodeLabel}&nbsp;//</span>
+          <span>&nbsp;总节点：{totalNodeCount}&nbsp;//</span>
+          <span>&nbsp;宏观全局节点网络&nbsp;//</span>
+          <span>当前节点：{selectedNodeLabel}&nbsp;//</span>
+          <span>&nbsp;总节点：{totalNodeCount}&nbsp;//</span>
+          <span>&nbsp;宏观全局节点网络&nbsp;//</span>
+        </div>
+      </div>
+
+      <div className="w-full h-full pt-[72px] d3viz-canvas-wrap">
         <Canvas className="d3viz-canvas" frameloop="always" camera={{ position: [0, 15, 25], fov: 45 }}>
           <color attach="background" args={["#1e1919"]} />
           <ambientLight intensity={0.5} />

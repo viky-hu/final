@@ -427,6 +427,43 @@
   color: rgba(238, 238, 238, 0.6);
 }
 
+.d3viz-ticker {
+  position: absolute;
+  top: 36px;
+  left: 0;
+  right: 0;
+  z-index: 9;
+  width: 100%;
+  background: rgba(12, 18, 24, 0.85);
+  color: rgba(226, 240, 255, 0.94);
+  overflow: hidden;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid rgba(0, 210, 255, 0.2);
+}
+
+.d3viz-ticker-track {
+  display: flex;
+  gap: 0;
+  white-space: nowrap;
+  animation: d3TickerScroll 28s linear infinite;
+  font-family: "Michroma", "DingTalk JinBuTi", system-ui, sans-serif;
+  font-size: 0.64rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.d3viz-ticker-track span {
+  padding: 0 1.25rem;
+  border-right: 1px solid rgba(226, 240, 255, 0.2);
+}
+
+@keyframes d3TickerScroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
 .d5cloud-root {
   display: flex;
   flex-direction: column;
