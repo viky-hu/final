@@ -5,6 +5,7 @@ import { D1Timeline } from "./components/D1Timeline";
 import { D2Visualization } from "./components/D2Visualization";
 import { D3Sandbox } from "./components/D3Sandbox";
 import { D4Visualization } from "./components/D4Visualization";
+import { D5WordCloud } from "./components/D5WordCloud";
 import { gsap } from "gsap";
 import { StaggeredMenu } from "../main/components/StaggeredMenu";
 import type { StaggeredMenuItem } from "../main/components/StaggeredMenu";
@@ -17,6 +18,7 @@ import {
   MACRO_LINE_SETTLED,
   MACRO_BG,
 } from "../shared/coords";
+import { DEFAULT_SELECTED_NODE_ID } from "./macroData";
 
 /* ─── 坐标常量 ────────────────────────────────────────────── */
 // viewBox = 1440 × 900 (same as Window 1 / 3)
@@ -42,6 +44,7 @@ export function MacroWindow({
   const modulesRef = useRef<HTMLDivElement>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [d1Visible, setD1Visible] = useState(false);
+  const [selectedNodeId, setSelectedNodeId] = useState(DEFAULT_SELECTED_NODE_ID);
 
   // 菜单联动补间
   const menuTweenRef = useRef<gsap.core.Tween | null>(null);
@@ -267,7 +270,7 @@ export function MacroWindow({
         </section>
         {/* d3 区 — 中间大片（暗色） */}
         <section className="macro-zone macro-zone--d3" style={{ padding: 0, overflow: 'hidden' }}>
-          <D3Sandbox visible={d1Visible} />
+          <D3Sandbox visible={d1Visible} selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
         </section>
         {/* d4 区 — 右上 */}
         <section className="macro-zone macro-zone--d4">
@@ -275,7 +278,7 @@ export function MacroWindow({
         </section>
         {/* d5 区 — 右下 */}
         <section className="macro-zone macro-zone--d5">
-          <span className="macro-zone-label">D5 · 待定模块</span>
+          <D5WordCloud visible={d1Visible} selectedNodeId={selectedNodeId} />
         </section>
       </div>
 

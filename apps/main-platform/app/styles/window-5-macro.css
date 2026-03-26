@@ -80,6 +80,9 @@
 .macro-zone--d5 {
   grid-column: 3;
   grid-row: 2;
+  align-items: stretch;
+  justify-content: stretch;
+  overflow: hidden;
 }
 
 /* 区域标签（仅供 d2 / d4 / d5 / d3 占位用） */
@@ -365,7 +368,7 @@
 }
 
 /* ── 标题栏（复用 d1tl-header 基础样式，扩展时间段按钮） ── */
-.d2viz-header, .d3viz-header {
+.d2viz-header, .d3viz-header, .d5cloud-header {
   /* 初始隐藏，由 GSAP 设置 autoAlpha 浮现 */
   visibility: hidden;
   opacity: 0;
@@ -422,6 +425,63 @@
 .d3viz-header input::placeholder,
 .d3viz-header textarea::placeholder {
   color: rgba(238, 238, 238, 0.6);
+}
+
+.d5cloud-root {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
+  color: #1e1919;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.d5cloud-header .d1tl-header-title {
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
+  font-size: clamp(0.6rem, 0.85vw, 0.82rem);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  color: #1e1919;
+}
+
+.d5cloud-dot::after {
+  background: #f97316;
+  box-shadow: 0 0 8px 3px rgba(249, 115, 22, 0.45);
+}
+
+.d5cloud-canvas-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  padding: 10px;
+}
+
+.d5cloud-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  text-rendering: geometricPrecision;
+}
+
+.d5cloud-canvas-reveal {
+  transform-origin: 50% 100%;
+  transform: scaleY(0);
+}
+
+.d5cloud-word {
+  opacity: 0;
+  visibility: hidden;
+  font-family: "ZCOOL XiaoWei", "DingTalk JinBuTi", system-ui, sans-serif;
+  letter-spacing: 0.03em;
+  font-weight: 500;
+  paint-order: stroke fill;
+  stroke: rgba(255, 255, 255, 0.42);
+  stroke-width: 0.75px;
+  user-select: none;
 }
 
 /* 右侧时间段选择器组 */
