@@ -15,39 +15,32 @@ interface D3SandboxProps {
 }
 
 export function D3Sandbox({ visible }: D3SandboxProps) {
-  return (
-    <div className="w-full h-full relative" style={{ backgroundColor: "#1e1919" }}>
-      {/* 顶部介绍栏 */}
-      <div 
-        className="absolute top-0 left-0 w-full flex items-center px-4 z-10 pointer-events-none" 
-        style={{ 
-          height: "36px",
-          borderBottom: "1px solid rgba(255, 255, 255, 0.1)",
-          background: "linear-gradient(to right, rgba(0,0,0,0.8), transparent)"
-        }}
-      >
-        <div className="flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-[#00d2ff]" style={{ boxShadow: "0 0 8px #00d2ff" }} />
-          <h2 className="text-[#eeeeee] text-sm tracking-widest font-bold font-mono">
-            3D 拓扑沙盘 (TOPOLOGY SANDBOX)
-          </h2>
-        </div>
-      </div>
+  const headerRef = useRef<HTMLElement>(null);
 
-      {/* 3D 画布 */}
+  useGSAP(() => {
+    if (!visible || !headerRef.current) return;
+    gsap.to(headerRef.current, {
+      autoAlpha: 1,
+      duration: 0.35,
+      ease: "power2.out",
+    });
+  }, [visible]);
+
+  return (
+    <div className="w-full h-full relative d3viz-root" style={{ backgroundColor: "#1e1919", display: "flex", flexDirection: "column" }}>
+      {/* ── 标题栏，复用 d1tl-header 结构 ── */}
+      <header ref={headerRef} className="d1tl-header d3viz-header" style={{ position: "absolute", top: 0, left: 0, right: 0, zIndex: 10, background: "linear-gradient(to right, rgba(0,0,0,0.8), transparent)", borderBottom: "1px solid rgba(255, 255, 255, 0.1)" }}>
+        <span className="d1tl-header-dot d3viz-dot" />
+        <span className="d1tl-header-title text-[#eeeeee]">全局节点地图</span>
+      </header>
+
       <div className="w-full h-full pt-[36px]">
         <Canvas camera={{ position: [0, 15, 25], fov: 45 }}>
           <color attach="background" args={["#1e1919"]} />
           <ambientLight intensity={0.5} />
-          
           <D3Scene visible={visible} />
-
           <EffectComposer>
-            <Bloom 
-              luminanceThreshold={1} 
-              mipmapBlur 
-              intensity={1.5} 
-            />
+            <Bloom luminanceThreshold={1} mipmapBlur intensity={1.5} />
           </EffectComposer>
         </Canvas>
       </div>
@@ -55,7 +48,6 @@ export function D3Sandbox({ visible }: D3SandboxProps) {
   );
 }
 
-// ─── 雷达扫描组件 (纯 Shader 实现完美扇形扫描) ───────────────────────
 const radarVertexShader = `
   varying vec2 vUv;
   void main() {
@@ -66,44 +58,43 @@ const radarVertexShader = `
 
 const radarFragmentShader = `
   uniform vec3 uColor;
-  uniform float uTime;
+  uniform float uSweep;
   varying vec2 vUv;
+
+  const float PI = 3.14159265359;
+  const float TAU = 6.28318530718;
+
   void main() {
-    vec2 uv = vUv - 0.5;
-    float dist = length(uv) * 2.0;
+    vec2 p = vUv - 0.5;
+    float r = length(p) * 2.0;
+    if (r > 1.0) discard;
+
+    float a = atan(p.y, p.x);
+    if (a < 0.0) a += TAU;
+
+    // Use a negative sign to rotate clockwise, or positive for counter-clockwise
+    float d = mod(a - uSweep + TAU, TAU);
+    float fan = PI / 2.0;
+
+    float sweep = 1.0 - smoothstep(0.0, fan, d);
+    float radial = smoothstep(0.05, 0.45, r) * (1.0 - smoothstep(0.65, 1.0, r));
     
-    // 裁剪掉圆外部分
-    if (dist > 1.0) discard;
-    
-    float angle = atan(uv.y, uv.x); // -PI to PI
-    angle -= uTime; // 随时间旋转
-    
-    // 归一化角度到 0.0 ~ 1.0
-    angle = mod(angle, 6.28318530718);
-    angle /= 6.28318530718;
-    
-    float fanSize = 0.15; // 扫描扇形的宽度 (约 54 度)
-    float alpha = 0.0;
-    
-    // 制作拖尾渐变效果
-    if (angle < fanSize) {
-      alpha = 1.0 - (angle / fanSize);
-    }
-    
-    // 边缘与中心柔和虚化
-    alpha *= smoothstep(0.0, 0.1, dist) * smoothstep(1.0, 0.8, dist);
-    
-    gl_FragColor = vec4(uColor, alpha * 0.6);
+    // Lower the alpha multiplier to reduce brightness/light pollution
+    float alpha = sweep * radial * 0.4;
+
+    // Don't multiply uColor by 2.0 to keep the base color softer
+    gl_FragColor = vec4(uColor, alpha);
   }
 `;
 
 function Radar() {
   const materialRef = useRef<THREE.ShaderMaterial>(null);
-  
+
+  // Instead of updating a single uniform float, we can also force a uniform update this way
   useFrame((state) => {
     if (materialRef.current) {
-      // 控制雷达扫描速度
-      materialRef.current.uniforms.uTime.value = state.clock.elapsedTime * 1.5;
+      // make it rotate visibly
+      materialRef.current.uniforms.uSweep.value = (state.clock.elapsedTime * 1.5) % (Math.PI * 2);
     }
   });
 
@@ -113,74 +104,136 @@ function Radar() {
       <shaderMaterial
         ref={materialRef}
         uniforms={{
-          uColor: { value: new THREE.Color(0, 0.8, 2.0) }, // 科技蓝
-          uTime: { value: 0 }
+          uColor: { value: new THREE.Color(0, 0.5, 1.2) }, // Darker blue color
+          uSweep: { value: 0 },
         }}
         vertexShader={radarVertexShader}
         fragmentShader={radarFragmentShader}
         transparent
         depthWrite={false}
         blending={THREE.AdditiveBlending}
-        toneMapped={false} // 确保可以被 Bloom 捕获发光
+        toneMapped={false}
       />
     </mesh>
   );
 }
 
-// ─── 高级感节点光柱组件 ──────────────────────────────────────────────
-const Beacon = forwardRef<THREE.Group, { position: [number, number, number], isCurrent: boolean }>(
-  ({ position, isCurrent }, ref) => {
-    // 颜色配置：当前节点高亮红金，其他节点科技蓝
-    const color = isCurrent ? [4, 0.5, 0.1] : [0, 1.5, 3] as [number, number, number];
-    const coreColor = isCurrent ? [8, 2, 1] : [1, 3, 6] as [number, number, number];
-    
+function RippleRing({ color, offset }: { color: [number, number, number]; offset: number }) {
+  const ringRef = useRef<THREE.Mesh>(null);
+  const matRef = useRef<THREE.MeshBasicMaterial>(null);
+
+  useFrame((state) => {
+    if (!ringRef.current || !matRef.current) return;
+    const t = (state.clock.elapsedTime * 0.55 + offset) % 1;
+    const scale = 0.8 + t * 3.4;
+    ringRef.current.scale.set(scale, scale, 1);
+    matRef.current.opacity = (1 - t) * 0.55;
+  });
+
+  return (
+    <mesh ref={ringRef} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]}>
+      <ringGeometry args={[0.18, 0.24, 40]} />
+      <meshBasicMaterial
+        ref={matRef}
+        color={color}
+        transparent
+        opacity={0}
+        blending={THREE.AdditiveBlending}
+        depthWrite={false}
+        toneMapped={false}
+        side={THREE.DoubleSide}
+      />
+    </mesh>
+  );
+}
+
+const Beacon = forwardRef<THREE.Group, { position: [number, number, number], isCurrent: boolean, scale?: number }>(
+  ({ position, isCurrent, scale = 1 }, ref) => {
+    // 进一步降低发光强度，避免光污染
+    const color: [number, number, number] = isCurrent ? [0.8, 0.2, 0.05] : [0, 0.4, 0.8];
+    const coreColor: [number, number, number] = isCurrent ? [1.5, 0.4, 0.1] : [0.2, 0.8, 1.5];
+
     return (
-      <group ref={ref} position={position}>
-        {/* 1. 底部贴地能量环 */}
+      <group ref={ref} position={position} scale={scale}>
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.01, 0]}>
-          <ringGeometry args={[0.5, 0.8, 32]} />
-          <meshBasicMaterial 
-            color={color} transparent opacity={0.8} 
-            blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} 
-          />
-        </mesh>
-        
-        {/* 2. 外层全息投影壳 (高度透明倒锥体) */}
-        <mesh position={[0, 2.5, 0]}>
-          <cylinderGeometry args={[0.8, 0.1, 5, 32, 1, true]} />
-          <meshBasicMaterial 
-            color={color} transparent opacity={0.25} 
-            blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} 
+          <ringGeometry args={[0.45, 0.82, 36]} />
+          <meshBasicMaterial
+            color={color}
+            transparent
+            opacity={0.85}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+            side={THREE.DoubleSide}
           />
         </mesh>
 
-        {/* 3. 内层高亮能量核心 (极细亮柱) */}
+        {isCurrent && (
+          <>
+            <RippleRing color={color} offset={0} />
+            <RippleRing color={color} offset={0.5} />
+          </>
+        )}
+
         <mesh position={[0, 2.5, 0]}>
-          <cylinderGeometry args={[0.05, 0.05, 5, 16]} />
+          <cylinderGeometry args={[0.82, 0.04, 5, 32, 1, true]} />
+          <meshBasicMaterial
+            color={color}
+            transparent
+            opacity={0.23}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+            side={THREE.DoubleSide}
+          />
+        </mesh>
+
+        <mesh position={[0, 2.5, 0]}>
+          <cylinderGeometry args={[0.78, 0.03, 5, 16, 1, true]} />
+          <meshBasicMaterial
+            color={color}
+            wireframe
+            transparent
+            opacity={0.45}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+          />
+        </mesh>
+
+        <mesh position={[0, 2.5, 0]}>
+          <cylinderGeometry args={[0.06, 0.03, 5, 18]} />
           <meshBasicMaterial color={coreColor} toneMapped={false} />
         </mesh>
-        
-        {/* 4. 顶部悬浮定位环 */}
+
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 5, 0]}>
-          <ringGeometry args={[0.8, 0.9, 32]} />
-          <meshBasicMaterial 
-            color={color} transparent opacity={1} 
-            blending={THREE.AdditiveBlending} depthWrite={false} toneMapped={false} side={THREE.DoubleSide} 
+          <ringGeometry args={[0.78, 0.95, 32]} />
+          <meshBasicMaterial
+            color={color}
+            transparent
+            opacity={1}
+            blending={THREE.AdditiveBlending}
+            depthWrite={false}
+            toneMapped={false}
+            side={THREE.DoubleSide}
           />
+        </mesh>
+
+        <mesh position={[0, 0.07, 0]}>
+          <sphereGeometry args={[0.06, 16, 16]} />
+          <meshBasicMaterial color={coreColor} toneMapped={false} />
         </mesh>
       </group>
     );
-  }
+  },
 );
 Beacon.displayName = "Beacon";
 
-// ─── 场景整合与时间轴动画 ────────────────────────────────────────────
 function D3Scene({ visible }: { visible: boolean }) {
   const gridRef = useRef<THREE.Group>(null);
   const beaconsRef = useRef<THREE.Group>(null);
   const radarGroupRef = useRef<THREE.Group>(null);
-  
-  // 节点数据 (模拟)
+
   const nodes = [
     { id: "node1", position: [-8, 0, -6], isCurrent: false },
     { id: "node2", position: [8, 0, 2], isCurrent: false },
@@ -193,93 +246,96 @@ function D3Scene({ visible }: { visible: boolean }) {
 
     const tl = gsap.timeline();
 
-    // Stage C: 网格犹如画卷般展开
     if (gridRef.current) {
-      tl.fromTo(gridRef.current.scale,
-        { x: 0.01, y: 0.01, z: 0.01 },
-        { x: 1, y: 1, z: 1, duration: 0.8, ease: "power2.out" },
-        0.2
-      );
+      tl.to(gridRef.current.scale, {
+        x: 1,
+        y: 1,
+        z: 1,
+        duration: 0.8,
+        ease: "power2.out",
+      }, 0.2);
     }
 
-    // Stage D: 雷达渐现
     if (radarGroupRef.current) {
-      tl.fromTo(radarGroupRef.current.scale,
-        { x: 0.01, y: 0.01, z: 0.01 },
-        { x: 1, y: 1, z: 1, duration: 0.8, ease: "back.out(1.2)" },
-        0.6
-      );
+      tl.to(radarGroupRef.current.scale, {
+        x: 1,
+        y: 1,
+        z: 1,
+        duration: 0.8,
+        ease: "back.out(1.2)",
+      }, 0.6);
     }
 
-    // Stage E & F: 光柱拔地而起 (生长动画)
     if (beaconsRef.current) {
       const children = beaconsRef.current.children;
       const normalNodes = children.filter((_, i) => !nodes[i].isCurrent);
       const activeNode = children.find((_, i) => nodes[i].isCurrent);
 
-      // 初始状态压扁在地面
-      gsap.set(children.map(c => c.scale), { x: 0.01, y: 0.01, z: 0.01 });
+      tl.to(normalNodes.map((c) => c.scale), {
+        x: 1,
+        y: 1,
+        z: 1,
+        duration: 0.8,
+        stagger: 0.15,
+        ease: "elastic.out(1, 0.75)",
+      }, 1.0);
 
-      // 普通节点按次序“生长”出地面，伴随弹性效果
-      tl.to(normalNodes.map(c => c.scale),
-        { x: 1, y: 1, z: 1, duration: 0.8, stagger: 0.15, ease: "elastic.out(1, 0.75)" },
-        1.0 
-      );
-
-      // 当前高亮节点最后压轴震撼登场
       if (activeNode) {
-        tl.to(activeNode.scale,
-          { x: 1, y: 1, z: 1, duration: 1.2, ease: "elastic.out(1, 0.5)" },
-          1.6
-        );
+        tl.to(activeNode.scale, {
+          x: 1,
+          y: 1,
+          z: 1,
+          duration: 1.2,
+          ease: "elastic.out(1, 0.5)",
+        }, 1.6);
       }
     }
+
+    return () => {
+      tl.kill();
+    };
   }, [visible]);
 
   return (
     <>
-      {/* 物理级视角控制器 */}
-      <OrbitControls 
-        enableZoom={true} 
+      <OrbitControls
+        enableZoom={true}
         enablePan={false}
-        minPolarAngle={Math.PI / 3.5} // 限制最高俯视角度，保留立体感
-        maxPolarAngle={Math.PI / 2.1} // 接近地面防穿模
-        // 完全开放左右 360 度旋转
+        minPolarAngle={Math.PI / 3.5}
+        maxPolarAngle={Math.PI / 2.1}
         enableDamping
-        dampingFactor={0.015} // 极低的阻尼：赋予“溜冰”般的物理滑行惯性
-        rotateSpeed={0.4} // 降低旋转速度，增加厚重感和高定感
-        autoRotate={true} // 开启静止时缓慢自转的科幻感
+        dampingFactor={0.015}
+        rotateSpeed={0.4}
+        autoRotate={true}
         autoRotateSpeed={0.3}
         makeDefault
       />
 
-      {/* 地面网格 */}
-      <group ref={gridRef} scale={0}>
-        <Grid 
-          args={[40, 40]} 
-          cellSize={1} 
-          cellThickness={1} 
-          cellColor="#004466" 
-          sectionSize={5} 
-          sectionThickness={1.5} 
-          sectionColor="#0088ff" 
-          fadeDistance={30} 
+      <group ref={gridRef} scale={0.01}>
+        <Grid
+          args={[40, 40]}
+          cellSize={1}
+          cellThickness={1}
+          cellColor="#004466"
+          sectionSize={5}
+          sectionThickness={1.5}
+          sectionColor="#0088ff"
+          fadeDistance={30}
           fadeStrength={1}
         />
       </group>
 
-      {/* 中心扫描雷达 */}
-      <group ref={radarGroupRef} scale={0}>
+      <group ref={radarGroupRef} scale={0.01}>
         <Radar />
       </group>
 
-      {/* 分布在地图上的数据锚点 */}
       <group ref={beaconsRef}>
         {nodes.map((node) => (
-          <Beacon 
-            key={node.id} 
-            position={[node.position[0], 0, node.position[2]]} 
-            isCurrent={node.isCurrent} 
+          <Beacon
+            key={node.id}
+            position={[node.position[0], 0, node.position[2]]}
+            isCurrent={node.isCurrent}
+            scale={0.01}
           />
         ))}
       </group>

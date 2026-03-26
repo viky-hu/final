@@ -360,13 +360,19 @@
 }
 
 /* ── 标题栏（复用 d1tl-header 基础样式，扩展时间段按钮） ── */
-.d2viz-header {
+.d2viz-header, .d3viz-header {
   /* 初始隐藏，由 GSAP 设置 autoAlpha 浮现 */
   visibility: hidden;
   opacity: 0;
   justify-content: flex-start;
   gap: 10px;
   flex-wrap: nowrap;
+}
+
+/* D3 专属青色点（使用类似 D4 的色调或特定色调） */
+.d3viz-dot::after {
+  background: #00d2ff;
+  box-shadow: 0 0 8px 3px rgba(0, 210, 255, 0.6);
 }
 
 /* 右侧时间段选择器组 */

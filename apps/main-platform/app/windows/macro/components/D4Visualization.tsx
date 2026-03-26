@@ -141,11 +141,15 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
     // 坐标轴标签动画
     if (labelsRef.current) {
         const children = labelsRef.current.children;
-        tl.fromTo(children,
-            { opacity: 0, x: -10 },
-            { opacity: 1, x: 0, duration: 0.4, stagger: 0.03, ease: "power2.out" },
-            isFirstTime ? 0.15 : 0
-        );
+        if (isFirstTime) {
+           tl.to(children, { autoAlpha: 1, x: 0, duration: 0.4, stagger: 0.03, ease: "power2.out" }, 0.15);
+        } else {
+           tl.fromTo(children,
+              { opacity: 0, x: -10 },
+              { opacity: 1, x: 0, duration: 0.4, stagger: 0.03, ease: "power2.out" },
+              0
+           );
+        }
     }
 
     // 曲线推升 reveal 动画
@@ -232,8 +236,8 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
 
           {/* 轴组 */}
           <g ref={labelsRef} className="d4viz-axis-group">
-            <line x1={padding.left} y1={padding.top} x2={padding.left} y2={getBaseY()} stroke="rgba(30,25,25,0.06)" strokeWidth="1" />
-            <line x1={padding.left} y1={getBaseY()} x2={width - padding.right} y2={getBaseY()} stroke="rgba(30,25,25,0.06)" strokeWidth="1" />
+            <line x1={padding.left} y1={padding.top} x2={padding.left} y2={getBaseY()} stroke="rgba(30,25,25,0.06)" strokeWidth="1" style={{ opacity: 0, visibility: "hidden", transform: "translateX(-10px)" }} />
+            <line x1={padding.left} y1={getBaseY()} x2={width - padding.right} y2={getBaseY()} stroke="rgba(30,25,25,0.06)" strokeWidth="1" style={{ opacity: 0, visibility: "hidden", transform: "translateX(-10px)" }} />
 
             {data.map((pt, i) => (
               <text
@@ -242,7 +246,7 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
                 y={getBaseY() + 28}
                 textAnchor="middle"
                 className="d4viz-axis-text"
-                style={{ fontSize: '18px' }}
+                style={{ fontSize: '18px', opacity: 0, visibility: "hidden", transform: "translateX(-10px)" }}
               >
                 {pt.time}
               </text>
@@ -255,7 +259,7 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
                 y={getY(v) + 7}
                 textAnchor="end"
                 className="d4viz-axis-text"
-                style={{ fontSize: '18px' }}
+                style={{ fontSize: '18px', opacity: 0, visibility: "hidden", transform: "translateX(-10px)" }}
               >
                 {v}%
               </text>
