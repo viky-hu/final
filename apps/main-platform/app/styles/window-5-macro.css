@@ -7,7 +7,7 @@
   height: 100%;
   min-height: 100dvh;
   overflow: hidden;
-  background: #1e1919;
+  background: #ffffff;
 }
 
 /* SVG 画布 — 全屏 */
@@ -472,7 +472,7 @@
   box-sizing: border-box;
   font-family: "DingTalk JinBuTi", system-ui, sans-serif;
   color: #1e1919;
-  background: #ffffff;
+  background: transparent;
   overflow: hidden;
 }
 
@@ -669,7 +669,7 @@
   box-sizing: border-box;
   font-family: "DingTalk JinBuTi", system-ui, sans-serif;
   color: #1e1919;
-  background: #ffffff; /* 确保背景是纯白画布 */
+  background: transparent; /* 采用下方 SVG 统一的粉白底色 */
   overflow: hidden;
   /* 预留右侧空间给菜单按钮 */
   padding-right: 20px;

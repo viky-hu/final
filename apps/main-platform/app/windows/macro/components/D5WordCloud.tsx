@@ -342,14 +342,14 @@ export function D5WordCloud({ visible, selectedNodeId }: D5WordCloudProps) {
             </pattern>
           </defs>
 
-          <rect width={size.width} height={size.height} fill="#ffffff" />
+          <rect width={size.width} height={size.height} fill="transparent" />
           <rect width={size.width} height={size.height} fill="url(#d5-grid-pattern)" />
           <rect
             ref={canvasRevealRef}
             className="d5cloud-canvas-reveal"
             width={size.width}
             height={size.height}
-            fill="#ffffff"
+            fill="#fff6f6"
           />
 
           <g ref={cloudGroupRef}>

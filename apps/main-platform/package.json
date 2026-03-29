@@ -18,6 +18,7 @@
     "@react-three/fiber": "^9.5.0",
     "@react-three/postprocessing": "^3.0.4",
     "cn-fontsource-ding-talk-jin-bu-ti-regular": "^1.0.3",
+    "d3-geo": "^3.1.1",
     "gsap": "^3.14.2",
     "lucide-react": "^0.577.0",
     "next": "latest",
@@ -32,6 +33,8 @@
   "devDependencies": {
     "@final/configs": "workspace:*",
     "@tailwindcss/postcss": "^4.2.1",
+    "@types/d3-geo": "^3.1.0",
+    "@types/geojson": "^7946.0.16",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",

@@ -216,13 +216,13 @@ export function MacroWindow({
       >
         {/* 四块白色填充区域 — 渲染在线条之下 */}
         {/* d1: 左上 (0,0) → (X_LEFT, Y_MID) */}
-        <rect id="macro-d1" x={0} y={0} width={X_LEFT} height={Y_MID} fill="#ffffff" fillOpacity={0} />
+        <rect id="macro-d1" x={0} y={0} width={X_LEFT} height={Y_MID} fill="#fff6f6" fillOpacity={0} />
         {/* d2: 左下 (0, Y_MID) → (X_LEFT, VH) */}
-        <rect id="macro-d2" x={0} y={Y_MID} width={X_LEFT} height={VH - Y_MID} fill="#ffffff" fillOpacity={0} />
+        <rect id="macro-d2" x={0} y={Y_MID} width={X_LEFT} height={VH - Y_MID} fill="#fff6f6" fillOpacity={0} />
         {/* d4: 右上 (X_RIGHT, 0) → (VW, Y_MID) */}
-        <rect id="macro-d4" x={X_RIGHT} y={0} width={VW - X_RIGHT} height={Y_MID} fill="#ffffff" fillOpacity={0} />
+        <rect id="macro-d4" x={X_RIGHT} y={0} width={VW - X_RIGHT} height={Y_MID} fill="#fff6f6" fillOpacity={0} />
         {/* d5: 右下 (X_RIGHT, Y_MID) → (VW, VH) */}
-        <rect id="macro-d5" x={X_RIGHT} y={Y_MID} width={VW - X_RIGHT} height={VH - Y_MID} fill="#ffffff" fillOpacity={0} />
+        <rect id="macro-d5" x={X_RIGHT} y={Y_MID} width={VW - X_RIGHT} height={VH - Y_MID} fill="#fff6f6" fillOpacity={0} />
 
         {/* p1: 左边界竖线，从上→下 */}
         <line
