@@ -349,7 +349,7 @@ export function D5WordCloud({ visible, selectedNodeId }: D5WordCloudProps) {
             className="d5cloud-canvas-reveal"
             width={size.width}
             height={size.height}
-            fill="#fff6f6"
+            fill="#F5F5F5"
           />
 
           <g ref={cloudGroupRef}>

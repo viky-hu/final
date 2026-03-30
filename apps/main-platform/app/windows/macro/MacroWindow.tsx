@@ -33,18 +33,22 @@ interface MacroWindowProps {
   onBack?: () => void;
   onNavigateToMain?: () => void;
   onOpenDatabase?: () => void;
+  defaultSelectedNodeId?: string;
 }
 
 export function MacroWindow({
   onBack,
   onNavigateToMain,
   onOpenDatabase,
+  defaultSelectedNodeId,
 }: MacroWindowProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const modulesRef = useRef<HTMLDivElement>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [d1Visible, setD1Visible] = useState(false);
-  const [selectedNodeId, setSelectedNodeId] = useState(DEFAULT_SELECTED_NODE_ID);
+  const [selectedNodeId, setSelectedNodeId] = useState(
+    defaultSelectedNodeId ?? DEFAULT_SELECTED_NODE_ID,
+  );
 
   // 菜单联动补间
   const menuTweenRef = useRef<gsap.core.Tween | null>(null);
@@ -216,13 +220,13 @@ export function MacroWindow({
       >
         {/* 四块白色填充区域 — 渲染在线条之下 */}
         {/* d1: 左上 (0,0) → (X_LEFT, Y_MID) */}
-        <rect id="macro-d1" x={0} y={0} width={X_LEFT} height={Y_MID} fill="#fff6f6" fillOpacity={0} />
+        <rect id="macro-d1" x={0} y={0} width={X_LEFT} height={Y_MID} fill="#F5F5F5" fillOpacity={0} />
         {/* d2: 左下 (0, Y_MID) → (X_LEFT, VH) */}
-        <rect id="macro-d2" x={0} y={Y_MID} width={X_LEFT} height={VH - Y_MID} fill="#fff6f6" fillOpacity={0} />
+        <rect id="macro-d2" x={0} y={Y_MID} width={X_LEFT} height={VH - Y_MID} fill="#F5F5F5" fillOpacity={0} />
         {/* d4: 右上 (X_RIGHT, 0) → (VW, Y_MID) */}
-        <rect id="macro-d4" x={X_RIGHT} y={0} width={VW - X_RIGHT} height={Y_MID} fill="#fff6f6" fillOpacity={0} />
+        <rect id="macro-d4" x={X_RIGHT} y={0} width={VW - X_RIGHT} height={Y_MID} fill="#F5F5F5" fillOpacity={0} />
         {/* d5: 右下 (X_RIGHT, Y_MID) → (VW, VH) */}
-        <rect id="macro-d5" x={X_RIGHT} y={Y_MID} width={VW - X_RIGHT} height={VH - Y_MID} fill="#fff6f6" fillOpacity={0} />
+        <rect id="macro-d5" x={X_RIGHT} y={Y_MID} width={VW - X_RIGHT} height={VH - Y_MID} fill="#F5F5F5" fillOpacity={0} />
 
         {/* p1: 左边界竖线，从上→下 */}
         <line

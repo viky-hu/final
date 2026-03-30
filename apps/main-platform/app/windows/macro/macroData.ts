@@ -1,6 +1,7 @@
 export interface MacroNode {
   id: string;
   label: string;
+  labelCode: string;
   position: [number, number, number];
   isHome: boolean;
 }
@@ -10,14 +11,74 @@ export interface WordCloudDatum {
   weight: number;
 }
 
+export interface BeaconAnchorOffset {
+  dx: number;
+  dy: number;
+}
+
+export interface BeaconStyle {
+  height: number;
+  topRadius: number;
+  baseRadius: number;
+  opacity: number;
+  pulseMaxRadius: number;
+  pulseDuration: number;
+  color: string;
+  activeColor: string;
+}
+
+export interface BeaconNodeConfig {
+  nodeId: string;
+  anchorOffset: BeaconAnchorOffset;
+  style?: Partial<BeaconStyle>;
+}
+
+export interface BeaconPerfConfig {
+  stdDeviationIdle: number;
+  stdDeviationActive: number;
+  pulseFrequency: number;
+  staggerDelay: number;
+  reducedMotion: boolean;
+}
+
+export const DEFAULT_BEACON_STYLE: BeaconStyle = {
+  height: 90,
+  topRadius: 2,
+  baseRadius: 22,
+  opacity: 0.55,
+  pulseMaxRadius: 38,
+  pulseDuration: 1.8,
+  color: "rgba(80, 180, 255, 0.55)",
+  activeColor: "rgba(0, 220, 255, 0.9)",
+};
+
+export const BEACON_PERF_CONFIG: BeaconPerfConfig = {
+  stdDeviationIdle: 2.5,
+  stdDeviationActive: 5.0,
+  pulseFrequency: 1.8,
+  staggerDelay: 0.14,
+  reducedMotion: false,
+};
+
+export const BEACON_NODE_CONFIGS: BeaconNodeConfig[] = [
+  { nodeId: "node-current", anchorOffset: { dx: 0,   dy: -8  } },
+  { nodeId: "node-2",       anchorOffset: { dx: -4,  dy: 4   } },
+  { nodeId: "node-3",       anchorOffset: { dx: 6,   dy: -4  } },
+  { nodeId: "node-4",       anchorOffset: { dx: -2,  dy: 6   } },
+  { nodeId: "node-5",       anchorOffset: { dx: 4,   dy: -6  } },
+];
+
 export const MACRO_NODES: MacroNode[] = [
-  { id: "node-current", label: "text1", position: [0, 0, 0], isHome: true },
-  { id: "node-2", label: "text2", position: [-8, 0, -6], isHome: false },
-  { id: "node-3", label: "text3", position: [8, 0, 2], isHome: false },
-  { id: "node-4", label: "text4", position: [-3, 0, 8], isHome: false },
+  { id: "node-current", label: "text1", labelCode: "SECTOR-01", position: [0, 0, 0], isHome: true },
+  { id: "node-2",       label: "text2", labelCode: "SECTOR-02", position: [-8, 0, -6], isHome: false },
+  { id: "node-3",       label: "text3", labelCode: "SECTOR-03", position: [8, 0, 2], isHome: false },
+  { id: "node-4",       label: "text4", labelCode: "SECTOR-04", position: [-3, 0, 8], isHome: false },
+  { id: "node-5",       label: "text5", labelCode: "SECTOR-05", position: [5, 0, -4], isHome: false },
 ];
 
 export const DEFAULT_SELECTED_NODE_ID = "node-current";
+
+export type NodeSelectSource = "plate" | "beacon" | "external_inject";
 
 export const NODE_WORD_CLOUDS: Record<string, WordCloudDatum[]> = {
   "node-current": [
@@ -124,6 +185,39 @@ export const NODE_WORD_CLOUDS: Record<string, WordCloudDatum[]> = {
     { text: "text会客中心", weight: 28 },
     { text: "text园区绿轴", weight: 26 },
     { text: "text停车换电点", weight: 24 },
+  ],
+  "node-5": [
+    { text: "text夫子庙", weight: 97 },
+    { text: "text夫子庙广场", weight: 94 },
+    { text: "text夫子庙南门", weight: 91 },
+    { text: "text秦淮河", weight: 88 },
+    { text: "text秦淮河岸", weight: 85 },
+    { text: "text秦淮河西段", weight: 83 },
+    { text: "text老门东", weight: 80 },
+    { text: "text老门东街口", weight: 78 },
+    { text: "text老城南", weight: 75 },
+    { text: "text老城南巷道", weight: 73 },
+    { text: "text历史街区", weight: 70 },
+    { text: "text历史街区北侧", weight: 68 },
+    { text: "text民宿集群", weight: 65 },
+    { text: "text民宿集群西区", weight: 63 },
+    { text: "text古玩市场", weight: 60 },
+    { text: "text古玩市场入口", weight: 58 },
+    { text: "text茶馆区", weight: 55 },
+    { text: "text茶馆区东段", weight: 54 },
+    { text: "text牌楼广场", weight: 51 },
+    { text: "text牌楼广场南侧", weight: 50 },
+    { text: "text水街", weight: 46 },
+    { text: "text水街拱桥", weight: 45 },
+    { text: "text文艺集市", weight: 42 },
+    { text: "text文艺集市周边", weight: 40 },
+    { text: "text观光码头", weight: 37 },
+    { text: "text游船起点", weight: 35 },
+    { text: "text非遗展示馆", weight: 32 },
+    { text: "text灯彩展区", weight: 30 },
+    { text: "text慢行步道", weight: 27 },
+    { text: "text夜游集散点", weight: 24 },
+    { text: "text文化驿站", weight: 22 },
   ],
   "node-4": [
     { text: "text高中", weight: 94 },

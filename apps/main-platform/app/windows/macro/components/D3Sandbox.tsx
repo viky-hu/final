@@ -1,65 +1,51 @@
 "use client";
 
-/**
- * D3Sandbox.tsx — 2.5D 等距视角 · 科技机械风板块地图
- *
- * 【重构核心】
- *  1. Z-Sorting 修复: 静态按地理中心 Y 排序，动态则在被点选瞬间将 DOM 结构劫持至最顶。
- *  2. Timeline 互斥锁: 基于 currentTimelineRef，强行控制「先旧块降落 -> Z 轴提升 -> 新块抬起」。
- *  3. 高级审美质感: 缩减画布余白，抛弃廉价全亮光，代之深邃的赛博暗青与暗紫过渡中段，配合柔和毛玻璃发光。
- */
-
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useCallback } from "react";
 import * as d3geo from "d3-geo";
 import { gsap } from "gsap";
 import { useGSAP } from "@gsap/react";
 import type { GeoJsonProperties, Feature, FeatureCollection, Geometry } from "geojson";
 import type { GeoPermissibleObjects } from "d3-geo";
+import {
+  BEACON_NODE_CONFIGS,
+  BEACON_PERF_CONFIG,
+  MACRO_NODES,
+} from "../macroData";
 
 gsap.registerPlugin(useGSAP);
 
-// ══════════════════════════════════════════════════════════════════════════════
-// 【魔数常量区域 - Magic Numbers】
-// ══════════════════════════════════════════════════════════════════════════════
-
-// SVG 逻辑尺寸
+// ── Constants ──────────────────────────────────────────────
 const SVG_WIDTH = 800;
 const SVG_HEIGHT = 800;
-// 【审美调优】缩放边距，让地图撑满视野更具冲击感
 const PADDING = 20;
+const LAYER_BOTTOM_Y = 20;
+const LAYER_TOP_DEFAULT_Y = 0;
+const LAYER_TOP_ACTIVE_Y = -40;
+// Pin lift scaled to match plate's visual rise after rotateX(52deg): -40 × cos(52°) ≈ -25
+const LAYER_TOP_ACTIVE_Y_PIN = Math.round(LAYER_TOP_ACTIVE_Y * Math.cos(52 * Math.PI / 180));
+const MIDDLE_LAYER_COUNT = 15;
+const COLOR_TOP_STROKE = "#5aafe0";
 
-const LAYER_BOTTOM_Y = 20;      // 底座下沉量
-const LAYER_TOP_DEFAULT_Y = 0;  // 顶盖自然状态高度
-const LAYER_TOP_ACTIVE_Y = -40; // 被选中后的剧烈抬起目标点
-const MIDDLE_LAYER_COUNT = 15;  // 15层墙体侧壁侧面
+// ── New flat pin geometry ──────────────────────────────────
+const PIN_HEAD_R = 46;
+const PIN_STEM_H = 80;  // stem: bottom of circle → centroid tip
+const PIN_INNER_R = 30;
+const SWITCH_DURATION = 0.6;
 
-// 【视觉升维：高级配色体系】
-const COLOR_TOP_FILL = "#022C3A";                      // 沉稳的暗赛博青色顶盖 (Desaturated Teal)
-const COLOR_TOP_ACTIVE_FILL = "rgba(2, 60, 80, 0.95)"; // 选中时仅微微变亮，不再瞎眼
-const COLOR_TOP_STROKE = "rgba(0, 220, 255, 0.5)";     // 低调但清晰的线框描边
-const COLOR_BOTTOM_FILL = "#030e14";                   // 深邃的深渊底座
-
-// 暗紫至赛博蓝的渐变函数 (给中间 15 层侧壁打上层次色彩)
 function interpolateSideWall(idx: number, maxIdx: number): string {
-  // 从 深紫 #1f0b40 -> 赛博靛蓝 #0b4c7a
-  const c1 = [31, 11, 64];   // #1f0b40
-  const c2 = [11, 76, 122];  // #0b4c7a
-  const ratio = idx / Math.max(1, maxIdx);
-  const r = Math.round(c1[0] + ratio * (c2[0] - c1[0]));
-  const g = Math.round(c1[1] + ratio * (c2[1] - c1[1]));
-  const b = Math.round(c1[2] + ratio * (c2[2] - c1[2]));
-  return `rgb(${r}, ${g}, ${b})`;
+  const c1 = [110, 170, 215];
+  const c2 = [195, 228, 248];
+  const t = idx / Math.max(1, maxIdx);
+  return `rgb(${Math.round(c1[0] + t * (c2[0] - c1[0]))},${Math.round(c1[1] + t * (c2[1] - c1[1]))},${Math.round(c1[2] + t * (c2[2] - c1[2]))})`;
 }
 
-// ══════════════════════════════════════════════════════════════════════════════
-// 【数据流与 ID 映射】
-// ══════════════════════════════════════════════════════════════════════════════
+// ── Data maps ──────────────────────────────────────────────
 const ADCODE_MAP: Record<number, string> = {
-  320111: "node-current", // 浦口区
-  320114: "node-2",       // 雨花台区
-  320105: "node-3",       // 建邺区
-  320106: "node-4",       // 鼓楼区
-  320104: "node-current"  // 秦淮区
+  320111: "node-current",
+  320114: "node-2",
+  320105: "node-3",
+  320106: "node-4",
+  320104: "node-5",
 };
 
 const NODE_TO_ADCODES = Object.entries(ADCODE_MAP).reduce((acc, [ad, node]) => {
@@ -67,6 +53,8 @@ const NODE_TO_ADCODES = Object.entries(ADCODE_MAP).reduce((acc, [ad, node]) => {
   acc[node].push(Number(ad));
   return acc;
 }, {} as Record<string, number[]>);
+
+const ALL_NODE_IDS = [...new Set(Object.values(ADCODE_MAP))];
 
 interface D3SandboxProps {
   visible: boolean;
@@ -79,208 +67,380 @@ interface DistrictItem {
   name: string;
   nodeId: string;
   pathD: string;
-  centroidY: number; // 用于最初始的 DOM Z-sorting
+  centroidX: number;
+  centroidY: number;
 }
 
+interface BeaconAnchor { nodeId: string; adcode: number; cx: number; cy: number; }
+
+// ── Laptop icon (flat, white strokes) ─────────────────────
+function LaptopIcon({ cx, cy }: { cx: number; cy: number }) {
+  const W = 34, SH = 21, BH = 6, BW = 40;
+  const sx = cx - W / 2;
+  const sy = cy - SH / 2 - BH / 2 - 1;
+  const bx = cx - BW / 2;
+  const by = sy + SH + 1.5;
+  return (
+    <g style={{ pointerEvents: "none" }}>
+      <rect x={sx} y={sy} width={W} height={SH} rx={2.2}
+        fill="none" stroke="rgba(255,255,255,0.95)" strokeWidth={2} />
+      <rect x={sx + 3} y={sy + 3} width={W - 6} height={SH - 6} rx={0.8}
+        fill="rgba(255,255,255,0.14)" />
+      <path d={`M ${bx + 4} ${by} L ${bx + BW - 4} ${by} L ${bx + BW} ${by + BH} L ${bx} ${by + BH} Z`}
+        fill="none" stroke="rgba(255,255,255,0.95)" strokeWidth={2} strokeLinejoin="round" />
+      <rect x={cx - 7} y={by - 0.5} width={14} height={3} rx={1.5}
+        fill="rgba(255,255,255,0.72)" />
+    </g>
+  );
+}
+
+// ── New flat map pin (no 3D, no perspective) ───────────────
+function MapPin({ nodeId, cx, cy }: { nodeId: string; cx: number; cy: number }) {
+  const hcx = cx;
+  // Head center sits PIN_STEM_H + PIN_HEAD_R above the centroid anchor
+  const hcy = cy - PIN_STEM_H - PIN_HEAD_R;
+  // Tail base sits at the exact bottom of the head circle
+  const tailBaseY = hcy + PIN_HEAD_R;           // = cy - PIN_STEM_H
+  const tailHalf = PIN_HEAD_R * 0.50;           // ~23 — clean taper
+  const tailPath = `M ${cx} ${cy} L ${cx - tailHalf} ${tailBaseY} L ${cx + tailHalf} ${tailBaseY} Z`;
+
+  return (
+    <g id={`pin-g-${nodeId}`} style={{ pointerEvents: "none" }}>
+      {/* Tail pointing to centroid */}
+      <path d={tailPath} fill="url(#pin-tail-grad)" />
+      {/* Head outer fill */}
+      <circle cx={hcx} cy={hcy} r={PIN_HEAD_R} fill="url(#pin-head-grad)" />
+      {/* Static thin border */}
+      <circle cx={hcx} cy={hcy} r={PIN_HEAD_R - 1.5}
+        fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth={1.5} />
+      {/* Inner circle */}
+      <circle cx={hcx} cy={hcy} r={PIN_INNER_R} fill="url(#pin-inner-grad)" />
+      {/* Laptop icon */}
+      <LaptopIcon cx={hcx} cy={hcy} />
+      {/* Active outer highlight ring — opacity animated by GSAP */}
+      <circle id={`pin-active-outer-${nodeId}`} cx={hcx} cy={hcy}
+        r={PIN_HEAD_R + 4} fill="none"
+        stroke="rgba(96,218,255,0.88)" strokeWidth={2.5} opacity={0} />
+      {/* Active inner highlight ring */}
+      <circle id={`pin-active-inner-${nodeId}`} cx={hcx} cy={hcy}
+        r={PIN_INNER_R + 2.5} fill="none"
+        stroke="rgba(195,248,255,0.80)" strokeWidth={2} opacity={0} />
+      {/* Pulse ring — animated by GSAP */}
+      <circle id={`pin-pulse-${nodeId}`} cx={hcx} cy={hcy}
+        r={PIN_HEAD_R + 4} fill="none"
+        stroke="rgba(60,196,255,0.70)" strokeWidth={2} opacity={0} />
+      {/* Tip dot — sits exactly at centroid anchor */}
+      <circle cx={cx} cy={cy} r={4.5} fill="rgba(140,230,255,0.95)" />
+    </g>
+  );
+}
+
+// ── Pin layer (always rendered AFTER plates — SVG paint order) ──
+function PinLayer({ anchors }: { anchors: BeaconAnchor[] }) {
+  return (
+    <g id="pin-layer">
+      <defs>
+        <linearGradient id="pin-tail-grad" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%" stopColor="#3eceff" stopOpacity="0.96" />
+          <stop offset="100%" stopColor="#0a50d8" stopOpacity="0.95" />
+        </linearGradient>
+        <radialGradient id="pin-head-grad" cx="38%" cy="28%" r="68%">
+          <stop offset="0%" stopColor="#6ae0ff" />
+          <stop offset="42%" stopColor="#1896f0" />
+          <stop offset="100%" stopColor="#083ec0" />
+        </radialGradient>
+        <radialGradient id="pin-inner-grad" cx="42%" cy="35%" r="62%">
+          <stop offset="0%" stopColor="rgba(212,250,255,0.90)" />
+          <stop offset="55%" stopColor="rgba(22,140,238,0.62)" />
+          <stop offset="100%" stopColor="rgba(8,58,192,0.42)" />
+        </radialGradient>
+      </defs>
+      {anchors.map(({ nodeId, cx, cy }) => {
+        const cfg = BEACON_NODE_CONFIGS.find((c) => c.nodeId === nodeId);
+        const ox = cfg?.anchorOffset.dx ?? 0;
+        const oy = cfg?.anchorOffset.dy ?? 0;
+        return <MapPin key={nodeId} nodeId={nodeId} cx={cx + ox} cy={cy + oy} />;
+      })}
+    </g>
+  );
+}
+
+// ── Main component ──────────────────────────────────────────
 export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxProps) {
-  // ─── 预处理与原生投影体系 ──────────────────────────────────────────────────
-  const districts = useMemo<DistrictItem[]>(() => {
+  const animationStateRef = useRef<"entering" | "ready">("entering");
+  const currentTimelineRef = useRef<gsap.core.Timeline | null>(null);
+  const previousSelectedRef = useRef<string | null>(null);
+  const mapWrapRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const pulseTimelinesRef = useRef<Record<string, gsap.core.Timeline>>({});
+
+  // ── GeoJSON projection + centroid compute ─────────────────
+  const { districts, beaconAnchors } = useMemo(() => {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const geoJson = require("../nanjingDistricts.json") as FeatureCollection<Geometry, GeoJsonProperties>;
+    const projection = d3geo.geoIdentity().reflectY(true).fitExtent(
+      [[PADDING, PADDING], [SVG_WIDTH - PADDING, SVG_HEIGHT - PADDING]],
+      geoJson as GeoPermissibleObjects,
+    );
+    const pathGen = d3geo.geoPath().projection(projection);
+    const mapped: DistrictItem[] = geoJson.features
+      .map((f: Feature<Geometry, GeoJsonProperties>) => {
+        const adcode = (f.properties as { adcode: number }).adcode;
+        const name = (f.properties as { name: string }).name;
+        const d = pathGen(f) || "";
+        const [cx = 0, cy = 0] = pathGen.centroid(f);
+        return { adcode, name, nodeId: ADCODE_MAP[adcode] || "node-current", pathD: d, centroidX: cx, centroidY: cy };
+      })
+      .filter((item) => item.pathD.length > 0)
+      .sort((a, b) => a.centroidY - b.centroidY);
 
-    const projection = d3geo
-      .geoIdentity()
-      .reflectY(true)
-      .fitExtent(
-        [[PADDING, PADDING], [SVG_WIDTH - PADDING, SVG_HEIGHT - PADDING]], 
-        geoJson as GeoPermissibleObjects
-      );
-
-    const geoPathGenerator = d3geo.geoPath().projection(projection);
-
-    const mapped = geoJson.features.map((f: Feature<Geometry, GeoJsonProperties>) => {
-      const adcode = (f.properties as { adcode: number }).adcode;
-      const name = (f.properties as { name: string }).name;
-      const d = geoPathGenerator(f) || "";
-      const centroid = geoPathGenerator.centroid(f);
-      return {
-        adcode,
-        name,
-        nodeId: ADCODE_MAP[adcode] || "node-current",
-        pathD: d,
-        centroidY: centroid[1] || 0
-      };
-    }).filter((item: DistrictItem) => item.pathD.length > 0);
-
-    // 【1. 核心修复 - 初始地理排序 Z-Sorting】
-    // Y 值比较大（更靠近地球南端、屏幕下方）的区域需要在视觉前方盖住后面的区域。
-    // 所以 Y 小的先进数组（沉在底面），Y 大的后进数组（盖在上面）。
-    return mapped.sort((a, b) => a.centroidY - b.centroidY);
+    const seenNodes = new Set<string>();
+    const anchors: BeaconAnchor[] = [];
+    for (const d of mapped) {
+      if (!seenNodes.has(d.nodeId)) {
+        seenNodes.add(d.nodeId);
+        anchors.push({ nodeId: d.nodeId, adcode: d.adcode, cx: d.centroidX, cy: d.centroidY });
+      }
+    }
+    return { districts: mapped, beaconAnchors: anchors };
   }, []);
 
-  // ─── GSAP 霸体接管控制区 ──────────────────────────────────────────────────
-  const currentTimelineRef = useRef<gsap.core.Timeline | null>(null);
-  const previousSelectedGroupRef = useRef<string | null>(null);
+  const handleNodeSelect = useCallback((nodeId: string) => {
+    if (animationStateRef.current === "entering") return;
+    onNodeSelect(nodeId);
+  }, [onNodeSelect]);
 
+  // ── Pulse helpers ──────────────────────────────────────────
+  function _stopPulse(nodeId: string) {
+    pulseTimelinesRef.current[nodeId]?.kill();
+    delete pulseTimelinesRef.current[nodeId];
+    const el = document.getElementById(`pin-pulse-${nodeId}`);
+    if (el) gsap.set(el, { opacity: 0, attr: { r: PIN_HEAD_R + 4 } });
+  }
+
+  function _startPulse(nodeId: string) {
+    _stopPulse(nodeId);
+    const el = document.getElementById(`pin-pulse-${nodeId}`);
+    if (!el) return;
+    const tl = gsap.timeline({ repeat: -1, delay: 0.25 });
+    tl.fromTo(el,
+      { opacity: 0.72, attr: { r: PIN_HEAD_R + 4 } },
+      { opacity: 0, attr: { r: PIN_HEAD_R + 30 }, duration: 1.9, ease: "power2.out" },
+    );
+    pulseTimelinesRef.current[nodeId] = tl;
+  }
+
+  // ── Immediately set all nodes to their correct state ───────
+  function _applyAllStatesImmediate(selectedId: string) {
+    ALL_NODE_IDS.forEach((nodeId) => {
+      const isSelected = nodeId === selectedId;
+      const targetY    = isSelected ? LAYER_TOP_ACTIVE_Y     : LAYER_TOP_DEFAULT_Y;
+      const pinTargetY = isSelected ? LAYER_TOP_ACTIVE_Y_PIN : LAYER_TOP_DEFAULT_Y;
+      const adcodes = NODE_TO_ADCODES[nodeId] || [];
+
+      const pinEl = document.getElementById(`pin-g-${nodeId}`);
+      if (pinEl) gsap.set(pinEl, { y: pinTargetY });
+      gsap.set(`#pin-active-outer-${nodeId}`, { opacity: isSelected ? 1 : 0 });
+      gsap.set(`#pin-active-inner-${nodeId}`, { opacity: isSelected ? 1 : 0 });
+
+      adcodes.forEach((adcode) => {
+        gsap.set(`#d3-top-${adcode}`, { y: targetY });
+        Array.from({ length: MIDDLE_LAYER_COUNT }, (_, i) => {
+          const defaultY = LAYER_TOP_DEFAULT_Y + (i / (MIDDLE_LAYER_COUNT - 1)) * (LAYER_BOTTOM_Y - LAYER_TOP_DEFAULT_Y);
+          const stretchY = targetY + (i / (MIDDLE_LAYER_COUNT - 1)) * (LAYER_BOTTOM_Y - targetY);
+          gsap.set(`#d3-mid-${adcode}-${i}`, { y: isSelected ? stretchY : defaultY });
+        });
+      });
+    });
+  }
+
+  // ── Entry timeline ─────────────────────────────────────────
   useGSAP(() => {
     if (!visible) return;
+    animationStateRef.current = "entering";
 
-    // 防止同个 Node 反复击打重载
-    if (previousSelectedGroupRef.current === selectedNodeId) return;
-
-    // 清理并在任何动画执行前抹平上一个可能未完成的 TL
-    if (currentTimelineRef.current) {
-      currentTimelineRef.current.kill();
-    }
+    ALL_NODE_IDS.forEach((nodeId) => {
+      const el = document.getElementById(`pin-g-${nodeId}`);
+      if (el) gsap.set(el, { y: LAYER_TOP_DEFAULT_Y, opacity: 0 });
+      gsap.set(`#pin-active-outer-${nodeId}`, { opacity: 0 });
+      gsap.set(`#pin-active-inner-${nodeId}`, { opacity: 0 });
+      gsap.set(`#pin-pulse-${nodeId}`, { opacity: 0 });
+    });
 
     const masterTl = gsap.timeline();
-    currentTimelineRef.current = masterTl;
 
-    const prevNodeId = previousSelectedGroupRef.current;
-    
-    // 【阶段 1：先锋回归 (Drop Previous)】
-    if (prevNodeId && prevNodeId !== selectedNodeId) {
-      const pAdcodes = NODE_TO_ADCODES[prevNodeId] || [];
-      pAdcodes.forEach((adcode: number) => {
-        const topEl = `#d3-top-${adcode}`;
-        const midEls = Array.from({ length: MIDDLE_LAYER_COUNT }, (_, i) => `#d3-mid-${adcode}-${i}`);
-        const filterEl = document.getElementById(`glow-filter-${adcode}`);
-
-        // 所有相关 DOM 一起流畅降落
-        masterTl.to(topEl, {
-          y: LAYER_TOP_DEFAULT_Y,
-          fill: COLOR_TOP_FILL,
-          duration: 0.5,
-          ease: "power3.inOut"
-        }, 0);
-
-        midEls.forEach((sel: string, idx: number) => {
-          const defaultY = LAYER_TOP_DEFAULT_Y + (idx / (MIDDLE_LAYER_COUNT - 1)) * (LAYER_BOTTOM_Y - LAYER_TOP_DEFAULT_Y);
-          masterTl.to(sel, {
-            y: defaultY,
-            duration: 0.5,
-            ease: "power3.inOut"
-          }, 0);
-        });
-
-        // 柔和熄灭发光滤镜
-        if (filterEl) {
-          const feBlur = filterEl.querySelector("feGaussianBlur");
-          if (feBlur) {
-            masterTl.to({ val: parseFloat(feBlur.getAttribute("stdDeviation") || "0") }, {
-              val: 0,
-              duration: 0.5,
-              ease: "power2.inOut",
-              onUpdate: function() {
-                feBlur.setAttribute("stdDeviation", String(this.targets()[0].val.toFixed(2)));
-              }
-            }, 0);
-          }
-        }
-      });
+    if (headerRef.current) {
+      masterTl.fromTo(headerRef.current,
+        { autoAlpha: 0, y: -10 },
+        { autoAlpha: 1, y: 0, duration: 0.5, ease: "power2.out" },
+        "canvasReady",
+      );
+    }
+    if (mapWrapRef.current) {
+      masterTl.fromTo(mapWrapRef.current,
+        { autoAlpha: 0, scale: 0.96 },
+        { autoAlpha: 1, scale: 1, duration: 0.7, ease: "power2.out" },
+        "canvasReady",
+      );
     }
 
-    // 【阶段 2：强制截断提层 (Dynamic Z-Sorting via appendChild)】
-    const curAdcodes = NODE_TO_ADCODES[selectedNodeId] || [];
+    // Set plate positions while canvas is appearing
+    masterTl.call(() => { _applyAllStatesImmediate(selectedNodeId); }, [], "canvasReady+=0.45");
+
+    // Stagger pins in
+    masterTl.addLabel("pinsIn", "canvasReady+=0.55");
+    beaconAnchors.forEach(({ nodeId }, i) => {
+      const isSelected = nodeId === selectedNodeId;
+      const pinTargetY = isSelected ? LAYER_TOP_ACTIVE_Y_PIN : LAYER_TOP_DEFAULT_Y;
+      masterTl.to(`#pin-g-${nodeId}`,
+        {
+          y: pinTargetY,
+          opacity: isSelected ? 1 : 0.82,
+          duration: isSelected ? 0.65 : 0.5,
+          ease: isSelected ? "back.out(1.1)" : "power2.out",
+        },
+        `pinsIn+=${i * BEACON_PERF_CONFIG.staggerDelay}`,
+      );
+    });
+
+    masterTl.to(`#pin-active-outer-${selectedNodeId}`, { opacity: 1, duration: 0.45 }, "pinsIn+=0.5");
+    masterTl.to(`#pin-active-inner-${selectedNodeId}`, { opacity: 1, duration: 0.45 }, "pinsIn+=0.5");
+
+    masterTl.addLabel("steady", "pinsIn+=1.1");
     masterTl.call(() => {
-      curAdcodes.forEach((adcode: number) => {
-         const groupNode = document.getElementById(`group-adcode-${adcode}`);
-         if (groupNode && groupNode.parentNode) {
-           // 将其从原生文档流插入末尾，瞬间获得王者级遮挡权限
-           groupNode.parentNode.appendChild(groupNode);
-         }
-      });
-    });
+      animationStateRef.current = "ready";
+      previousSelectedRef.current = selectedNodeId;
+      _startPulse(selectedNodeId);
+    }, [], "steady");
 
-    // 【阶段 3：舞台王座升起 (Lift Current & Neon Glow)】
-    curAdcodes.forEach((adcode: number) => {
-      const topEl = `#d3-top-${adcode}`;
-      const midEls = Array.from({ length: MIDDLE_LAYER_COUNT }, (_, i) => `#d3-mid-${adcode}-${i}`);
-      const filterEl = document.getElementById(`glow-filter-${adcode}`);
-
-      // 顶盖伴随高能后坐力抬起
-      masterTl.to(topEl, {
-        y: LAYER_TOP_ACTIVE_Y,
-        fill: COLOR_TOP_ACTIVE_FILL,
-        duration: 0.65,
-        ease: "back.out(1.2)"     // 呈现出机械重物咬合撞击感
-      }, ">");  // 紧接着上一动作执行（即等完全下落并且调整层级后）
-
-      // 侧壁顺滑均匀摊开展开
-      midEls.forEach((sel: string, idx: number) => {
-        const stretchedY = LAYER_TOP_ACTIVE_Y + (idx / (MIDDLE_LAYER_COUNT - 1)) * (LAYER_BOTTOM_Y - LAYER_TOP_ACTIVE_Y);
-        masterTl.to(sel, {
-          y: stretchedY,
-          duration: 0.65,
-          ease: "power3.out"
-        }, "<"); // 同步于顶级抬升
-      });
-
-      // 极为缓和且高级的光晕点亮
-      if (filterEl) {
-        const feBlur = filterEl.querySelector("feGaussianBlur");
-        if (feBlur) {
-          const proxy = { val: 0 };
-          masterTl.to(proxy, {
-            val: 3.2, // 不过度曝光，稍微节制的高级模糊
-            duration: 0.85,  // 发光时长更悠长
-            ease: "power2.out",
-            onUpdate: () => {
-              feBlur.setAttribute("stdDeviation", proxy.val.toFixed(2));
-            }
-          }, "<0.15"); // 在盖板升起 0.15s 后才渐渐开始晕开，增加质感
-        }
-      }
-    });
-
-    previousSelectedGroupRef.current = selectedNodeId;
-
-  }, { dependencies: [visible, selectedNodeId] });
-
-  // ─── 容器整体入场 ────────────────────────────────────────────────────────
-  const mapWrapRef = useRef<HTMLDivElement>(null);
-  useGSAP(() => {
-    if (!visible || !mapWrapRef.current) return;
-    gsap.fromTo(
-      mapWrapRef.current,
-      { autoAlpha: 0, scale: 0.95 },
-      { autoAlpha: 1, scale: 1, duration: 0.8, ease: "power2.out" }
-    );
+    return () => {
+      Object.values(pulseTimelinesRef.current).forEach((tl) => tl.kill());
+      pulseTimelinesRef.current = {};
+    };
   }, { dependencies: [visible] });
+
+  // ── Switch timeline ────────────────────────────────────────
+  useGSAP(() => {
+    if (!visible || animationStateRef.current === "entering") return;
+    if (previousSelectedRef.current === selectedNodeId) return;
+
+    currentTimelineRef.current?.kill();
+    Object.values(pulseTimelinesRef.current).forEach((tl) => tl.kill());
+    pulseTimelinesRef.current = {};
+
+    const switchTl = gsap.timeline({
+      onComplete: () => { _startPulse(selectedNodeId); },
+    });
+    currentTimelineRef.current = switchTl;
+
+    // Animate ALL nodes to their target states simultaneously (position 0)
+    ALL_NODE_IDS.forEach((nodeId) => {
+      const isSelected = nodeId === selectedNodeId;
+      const targetY    = isSelected ? LAYER_TOP_ACTIVE_Y     : LAYER_TOP_DEFAULT_Y;
+      const pinTargetY = isSelected ? LAYER_TOP_ACTIVE_Y_PIN : LAYER_TOP_DEFAULT_Y;
+      const ease = isSelected ? "back.out(1.1)" : "power3.inOut";
+      const adcodes = NODE_TO_ADCODES[nodeId] || [];
+
+      // Pin group y + opacity
+      switchTl.to(`#pin-g-${nodeId}`,
+        { y: pinTargetY, opacity: isSelected ? 1 : 0.82, duration: SWITCH_DURATION, ease }, 0);
+
+      // Highlight rings
+      switchTl.to(`#pin-active-outer-${nodeId}`,
+        { opacity: isSelected ? 1 : 0, duration: SWITCH_DURATION * 0.65 }, 0);
+      switchTl.to(`#pin-active-inner-${nodeId}`,
+        { opacity: isSelected ? 1 : 0, duration: SWITCH_DURATION * 0.65 }, 0);
+
+      // Plates
+      adcodes.forEach((adcode) => {
+        switchTl.to(`#d3-top-${adcode}`,
+          { y: targetY, duration: SWITCH_DURATION, ease }, 0);
+
+        Array.from({ length: MIDDLE_LAYER_COUNT }, (_, i) => {
+          const defaultY = LAYER_TOP_DEFAULT_Y + (i / (MIDDLE_LAYER_COUNT - 1)) * (LAYER_BOTTOM_Y - LAYER_TOP_DEFAULT_Y);
+          const stretchY = targetY + (i / (MIDDLE_LAYER_COUNT - 1)) * (LAYER_BOTTOM_Y - targetY);
+          switchTl.to(`#d3-mid-${adcode}-${i}`,
+            { y: isSelected ? stretchY : defaultY, duration: SWITCH_DURATION, ease: "power3.inOut" }, 0);
+        });
+
+        // Glow filter
+        const filterEl = document.getElementById(`glow-filter-${adcode}`);
+        const feBlur = filterEl?.querySelector("feGaussianBlur");
+        if (feBlur) {
+          const proxy = { val: parseFloat(feBlur.getAttribute("stdDeviation") || "0") };
+          switchTl.to(proxy, {
+            val: isSelected ? 3.2 : 0,
+            duration: SWITCH_DURATION * 1.4,
+            ease: "power2.out",
+            onUpdate() { feBlur.setAttribute("stdDeviation", proxy.val.toFixed(2)); },
+          }, 0);
+        }
+      });
+    });
+
+    previousSelectedRef.current = selectedNodeId;
+  }, { dependencies: [visible, selectedNodeId] });
 
   return (
     <div className="w-full h-full relative" style={{ backgroundColor: "transparent" }}>
-      <div 
+      <header ref={headerRef} className="d1tl-header d3viz-header">
+        <span className="d1tl-header-dot d3viz-dot" />
+        <span className="d1tl-header-title">核心地域态势</span>
+      </header>
+
+      <div
         ref={mapWrapRef}
         className="w-full h-full pt-16 flex items-center justify-center invisible relative"
       >
-        <div 
-          className="absolute pointer-events-none" 
-          style={{ width: "200%", height: "200%", 
-                   backgroundSize: "60px 60px", 
-                   backgroundImage: "linear-gradient(to right, rgba(0, 242, 254, 0.03) 1px, transparent 1px), linear-gradient(to bottom, rgba(0, 242, 254, 0.03) 1px, transparent 1px)", 
-                   transform: "perspective(1000px) rotateX(60deg) rotateZ(-30deg) translate(-10%, -20%)" 
+        {/* Background grid */}
+        <div
+          className="absolute pointer-events-none"
+          style={{
+            width: "200%", height: "200%",
+            backgroundSize: "60px 60px",
+            backgroundImage: "linear-gradient(to right, rgba(0,160,220,0.04) 1px, transparent 1px), linear-gradient(to bottom, rgba(0,160,220,0.04) 1px, transparent 1px)",
+            transform: "perspective(1000px) rotateX(52deg) rotateZ(-15deg) translate(-10%,-20%)",
           }}
         />
 
         <div
           className="flex items-center justify-center relative z-10"
           style={{
-            transform: "perspective(1000px) rotateX(60deg) rotateZ(-30deg)",
+            transform: "perspective(1000px) rotateX(52deg) rotateZ(-15deg)",
             transformStyle: "preserve-3d",
-            width: "85%", // 防止溢出裁切
+            width: "85%",
             aspectRatio: "1",
           }}
         >
           <svg
-            viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`} 
-            width="100%" 
+            viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
+            width="100%"
             height="100%"
-            style={{ overflow: "visible" }} 
+            style={{ overflow: "visible", position: "relative", zIndex: 1 }}
           >
             <defs>
-              {districts.map((d: DistrictItem) => (
-                <filter key={`glow-${d.adcode}`} id={`glow-filter-${d.adcode}`} x="-50%" y="-50%" width="200%" height="200%">
+              <pattern id="d3-iso-grid" x="0" y="0" width="40" height="40" patternUnits="userSpaceOnUse">
+                <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0,160,220,0.05)" strokeWidth="0.5" />
+              </pattern>
+              <linearGradient id="d3-top-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%"   stopColor="#dff0fa" stopOpacity="1" />
+                <stop offset="55%"  stopColor="#b8d9f0" stopOpacity="0.97" />
+                <stop offset="100%" stopColor="#e8f5fd" stopOpacity="0.92" />
+              </linearGradient>
+              <filter id="d3-neon-edge" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="1.2" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <filter id="d3-bottom-shadow" x="-15%" y="-15%" width="130%" height="160%">
+                <feDropShadow dx="0" dy="6" stdDeviation="5"
+                  floodColor="rgba(90,150,200,0.16)" floodOpacity="1" />
+              </filter>
+              {districts.map((d) => (
+                <filter key={`glow-${d.adcode}`} id={`glow-filter-${d.adcode}`}
+                  x="-50%" y="-50%" width="200%" height="200%">
                   <feGaussianBlur stdDeviation="0" result="coloredBlur" />
                   <feMerge>
                     <feMergeNode in="coloredBlur" />
@@ -290,25 +450,24 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
               ))}
             </defs>
 
-            {/* 借助已经由 Centroid Y 排序好顺序的地理区块层，默认层级即完美 */}
-            {districts.map((district: DistrictItem) => {
-              return (
-                <g 
-                  key={district.adcode} 
-                  id={`group-adcode-${district.adcode}`} // 用于 querySelector 取出并排最后
+            <rect width={SVG_WIDTH} height={SVG_HEIGHT} fill="url(#d3-iso-grid)" />
+
+            {/* Plates layer — rendered FIRST so pin-layer is always on top */}
+            <g id="plates-layer">
+              {districts.map((district) => (
+                <g
+                  key={district.adcode}
+                  id={`group-adcode-${district.adcode}`}
                   className="district-group cursor-pointer"
-                  onClick={() => onNodeSelect(district.nodeId)}
+                  onClick={() => handleNodeSelect(district.nodeId)}
                 >
-                  {/* 底座截面：常驻最底不会随抬升改变 Y 高 */}
                   <path
                     d={district.pathD}
-                    fill={COLOR_BOTTOM_FILL}
-                    stroke="rgba(0,0,0,0.5)"
-                    strokeWidth={0.8}
+                    fill="#c2d8ec"
+                    stroke="none"
                     transform={`translate(0, ${LAYER_BOTTOM_Y})`}
+                    filter="url(#d3-bottom-shadow)"
                   />
-
-                  {/* 中间 15 层的立体伪外墙截层 */}
                   {Array.from({ length: MIDDLE_LAYER_COUNT }, (_, idx) => {
                     const defaultY = LAYER_TOP_DEFAULT_Y + (idx / (MIDDLE_LAYER_COUNT - 1)) * (LAYER_BOTTOM_Y - LAYER_TOP_DEFAULT_Y);
                     return (
@@ -316,81 +475,91 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
                         key={`mid-${district.adcode}-${idx}`}
                         id={`d3-mid-${district.adcode}-${idx}`}
                         d={district.pathD}
-                        fill={interpolateSideWall(MIDDLE_LAYER_COUNT - 1 - idx, MIDDLE_LAYER_COUNT - 1)} // 从底向顶取色，形成优雅渐变侧壁
-                        stroke="none"      
+                        fill={interpolateSideWall(MIDDLE_LAYER_COUNT - 1 - idx, MIDDLE_LAYER_COUNT - 1)}
+                        stroke="none"
                         transform={`translate(0, ${defaultY})`}
                         filter={`url(#glow-filter-${district.adcode})`}
                       />
                     );
                   })}
-
                   <path
                     id={`d3-top-${district.adcode}`}
                     d={district.pathD}
-                    fill={COLOR_TOP_FILL}
+                    fill="url(#d3-top-gradient)"
                     stroke={COLOR_TOP_STROKE}
                     strokeWidth={1.2}
-                    transform={`translate(0, ${LAYER_TOP_DEFAULT_Y})`} 
+                    transform={`translate(0, ${LAYER_TOP_DEFAULT_Y})`}
+                    filter="url(#d3-neon-edge)"
                   />
-
-                  <DistrictLabel 
-                    district={district} 
-                    isSelected={(NODE_TO_ADCODES[selectedNodeId] || []).includes(district.adcode)} 
+                  <DistrictLabel
+                    district={district}
+                    isSelected={(NODE_TO_ADCODES[selectedNodeId] || []).includes(district.adcode)}
                   />
                 </g>
-              );
-            })}
+              ))}
+            </g>
+
           </svg>
+
+          {/* ── Pin overlay: counter-rotated so pins appear completely upright ──
+               Parent: perspective(1000px) rotateX(52°) rotateZ(-15°)
+               Child:  rotateZ(15°) rotateX(-52°)
+               Net:    perspective(1000px) only → SVG at z=0 → zero distortion ── */}
+          <div
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 30,
+              transform: "translateZ(40px) rotateZ(15deg) rotateX(-52deg)",
+              transformOrigin: "50% 50%",
+              pointerEvents: "none",
+              willChange: "transform",
+            }}
+          >
+            <svg
+              viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
+              width="100%"
+              height="100%"
+              style={{ overflow: "visible" }}
+            >
+              <PinLayer anchors={beaconAnchors} />
+            </svg>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-// ─── 附属标注层保持逻辑一致 ──────────────────────────────────────────────────
+// ── District label ──────────────────────────────────────────
 function DistrictLabel({ district, isSelected }: { district: DistrictItem; isSelected: boolean }) {
-  const pos = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const geoJson = require("../nanjingDistricts.json") as FeatureCollection<Geometry, GeoJsonProperties>;
-    const feature = geoJson.features.find(f => (f.properties as { adcode: number }).adcode === district.adcode);
-    if (!feature) return [0, 0];
-    
-    const projection = d3geo.geoIdentity()
-      .reflectY(true)
-      .fitExtent([[PADDING, PADDING], [SVG_WIDTH - PADDING, SVG_HEIGHT - PADDING]], geoJson as GeoPermissibleObjects);
-    
-    return d3geo.geoPath().projection(projection).centroid(feature);
-  }, [district.adcode]);
-
   const textRef = useRef<SVGTextElement>(null);
 
-  // 这里不跟随 masterTl 走，因为文本完全悬停在最顶绝对安全，可以自行补间
   useGSAP(() => {
     if (!textRef.current) return;
-    const yVal = isSelected ? LAYER_TOP_ACTIVE_Y : LAYER_TOP_DEFAULT_Y;
     gsap.to(textRef.current, {
-      y: yVal,
-      duration: isSelected ? 0.65 : 0.5,
-      ease: isSelected ? "back.out(1.2)" : "power3.inOut"
+      y: isSelected ? LAYER_TOP_ACTIVE_Y : LAYER_TOP_DEFAULT_Y,
+      duration: SWITCH_DURATION,
+      ease: isSelected ? "back.out(1.1)" : "power3.inOut",
     });
   }, [isSelected]);
-
-  if (!pos || pos[0] === 0) return null;
 
   return (
     <text
       ref={textRef}
-      x={pos[0]}
-      y={pos[1]}
+      x={district.centroidX}
+      y={district.centroidY}
+      className="pointer-events-none select-none"
       style={{
-        transformOrigin: "center",
+        fontFamily: '"DingTalk JinBuTi", system-ui, sans-serif',
+        fontWeight: isSelected ? 700 : 500,
+        letterSpacing: "0.08em",
       }}
-      className={`font-mono transition-all duration-300 pointer-events-none select-none ${isSelected ? 'font-bold' : ''}`}
       fontSize={isSelected ? "20px" : "15px"}
-      fill={isSelected ? "#00FFFF" : "rgba(2, 44, 58, 0.75)"}
+      fill={isSelected ? "#0077cc" : "rgba(30,80,140,0.72)"}
       textAnchor="middle"
     >
-      {district.name}
+      {MACRO_NODES.find((n) => n.id === district.nodeId)?.labelCode ?? district.nodeId}
     </text>
   );
 }

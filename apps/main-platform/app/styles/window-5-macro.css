@@ -412,19 +412,19 @@
   font-size: clamp(0.6rem, 0.85vw, 0.82rem);
   font-weight: 600;
   letter-spacing: 0.12em;
-  color: #eeeeee;
+  color: #1e1919;
 }
 
 .d3viz-header input,
 .d3viz-header textarea {
   font-family: "DingTalk JinBuTi", system-ui, sans-serif;
   font-size: clamp(0.6rem, 0.85vw, 0.82rem);
-  color: #eeeeee;
+  color: #1e1919;
 }
 
 .d3viz-header input::placeholder,
 .d3viz-header textarea::placeholder {
-  color: rgba(238, 238, 238, 0.6);
+  color: rgba(30, 25, 25, 0.45);
 }
 
 .d3viz-ticker {
@@ -459,9 +459,66 @@
   border-right: 1px solid rgba(226, 240, 255, 0.2);
 }
 
-@keyframes d3TickerScroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+/* ========== D3 区标题栏（继承 d1tl-header 风格，绝对定位覆盖于地图顶部）========== */
+
+/* 覆盖为绝对定位，使标题栏悬浮于地图容器顶部 */
+.d3viz-header.d1tl-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 2;
+  background: #ffffff;
+  border-bottom: 1px solid rgba(0, 160, 220, 0.15);
+  backdrop-filter: none;
+}
+
+/* D3 顶栏强化: 白底黑字 */
+.d3viz-header.d1tl-header .d1tl-header-title {
+  color: #111111;
+  font-weight: 700;
+}
+
+/* ========== SVG Flat Map-Pin Layer ========== */
+
+/* Pin layer — no 3D transform; renders in standard SVG coordinate plane */
+.pin-layer-upright {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* Individual pin groups — GPU-composited */
+[id^="pin-g-"] {
+  will-change: opacity, transform;
+}
+
+/* Highlight rings — GSAP controls opacity */
+[id^="pin-active-outer-"],
+[id^="pin-active-inner-"] {
+  pointer-events: none;
+}
+
+/* Pulse ring */
+[id^="pin-pulse-"] {
+  will-change: opacity, r;
+  pointer-events: none;
+}
+
+/* Low-perf degradation */
+.perf-reduced [id^="pin-pulse-"] {
+  display: none;
+}
+
+/* ========== 板块浅蓝系覆盖 ========== */
+
+/* 板块 cursor 指针确保 */
+.district-group {
+  cursor: pointer;
+}
+
+/* 板块 hover 轻微亮度提升 (CSS辅助, GSAP主控) */
+.district-group:hover [id^="d3-top-"] {
+  filter: brightness(1.06);
 }
 
 .d5cloud-root {
