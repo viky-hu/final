@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useCallback } from "react";
+import { useLayoutEffect, useMemo, useRef, useCallback, useState, useEffect } from "react";
 import * as d3geo from "d3-geo";
 import { gsap } from "gsap";
 import { useGSAP } from "@gsap/react";
@@ -72,6 +72,73 @@ interface DistrictItem {
 }
 
 interface BeaconAnchor { nodeId: string; adcode: number; cx: number; cy: number; }
+
+interface D3PopupPayload {
+  entity: string;
+  type: string;
+  description: string;
+}
+
+interface D3PopupLayout {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+interface D3PopupSpec {
+  nodeId: string;
+  payload: D3PopupPayload;
+  layout: D3PopupLayout;
+}
+
+const D3_POPUP_SPECS: Record<string, D3PopupSpec> = {
+  "node-current": {
+    nodeId: "node-current",
+    layout: { x: 15, y: 50, width: 312, height: 204 },
+    payload: {
+      entity: "故意杀人案",
+      type: "事件",
+      description: "2020 年 8 月 3 日秭归县发生的故意杀人案。",
+    },
+  },
+  "node-2": {
+    nodeId: "node-2",
+    layout: { x: 350, y: 740, width: 316, height: 210 },
+    payload: {
+      entity: "郭某某",
+      type: "人物",
+      description: "秭归县 54 岁男性受害者，因纠纷谈判时被唐某杀害。",
+    },
+  },
+  "node-3": {
+    nodeId: "node-3",
+    layout: { x: 468, y: 50, width: 316, height: 220 },
+    payload: {
+      entity: "谋杀案",
+      type: "事件",
+      description: "镇江持刀伤人案及 2020 年 8 月 27 日上午在三茅宫新村某室内发生的谋杀案。",
+    },
+  },
+  "node-4": {
+    nodeId: "node-4",
+    layout: { x: 250, y: 55, width: 314, height: 214 },
+    payload: {
+      entity: "唐某",
+      type: "人物",
+      description: "涉案嫌疑人，因纠纷升级实施暴力行为并致人死亡。",
+    },
+  },
+  "node-5": {
+    nodeId: "node-5",
+    layout: { x: 500, y: 710, width: 322, height: 206 },
+    payload: {
+      entity: "三茅宫新村某室",
+      type: "地点",
+      description: "2020 年 8 月 27 日案发室内场所，系重点勘验点位。",
+    },
+  },
+};
 
 // ── Laptop icon (flat, white strokes) ─────────────────────
 function LaptopIcon({ cx, cy }: { cx: number; cy: number }) {
@@ -170,6 +237,7 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
   const animationStateRef = useRef<"entering" | "ready">("entering");
   const currentTimelineRef = useRef<gsap.core.Timeline | null>(null);
   const previousSelectedRef = useRef<string | null>(null);
+  const [activePopupNodeId, setActivePopupNodeId] = useState<string | null>(null);
   const mapWrapRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const pulseTimelinesRef = useRef<Record<string, gsap.core.Timeline>>({});
@@ -208,7 +276,14 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
   const handleNodeSelect = useCallback((nodeId: string) => {
     if (animationStateRef.current === "entering") return;
     onNodeSelect(nodeId);
+    setActivePopupNodeId(nodeId);
   }, [onNodeSelect]);
+
+  useEffect(() => {
+    if (!visible) {
+      setActivePopupNodeId(null);
+    }
+  }, [visible]);
 
   // ── Pulse helpers ──────────────────────────────────────────
   function _stopPulse(nodeId: string) {
@@ -525,9 +600,128 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
               <PinLayer anchors={beaconAnchors} />
             </svg>
           </div>
+
+          <div
+            className="d3viz-popup-overlay"
+            style={{
+              position: "absolute",
+              inset: 0,
+              zIndex: 45,
+              transform: "translateZ(96px) rotateZ(15deg) rotateX(-52deg)",
+              transformOrigin: "50% 50%",
+              pointerEvents: "none",
+              willChange: "transform",
+            }}
+          >
+            <svg
+              viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
+              width="100%"
+              height="100%"
+              style={{ overflow: "visible" }}
+              aria-label="D3 实体信息弹窗"
+            >
+              {activePopupNodeId && D3_POPUP_SPECS[activePopupNodeId] ? (
+                <D3EntityPopup spec={D3_POPUP_SPECS[activePopupNodeId]} />
+              ) : null}
+            </svg>
+          </div>
         </div>
       </div>
     </div>
+  );
+}
+
+function D3EntityPopup({ spec }: { spec: D3PopupSpec }) {
+  const rootRef = useRef<SVGGElement>(null);
+
+  useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    const lines = [
+      root.querySelector<SVGLineElement>(".d3popup-line-top"),
+      root.querySelector<SVGLineElement>(".d3popup-line-right"),
+      root.querySelector<SVGLineElement>(".d3popup-line-bottom"),
+      root.querySelector<SVGLineElement>(".d3popup-line-left"),
+    ].filter((line): line is SVGLineElement => line !== null);
+
+    lines.forEach((line) => {
+      const len = line.getTotalLength();
+      gsap.set(line, { strokeDasharray: len, strokeDashoffset: len });
+    });
+
+    const panel = root.querySelector<SVGRectElement>(".d3popup-panel");
+    const content = root.querySelector<SVGGElement>(".d3popup-content");
+    const deco = root.querySelector<SVGGElement>(".d3popup-deco");
+
+    if (panel) gsap.set(panel, { fillOpacity: 0 });
+    if (content) gsap.set(content, { autoAlpha: 0, y: 9 });
+    if (deco) gsap.set(deco, { autoAlpha: 0 });
+
+    const tl = gsap.timeline();
+    tl.to(lines, {
+      strokeDashoffset: 0,
+      duration: 0.46,
+      stagger: 0.05,
+      ease: "power2.inOut",
+    }, 0);
+
+    if (panel) {
+      tl.to(panel, {
+        fillOpacity: 1,
+        duration: 0.2,
+        ease: "power2.out",
+      }, 0.48);
+    }
+
+    if (deco) {
+      tl.to(deco, {
+        autoAlpha: 1,
+        duration: 0.2,
+        ease: "power2.out",
+      }, 0.56);
+    }
+
+    if (content) {
+      tl.to(content, {
+        autoAlpha: 1,
+        y: 0,
+        duration: 0.28,
+        ease: "power2.out",
+      }, 0.62);
+    }
+
+    return () => {
+      tl.kill();
+    };
+  }, [spec.nodeId]);
+
+  const { x, y, width, height } = spec.layout;
+  const descWidth = Math.max(120, width - 24);
+  const descHeight = Math.max(64, height - 86);
+
+  return (
+    <g ref={rootRef} className="d3popup-root" transform={`translate(${x} ${y})`} aria-hidden="true">
+      <rect className="d3popup-panel" x={0} y={0} width={width} height={height} rx={0} fill="#F5F5F5" />
+
+      <line className="d3popup-line d3popup-line-top" x1={0} y1={0} x2={width} y2={0} />
+      <line className="d3popup-line d3popup-line-right" x1={width} y1={0} x2={width} y2={height} />
+      <line className="d3popup-line d3popup-line-bottom" x1={width} y1={height} x2={0} y2={height} />
+      <line className="d3popup-line d3popup-line-left" x1={0} y1={height} x2={0} y2={0} />
+
+      <g className="d3popup-deco">
+        <line className="d3popup-deco-line" x1={14} y1={18} x2={92} y2={18} />
+        <line className="d3popup-deco-line" x1={14} y1={40} x2={width - 14} y2={40} />
+      </g>
+
+      <g className="d3popup-content">
+        <text x={14} y={30} className="d3popup-title">{spec.payload.entity}</text>
+        <text x={width - 14} y={30} textAnchor="end" className="d3popup-type">{spec.payload.type}</text>
+        <foreignObject x={12} y={48} width={descWidth} height={descHeight}>
+          <div className="d3popup-desc">{spec.payload.description}</div>
+        </foreignObject>
+      </g>
+    </g>
   );
 }
 
