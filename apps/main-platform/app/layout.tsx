@@ -6,6 +6,7 @@ import "./styles/window-4-database.css";
 import "./styles/window-5-macro.css";
 import "cn-fontsource-ding-talk-jin-bu-ti-regular/font.css";
 import "@fontsource/zcool-xiaowei";
+import "@fontsource/noto-sans-sc";
 import "@fontsource/michroma";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";

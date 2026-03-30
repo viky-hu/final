@@ -160,3 +160,11 @@ export const MACRO_BG = "#ffffff";
 export const MACRO_LINE_INITIAL = "#1e1919";
 export const MACRO_LINE_SETTLED = "#888888";
 export const MACRO_STROKE_WIDTH = 1.5;
+
+// ─────────────────────────────────────────────
+// Window 4 · Database  (viewport-relative ratios)
+// ─────────────────────────────────────────────
+// Main vertical divider at ~42% of viewport width
+export const DB_V_LINE_X_RATIO = 0.42;
+export const DB_LINE_COLOR       = "#111111";
+export const DB_LINE_STROKE_W    = 1.5;

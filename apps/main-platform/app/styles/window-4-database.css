@@ -2,23 +2,23 @@
    Window 4 · 数据库聚类管理界面（Newsprint Design System）
    设计原则：0px border-radius · 硬边框 · 高对比黑白 · 编辑部排版
    背景: #F9F9F7  前景/边框: #111111  Muted: #E5E5E0  Accent: #CC0000
+   字体: Noto Sans SC (中文) · Inter (英文/UI) · JetBrains Mono (数字/代码)
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ── 根容器 ── */
 .db-window {
   position: relative;
   width: 100vw;
-  min-height: 100dvh;
+  height: 100dvh;
   background: #F9F9F7;
   color: #111111;
-  font-family: 'Inter', 'Helvetica Neue', system-ui, sans-serif;
-  overflow-x: hidden;
+  font-family: 'Michroma', 'DingTalk JinBuTi', 'Inter', 'Helvetica Neue', system-ui, sans-serif;
+  overflow: hidden;
 }
 
 /* ── Ticker 滚动条 ── */
 .db-ticker {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 50;
   width: 100%;
   background: #111111;
@@ -28,6 +28,7 @@
   display: flex;
   align-items: center;
   border-bottom: 2px solid #111111;
+  flex-shrink: 0;
 }
 
 .db-ticker-track {
@@ -51,123 +52,97 @@
   to   { transform: translateX(-50%); }
 }
 
-/* ── 可滚动主体 ── */
-.db-scroll {
-  min-height: calc(200dvh - 36px);
+/* ─────────────────────────────────────────────
+   Single-screen page body
+   Left 42% | Vertical line | Right 58%
+   ───────────────────────────────────────────── */
+
+.db-page {
   display: flex;
-  flex-direction: column;
+  width: 100%;
+  height: calc(100dvh - 36px);
+  overflow: hidden;
 }
 
-/* ── Section 1: Hero ── */
-.db-hero {
-  min-height: calc(100dvh - 36px);
-  border-bottom: 4px solid #111111;
-  display: flex;
-  flex-direction: column;
-}
-
-.db-hero-grid {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  display: grid;
-  grid-template-columns: 1fr 280px;
-  border-top: 1px solid #111111;
-}
-
-/* Left column */
-.db-hero-left {
+/* ── Left panel (~42% width) ── */
+.db-left {
+  width: 42%;
+  flex-shrink: 0;
   padding: clamp(2.5rem, 5vw, 5rem) clamp(2rem, 4vw, 4rem);
   display: flex;
   flex-direction: column;
   justify-content: center;
   gap: 2rem;
+  overflow: hidden;
 }
 
-/* Right quarter divider: from top to bottom of viewport (screen boundaries) */
-.db-v-divider-svg {
+/* ── Right panel (~58% width) — cluster list ── */
+.db-right {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding-left: 0;
+}
+
+#db-v-main-line, #db-h-main-line {
+  will-change: stroke-dashoffset;
+}
+
+/* ─────────────────────────────────────────────
+   Main horizontal line (fixed, drawn by GSAP)
+   ───────────────────────────────────────────── */
+.db-h-line-svg {
   position: fixed;
-  top: 0;
-  left: calc(100vw - 280px);
-  width: 2px;
-  height: 100dvh;
+  left: 0;
+  width: 42vw;
+  height: 2px;
   pointer-events: none;
   z-index: 10;
+  overflow: visible;
 }
 
-#db-v-divider {
-  will-change: stroke-dashoffset;
-}
+/* ─────────────────────────────────────────────
+   LEFT panel elements
+   ───────────────────────────────────────────── */
 
-/* Eyebrow label */
-.db-eyebrow {
-  margin: 0;
-  font-family: 'Inter', 'Helvetica Neue', sans-serif;
-  font-size: 0.68rem;
-  font-weight: 500;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: #111111;
-  opacity: 0.55;
-}
-
-/* Massive Chinese headline — ZCOOL XiaoWei for rounded strokes */
+/* Headline */
 .db-headline {
   margin: 0;
-  font-family: 'ZCOOL XiaoWei', 'Songti SC', 'SimSun', serif;
-  font-size: clamp(2rem, 4.2vw, 5rem);
-  font-weight: 400;
-  line-height: 1.18;
-  letter-spacing: 0.04em;
+  font-family: 'Michroma', 'DingTalk JinBuTi', 'ZCOOL XiaoWei', serif;
+  font-size: clamp(1.8rem, 3.2vw, 3.8rem);
+  font-weight: 700;
+  line-height: 1.22;
+  letter-spacing: 0.02em;
   color: #111111;
+  visibility: hidden;
+  opacity: 0;
+  transform: translateY(24px);
 }
 
-/* Horizontal draw line between headline and decor block */
+/* Horizontal line between headline and decor block */
+/* Removing old wrapper, line is now fixed */
 .db-h-line-wrap {
-  /* Extend past left/right padding to reach both column edges and meet the vertical divider */
-  margin-left: calc(-1 * clamp(2rem, 4vw, 4rem));
-  margin-right: calc(-1 * clamp(2rem, 4vw, 4rem));
-  width: calc(100% + 2 * clamp(2rem, 4vw, 4rem));
-  height: 2px;
-  flex-shrink: 0;
-  overflow: visible;
+  display: none;
 }
 
-.db-h-line-svg {
-  display: block;
-  width: 100%;
-  height: 2px;
-  overflow: visible;
-}
-
-#db-h-line {
-  will-change: stroke-dashoffset;
-}
-
-/* Decorative info block */
 .db-decor-group {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
   border-left: 2px solid #111111;
   padding-left: 0.85rem;
+  visibility: hidden;
+  opacity: 0;
 }
 
 .db-decor-label {
   margin: 0;
-  font-family: 'Lora', Georgia, serif;
+  font-family: 'DingTalk JinBuTi', 'Inter', sans-serif;
   font-size: clamp(0.72rem, 0.9vw, 0.82rem);
-  color: rgba(17, 17, 17, 0.65);
+  font-weight: 400;
+  color: rgba(17, 17, 17, 0.62);
   line-height: 1.6;
-}
-
-.db-decor-mono {
-  margin: 0;
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
-  font-size: 0.62rem;
-  letter-spacing: 0.1em;
-  color: rgba(17, 17, 17, 0.4);
-  text-transform: uppercase;
 }
 
 /* Button row */
@@ -175,9 +150,11 @@
   display: flex;
   align-items: center;
   gap: 1rem;
+  visibility: hidden;
+  opacity: 0;
 }
 
-/* Primary action button — Newsprint: black bg / white text, hard hover shadow */
+/* Primary action button */
 .db-create-btn {
   display: inline-flex;
   align-items: center;
@@ -187,11 +164,10 @@
   color: #F9F9F7;
   border: 2px solid #111111;
   border-radius: 0;
-  font-family: 'Inter', 'Helvetica Neue', sans-serif;
+  font-family: 'DingTalk JinBuTi', 'Inter', sans-serif;
   font-size: 0.85rem;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   cursor: pointer;
   transition: background 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s;
   outline: none;
@@ -214,81 +190,23 @@
   box-shadow: none;
 }
 
-/* Right sidebar */
-.db-hero-right {
-  padding: clamp(2rem, 3vw, 3rem) clamp(1.25rem, 2vw, 2rem);
-  display: flex;
-  flex-direction: column;
-}
-
-/* Stats block */
-.db-stats {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.db-stat-row {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-  padding: 1.2rem 0;
-}
-
-.db-stat-row--date {
-  padding-bottom: 0;
-}
-
-.db-stat-divider {
-  height: 1px;
-  background: #E5E5E0;
-  width: 100%;
-}
-
-.db-stat-label {
-  font-family: 'Inter', 'Helvetica Neue', sans-serif;
-  font-size: 0.62rem;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(17, 17, 17, 0.5);
-}
-
-.db-stat-value {
-  font-family: 'Playfair Display', 'Times New Roman', serif;
-  font-size: clamp(1.6rem, 3vw, 2.6rem);
-  font-weight: 700;
-  color: #111111;
-  line-height: 1.1;
-}
-
-.db-stat-value--num {
-  font-variant-numeric: tabular-nums;
-}
-
-.db-stat-value--date {
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
-  font-size: clamp(0.85rem, 1.2vw, 1.1rem);
-  font-weight: 400;
-  letter-spacing: 0.06em;
-}
-
-/* ── Section 2: Cluster List ── */
-.db-list-section {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
+/* ─────────────────────────────────────────────
+   RIGHT panel — cluster list
+   ───────────────────────────────────────────── */
 
 .db-list-header {
-  padding: clamp(1.5rem, 2.5vw, 2.5rem) clamp(2rem, 4vw, 4rem);
-  border-bottom: 4px solid #111111;
+  padding: clamp(1.2rem, 2vw, 2rem) clamp(1.5rem, 3vw, 3rem);
+  border-bottom: 2px solid #111111;
+  flex-shrink: 0;
+  visibility: hidden;
+  opacity: 0;
 }
 
 .db-list-eyebrow {
-  margin: 0 0 0.5rem;
-  font-family: 'Inter', 'Helvetica Neue', sans-serif;
-  font-size: 0.62rem;
-  letter-spacing: 0.24em;
+  margin: 0 0 0.4rem;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 0.6rem;
+  letter-spacing: 0.26em;
   text-transform: uppercase;
   color: rgba(17, 17, 17, 0.4);
 }
@@ -296,29 +214,31 @@
 .db-list-title-row {
   display: flex;
   align-items: baseline;
-  gap: 1.2rem;
+  gap: 1rem;
 }
 
 .db-list-title {
   margin: 0;
-  font-family: 'Playfair Display', 'Times New Roman', serif;
-  font-size: clamp(1.6rem, 3vw, 2.4rem);
+  font-family: 'DingTalk JinBuTi', 'Inter', sans-serif;
+  font-size: clamp(1.2rem, 2.2vw, 1.8rem);
   font-weight: 700;
   letter-spacing: -0.01em;
   color: #111111;
 }
 
 .db-list-count {
-  font-family: 'Inter', 'Helvetica Neue', sans-serif;
-  font-size: 0.72rem;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
+  font-size: 0.68rem;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(17, 17, 17, 0.4);
 }
 
-/* List body */
+/* Scrollable list body */
 .db-list-body {
   flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* Empty state */
@@ -326,31 +246,68 @@
   display: flex;
   align-items: center;
   gap: 0.85rem;
-  padding: 3rem clamp(2rem, 4vw, 4rem);
-  font-family: 'Lora', Georgia, serif;
-  font-size: 0.9rem;
+  padding: 3rem clamp(1.5rem, 3vw, 3rem);
+  font-family: 'DingTalk JinBuTi', 'Inter', sans-serif;
+  font-size: 0.88rem;
   color: rgba(17, 17, 17, 0.45);
   border-bottom: 1px solid #E5E5E0;
 }
 
-/* Each cluster row — full-width horizontal bar */
+/* ─────────────────────────────────────────────
+   Cluster rows — new layout with sub-divider
+   [icon + name] | sub-divider | [file count + date stacked]
+   ───────────────────────────────────────────── */
+
 .db-cluster-row {
-  display: grid;
-  grid-template-columns: 2.5rem 1fr auto auto;
-  align-items: center;
-  gap: 1rem;
-  padding: 1.2rem clamp(2rem, 4vw, 4rem);
+  display: flex;
+  align-items: stretch;
   border-bottom: 1px solid #E5E5E0;
-  transition: background 0.12s;
   cursor: pointer;
+  transition: background 0.12s;
+  outline: none;
+  min-height: 64px;
+  will-change: opacity, transform;
 }
 
 .db-cluster-row:hover {
   background: rgba(17, 17, 17, 0.03);
 }
 
+.db-cluster-row:focus-visible {
+  outline: 2px solid #CC0000;
+  outline-offset: -2px;
+}
+
 .db-cluster-row:last-child {
   border-bottom: 2px solid #111111;
+}
+
+/* Left portion: icon + name */
+.db-cluster-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 1.1rem clamp(1.5rem, 3vw, 3rem);
+  min-width: 0;
+}
+
+/* Sub-divider: vertical line separating name from meta */
+.db-cluster-sub-divider {
+  width: 1px;
+  background: #E5E5E0;
+  flex-shrink: 0;
+  align-self: stretch;
+}
+
+/* Right portion: meta stacked */
+.db-cluster-side {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 1.1rem clamp(1rem, 2vw, 2rem);
+  min-width: 120px;
 }
 
 .db-cluster-icon {
@@ -365,11 +322,11 @@
 }
 
 .db-cluster-name {
-  font-family: 'Playfair Display', 'Times New Roman', serif;
-  font-size: clamp(1rem, 1.6vw, 1.25rem);
+  font-family: 'DingTalk JinBuTi', 'Inter', sans-serif;
+  font-size: clamp(0.9rem, 1.4vw, 1.1rem);
   font-weight: 700;
   color: #111111;
-  letter-spacing: -0.01em;
+  letter-spacing: 0em;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -378,21 +335,18 @@
 
 .db-cluster-meta {
   font-family: 'JetBrains Mono', 'Courier New', monospace;
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   letter-spacing: 0.08em;
-  color: rgba(17, 17, 17, 0.5);
+  color: rgba(17, 17, 17, 0.55);
   white-space: nowrap;
-  flex-shrink: 0;
 }
 
 .db-cluster-date {
   font-family: 'JetBrains Mono', 'Courier New', monospace;
-  font-size: 0.68rem;
-  letter-spacing: 0.08em;
+  font-size: 0.64rem;
+  letter-spacing: 0.06em;
   color: rgba(17, 17, 17, 0.35);
   white-space: nowrap;
-  flex-shrink: 0;
-  text-align: right;
 }
 
 /* ── Menu layer ── */
@@ -447,7 +401,7 @@
 
 .db-modal-eyebrow {
   margin: 0 0 0.5rem;
-  font-family: 'Inter', 'Helvetica Neue', sans-serif;
+  font-family: 'JetBrains Mono', 'Courier New', monospace;
   font-size: 0.6rem;
   letter-spacing: 0.26em;
   text-transform: uppercase;
@@ -456,7 +410,7 @@
 
 .db-modal-title {
   margin: 0;
-  font-family: 'Playfair Display', 'Times New Roman', serif;
+  font-family: 'DingTalk JinBuTi', 'Inter', sans-serif;
   font-size: 1.8rem;
   font-weight: 700;
   letter-spacing: -0.01em;
@@ -471,9 +425,9 @@
 }
 
 .db-modal-label {
-  font-family: 'Inter', 'Helvetica Neue', sans-serif;
+  font-family: 'DingTalk JinBuTi', 'Inter', sans-serif;
   font-size: 0.68rem;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
   color: rgba(17, 17, 17, 0.55);
 }
@@ -508,7 +462,7 @@
 
 .db-modal-error {
   margin: 0;
-  font-family: 'Inter', 'Helvetica Neue', sans-serif;
+  font-family: 'DingTalk JinBuTi', 'Inter', sans-serif;
   font-size: 0.72rem;
   letter-spacing: 0.04em;
   color: #CC0000;
@@ -528,7 +482,7 @@
   color: #111111;
   border: 2px solid #111111;
   border-radius: 0;
-  font-family: 'Inter', 'Helvetica Neue', sans-serif;
+  font-family: 'DingTalk JinBuTi', 'Inter', sans-serif;
   font-size: 0.8rem;
   font-weight: 500;
   letter-spacing: 0.1em;
@@ -554,9 +508,9 @@
   color: #F9F9F7;
   border: 2px solid #111111;
   border-radius: 0;
-  font-family: 'Inter', 'Helvetica Neue', sans-serif;
+  font-family: 'DingTalk JinBuTi', 'Inter', sans-serif;
   font-size: 0.8rem;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
@@ -1189,27 +1143,32 @@
   background: rgba(204, 0, 0, 0.06);
 }
 
-/* ── Responsive ── */
+/* ── Responsive — Main window ── */
 @media (max-width: 768px) {
-  .db-hero-grid {
-    grid-template-columns: 1fr;
+  /* Stack left/right panels vertically on mobile */
+  .db-page {
+    flex-direction: column;
+    height: auto;
+    overflow: auto;
   }
 
-  .db-hero-right {
-    border-top: 1px solid #111111;
-    border-right: none;
+  .db-left {
+    width: 100%;
+    padding: 2rem 1.5rem;
+    border-bottom: 2px solid #111111;
   }
 
-  .db-hero-left {
-    border-right: none;
+  .db-right {
+    overflow: visible;
   }
 
-  .db-v-divider-svg {
-    display: none;
+  /* Hide the fixed vertical divider on mobile */
+  .db-v-line-svg {
+    display: none !important;
   }
 
-  .db-cluster-row {
-    grid-template-columns: 2rem 1fr auto;
+  .db-cluster-side {
+    min-width: 80px;
   }
 
   .db-cluster-date {
@@ -1219,14 +1178,12 @@
 
 @media (max-width: 480px) {
   .db-headline {
-    font-size: 2.4rem;
+    font-size: 2rem;
   }
 
-  .db-cluster-row {
-    grid-template-columns: 2rem 1fr;
-  }
-
-  .db-cluster-meta {
+  /* Collapse icon+name, hide meta on very small screens */
+  .db-cluster-sub-divider,
+  .db-cluster-side {
     display: none;
   }
 }

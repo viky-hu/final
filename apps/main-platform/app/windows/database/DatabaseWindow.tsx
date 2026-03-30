@@ -13,6 +13,7 @@ import { StaggeredMenu } from "../main/components/StaggeredMenu";
 import type { StaggeredMenuItem } from "../main/components/StaggeredMenu";
 import type { Cluster, Metrics } from "@/app/lib/database-store";
 import { LINE_DRAW_EASE } from "../shared/animation";
+import { DB_V_LINE_X_RATIO, DB_LINE_COLOR, DB_LINE_STROKE_W } from "../shared/coords";
 import { ClusterDetailWindow } from "./components/ClusterDetailWindow";
 
 interface DatabaseWindowProps {
@@ -34,21 +35,28 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
 
-  const createBtnRef  = useRef<HTMLButtonElement>(null);
-  const inputRef      = useRef<HTMLInputElement>(null);
+  const createBtnRef = useRef<HTMLButtonElement>(null);
+  const inputRef     = useRef<HTMLInputElement>(null);
 
-  // ── Animation refs ────────────────────────────────────────────────────────
-  const rootRef      = useRef<HTMLDivElement>(null);
-  const headlineRef  = useRef<HTMLHeadingElement>(null);
-  const decorRef     = useRef<HTMLDivElement>(null);
-  const btnRowRef    = useRef<HTMLDivElement>(null);
-  const statsRef     = useRef<HTMLElement>(null);
-  const hLineRef     = useRef<SVGLineElement>(null);
-  const hLineSvgRef  = useRef<SVGSVGElement>(null);
-  const vDividerRef  = useRef<SVGLineElement>(null);
-  const listHeaderRef = useRef<HTMLElement>(null);
+  // ── Animation refs ─────────────────────────────────────────────────────────
+  const rootRef        = useRef<HTMLDivElement>(null);
+  const headlineRef    = useRef<HTMLHeadingElement>(null);
+  const hLineMarkerRef = useRef<HTMLDivElement>(null);
+  const decorRef       = useRef<HTMLDivElement>(null);
+  const btnRowRef      = useRef<HTMLDivElement>(null);
+  const listPanelRef   = useRef<HTMLDivElement>(null);
+  const listHeaderRef  = useRef<HTMLElement>(null);
+  const clusterRowsRef = useRef<HTMLDivElement>(null);
 
-  // ── Data fetching ─────────────────────────────────────────────────────────
+  // SVG refs — vertical divider line (fixed, full height)
+  const vLineSvgRef = useRef<SVGSVGElement>(null);
+  const vLineRef    = useRef<SVGLineElement>(null);
+
+  // SVG refs — horizontal line in left panel (drawn left → vertical divider)
+  const hLineSvgRef = useRef<SVGSVGElement>(null);
+  const hLineRef    = useRef<SVGLineElement>(null);
+
+  // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     try {
       const [clustersRes, metricsRes] = await Promise.all([
@@ -70,98 +78,124 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // ── Entry animation: fade-in → 0.8s module timeline ──────────────────────
+  // ── Entry animation: SVG lines draw → content fades in ────────────────────
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
 
-    // Start invisible
+    // ── 1. Set initial states (CSS-first FOUC prevention) ──
     gsap.set(root, { autoAlpha: 0 });
-
-    // Prepare SVG lines (horizontal + vertical, same pattern as first/second window)
-    const hLine = hLineRef.current;
-    const hLineSvg = hLineSvgRef.current;
-    if (hLine && hLineSvg) {
-      const svgW = hLineSvg.getBoundingClientRect().width || 1080;
-      hLine.setAttribute("x2", String(svgW));
-      const len = hLine.getTotalLength();
-      gsap.set(hLine, { strokeDasharray: len, strokeDashoffset: len });
-    }
-    const vDivider = vDividerRef.current;
-    if (vDivider) {
-      const vLen = vDivider.getTotalLength();
-      gsap.set(vDivider, { strokeDasharray: vLen, strokeDashoffset: vLen });
-    }
-
-    // Pre-hide all module elements
     gsap.set(
-      [
-        headlineRef.current,
-        decorRef.current,
-        btnRowRef.current,
-        statsRef.current,
-        listHeaderRef.current,
-      ].filter(Boolean),
+      [headlineRef.current, decorRef.current, btnRowRef.current, listHeaderRef.current].filter(Boolean),
       { autoAlpha: 0 },
     );
+    if (listPanelRef.current) gsap.set(listPanelRef.current, { autoAlpha: 0 });
 
-    // Phase 1: page fade-in (~0.32s)
-    const entryTl = gsap.timeline({
-      onComplete: () => {
-        // Phase 2: module stagger timeline (0.8s total)
-        const modTl = gsap.timeline();
+    // ── 2. Prepare vertical line (full viewport height, top → bottom) ──
+    const vLine = vLineRef.current;
+    const vLineSvg = vLineSvgRef.current;
+    if (vLine && vLineSvg) {
+      const vLen = vLine.getTotalLength();
+      gsap.set(vLine, { strokeDasharray: vLen, strokeDashoffset: vLen });
+    }
 
-        modTl.fromTo(headlineRef.current,
-          { autoAlpha: 0, y: 24 },
-          { autoAlpha: 1, y: 0, duration: 0.32, ease: "power3.out" },
-          0.08,
-        );
+    // ── 3. Prepare horizontal line (left side → stop at vertical divider) ──
+    const hLine = hLineRef.current;
+    const hLineSvg = hLineSvgRef.current;
+    if (hLine && hLineSvg && hLineMarkerRef.current) {
+      // Sync vertical position with marker
+      const markerRect = hLineMarkerRef.current.getBoundingClientRect();
+      gsap.set(hLineSvg, { top: markerRect.top });
 
-        // SVG horizontal + vertical line draw (same pattern as first/second window)
-        if (hLine) {
-          modTl.to(hLine, {
-            strokeDashoffset: 0,
-            duration: 0.5,
-            ease: LINE_DRAW_EASE,
-          }, 0.2);
-        }
-        if (vDivider) {
-          modTl.to(vDivider, {
-            strokeDashoffset: 0,
-            duration: 0.5,
-            ease: LINE_DRAW_EASE,
-          }, 0.28);
-        }
+      const hLen = hLine.getTotalLength();
+      gsap.set(hLine, { strokeDasharray: hLen, strokeDashoffset: hLen });
+    }
 
-        modTl.to(decorRef.current, {
-          autoAlpha: 1,
-          duration: 0.24, ease: "power2.out",
-        }, 0.36);
+    // ── 4. Master timeline ──
+    const tl = gsap.timeline();
 
-        modTl.to(btnRowRef.current, {
-          autoAlpha: 1,
-          duration: 0.22, ease: "power2.out",
-        }, 0.5);
+    // Phase 0 — page fade in
+    tl.to(root, { autoAlpha: 1, duration: 0.22, ease: "power2.out" }, 0);
 
-        modTl.fromTo(statsRef.current,
-          { autoAlpha: 0, x: 18 },
-          { autoAlpha: 1, x: 0, duration: 0.3, ease: "power2.out" },
-          0.1,
-        );
+    // Phase 1 — draw vertical line (top to bottom, 0.5s, slowFastSlow)
+    if (vLine) {
+      tl.to(vLine, {
+        strokeDashoffset: 0,
+        duration: 0.5,
+        ease: LINE_DRAW_EASE,
+      }, 0.22);
+    }
 
-        modTl.to(listHeaderRef.current, {
-          autoAlpha: 1,
-          duration: 0.2, ease: "power2.out",
-        }, 0.62);
-      },
-    });
+    // Phase 2 — draw horizontal line (left → divider, starts slightly after vertical)
+    if (hLine) {
+      tl.to(hLine, {
+        strokeDashoffset: 0,
+        duration: 0.45,
+        ease: LINE_DRAW_EASE,
+      }, 0.32);
+    }
 
-    entryTl.to(root, { autoAlpha: 1, duration: 0.32, ease: "power2.out" });
+    // Phase 3 — headline slides up
+    tl.to(headlineRef.current, {
+      autoAlpha: 1,
+      y: 0,
+      duration: 0.32,
+      ease: "power3.out",
+    }, 0.55);
 
-    return () => { entryTl.kill(); };
+    // Phase 4 — decorative text
+    tl.to(decorRef.current, {
+      autoAlpha: 1,
+      duration: 0.24,
+      ease: "power2.out",
+    }, 0.72);
+
+    // Phase 5 — create button
+    tl.to(btnRowRef.current, {
+      autoAlpha: 1,
+      duration: 0.22,
+      ease: "power2.out",
+    }, 0.88);
+
+    // Phase 6 — right panel fades in with slight x slide
+    tl.to(listPanelRef.current, {
+      autoAlpha: 1,
+      x: 0,
+      duration: 0.3,
+      ease: "power2.out",
+    }, 0.65);
+
+    // Phase 7 — list header
+    tl.to(listHeaderRef.current, {
+      autoAlpha: 1,
+      duration: 0.24,
+      ease: "power2.out",
+    }, 0.75);
+
+    // Phase 8 — cluster rows stagger
+    const rows = clusterRowsRef.current?.querySelectorAll(".db-cluster-row");
+    if (rows && rows.length > 0) {
+      tl.fromTo(rows,
+        { autoAlpha: 0, x: 18 },
+        { autoAlpha: 1, x: 0, duration: 0.35, ease: "power2.out", stagger: 0.06 },
+        0.85,
+      );
+    }
+
+    return () => { tl.kill(); };
   }, []);
 
-  // ── Modal focus management ────────────────────────────────────────────────
+  // ── Re-animate new cluster rows when clusters data arrives ─────────────────
+  useEffect(() => {
+    const rows = clusterRowsRef.current?.querySelectorAll(".db-cluster-row");
+    if (!rows || rows.length === 0) return;
+    gsap.fromTo(rows,
+      { autoAlpha: 0, x: 14 },
+      { autoAlpha: 1, x: 0, duration: 0.32, ease: "power2.out", stagger: 0.05 },
+    );
+  }, [clusters]);
+
+  // ── Modal focus management ─────────────────────────────────────────────────
   useEffect(() => {
     if (isModalOpen) {
       const id = setTimeout(() => inputRef.current?.focus(), 50);
@@ -169,7 +203,7 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
     }
   }, [isModalOpen]);
 
-  // ── Esc to close modal ────────────────────────────────────────────────────
+  // ── Esc to close modal ─────────────────────────────────────────────────────
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isModalOpen) closeModal();
@@ -179,7 +213,7 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isModalOpen]);
 
-  // ── Modal handlers ────────────────────────────────────────────────────────
+  // ── Modal handlers ─────────────────────────────────────────────────────────
   const openModal = useCallback(() => {
     setNewClusterName("");
     setInputError("");
@@ -218,7 +252,7 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
     }
   }, [newClusterName, fetchData, closeModal]);
 
-  // ── Menu config ───────────────────────────────────────────────────────────
+  // ── Menu config ────────────────────────────────────────────────────────────
   const menuItems: StaggeredMenuItem[] = [
     { label: "返回初始界面", ariaLabel: "返回初始界面", link: "#", onClick: onBack },
     { label: "交互对话",     ariaLabel: "交互对话",     link: "#", onClick: onNavigateToMain },
@@ -229,7 +263,7 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
   return (
     <div ref={rootRef} className="db-window">
 
-      {/* ── Ticker bar ───────────────────────────────────────────────────── */}
+      {/* ── Ticker bar ────────────────────────────────────────────────── */}
       <div className="db-ticker" aria-hidden="true">
         <div className="db-ticker-track">
           <span>数据源管理系统&nbsp;//</span>
@@ -248,104 +282,114 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
         </div>
       </div>
 
-      {/* ── Scrollable page ──────────────────────────────────────────────── */}
-      <div className="db-scroll">
+      {/* ── Main vertical divider line (full screen height, GSAP drawn) ── */}
+      <svg
+        ref={vLineSvgRef}
+        className="db-v-line-svg"
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: `${DB_V_LINE_X_RATIO * 100}vw`,
+          width: "2px",
+          height: "100dvh",
+          pointerEvents: "none",
+          zIndex: 15,
+          overflow: "visible",
+        }}
+        viewBox="0 0 2 900"
+        preserveAspectRatio="none"
+      >
+        <line
+          ref={vLineRef}
+          id="db-v-main-line"
+          x1="1" y1="0" x2="1" y2="900"
+          stroke={DB_LINE_COLOR}
+          strokeWidth={DB_LINE_STROKE_W}
+          strokeLinecap="square"
+        />
+      </svg>
 
-        {/* ── Section 1: Hero ─────────────────────────────────────────────── */}
-        <section className="db-hero">
-          <div className="db-hero-grid">
+      {/* ── Main horizontal line (STRICTLY from screen left to vertical divider) ── */}
+      <svg
+        ref={hLineSvgRef}
+        className="db-h-line-svg"
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          left: 0,
+          // Position vertically based on the marker in the left panel
+          top: "50%", 
+          width: `${DB_V_LINE_X_RATIO * 100}vw`,
+          height: "2px",
+          pointerEvents: "none",
+          zIndex: 15,
+          overflow: "visible",
+        }}
+        preserveAspectRatio="none"
+      >
+        <line
+          ref={hLineRef}
+          id="db-h-main-line"
+          x1="0" y1="1" x2="100%" y2="1"
+          stroke={DB_LINE_COLOR}
+          strokeWidth="1"
+          strokeLinecap="square"
+        />
+      </svg>
 
-            {/* Left column */}
-            <div className="db-hero-left">
-              <h1 ref={headlineRef} className="db-headline">
-                你可以在此<br />新增数据库聚类<br />或向聚类中<br />添加文件
-              </h1>
+      {/* ── Single-screen page body ────────────────────────────────────── */}
+      <div className="db-page">
 
-              {/* Horizontal draw line: left edge → right quarter point (~75%) */}
-              <div className="db-h-line-wrap" aria-hidden="true">
-                <svg
-                  ref={hLineSvgRef}
-                  className="db-h-line-svg"
-                  aria-hidden="true"
-                >
-                  <line
-                    ref={hLineRef}
-                    id="db-h-line"
-                    x1="0" y1="1" x2="100%" y2="1"
-                    stroke="#111111"
-                    strokeWidth="1"
-                    strokeLinecap="square"
-                  />
-                </svg>
-              </div>
+        {/* ── LEFT panel: title + decor + button ─────────────── */}
+        <div className="db-left">
 
-              <div ref={decorRef} className="db-decor-group" aria-hidden="true">
-                <p className="db-decor-label">高效、结构化、安全的数据聚类引擎</p>
-                <p className="db-decor-label">数据治理 · 向量检索 · 语义索引</p>
-              </div>
+          <h1
+            ref={headlineRef}
+            className="db-headline"
+            style={{ visibility: "hidden", opacity: 0, transform: "translateY(24px)" }}
+          >
+            你可以在此<br />新增数据库聚类<br />或向聚类中<br />添加文件
+          </h1>
 
-              <div ref={btnRowRef} className="db-btn-row">
-                <button
-                  ref={createBtnRef}
-                  className="db-create-btn"
-                  onClick={openModal}
-                  aria-haspopup="dialog"
-                  aria-expanded={isModalOpen}
-                >
-                  新建聚类
-                </button>
-              </div>
+          {/* Marker for the horizontal line's vertical position */}
+          <div ref={hLineMarkerRef} className="db-h-line-marker" style={{ height: "2px", margin: "1.5rem 0" }} />
 
-            </div>
-
-            {/* Right quarter divider: full viewport height, from top to bottom of screen */}
-            <svg
-              className="db-v-divider-svg"
-              viewBox="0 0 2 100"
-              preserveAspectRatio="none"
-              aria-hidden="true"
-            >
-              <line
-                ref={vDividerRef}
-                id="db-v-divider"
-                x1="1" y1="0" x2="1" y2="100"
-                stroke="#111111"
-                strokeWidth="2"
-                strokeLinecap="square"
-              />
-            </svg>
-
-            {/* Right sidebar */}
-            <aside ref={statsRef} className="db-hero-right" aria-label="数据统计">
-              <div className="db-stats">
-                <div className="db-stat-row">
-                  <span className="db-stat-label">已有聚类数量</span>
-                  <span className="db-stat-value db-stat-value--num">
-                    {String(metrics.clusterCount).padStart(2, "0")}
-                  </span>
-                </div>
-                <div className="db-stat-divider" />
-                <div className="db-stat-row">
-                  <span className="db-stat-label">总文件数量</span>
-                  <span className="db-stat-value db-stat-value--num">
-                    {String(metrics.totalFiles).padStart(2, "0")}
-                  </span>
-                </div>
-                <div className="db-stat-divider" />
-                <div className="db-stat-row db-stat-row--date">
-                  <span className="db-stat-label">最近添加文件日期</span>
-                  <span className="db-stat-value db-stat-value--date">
-                    {metrics.lastAddedDate ?? "—"}
-                  </span>
-                </div>
-              </div>
-            </aside>
+          <div
+            ref={decorRef}
+            className="db-decor-group"
+            aria-hidden="true"
+            style={{ visibility: "hidden", opacity: 0 }}
+          >
+            <p className="db-decor-label">高效、结构化、安全的数据聚类引擎</p>
+            <p className="db-decor-label">数据治理 · 向量检索 · 语义索引</p>
           </div>
-        </section>
 
-        {/* ── Section 2: Cluster List ──────────────────────────────────────── */}
-        <section className="db-list-section">
-          <header ref={listHeaderRef} className="db-list-header">
+          <div
+            ref={btnRowRef}
+            className="db-btn-row"
+            style={{ visibility: "hidden", opacity: 0 }}
+          >
+            <button
+              ref={createBtnRef}
+              className="db-create-btn"
+              onClick={openModal}
+              aria-haspopup="dialog"
+              aria-expanded={isModalOpen}
+            >
+              新建聚类
+            </button>
+          </div>
+
+        </div>
+
+        {/* ── RIGHT panel: cluster list (transplanted from screen 2) ─── */}
+        <div
+          ref={listPanelRef}
+          className="db-right"
+          style={{ visibility: "hidden", opacity: 0, transform: "translateX(20px)" }}
+        >
+          <header ref={listHeaderRef} className="db-list-header" style={{ visibility: "hidden", opacity: 0 }}>
             <p className="db-list-eyebrow">CLUSTER INDEX</p>
             <div className="db-list-title-row">
               <h2 className="db-list-title">聚类列表</h2>
@@ -353,7 +397,7 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
             </div>
           </header>
 
-          <div className="db-list-body" role="list">
+          <div ref={clusterRowsRef} className="db-list-body" role="list">
             {clusters.length === 0 ? (
               <div className="db-list-empty" role="listitem">
                 <Database size={24} strokeWidth={1} aria-hidden="true" />
@@ -370,21 +414,31 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
                   onKeyDown={(e) => e.key === "Enter" && setSelectedCluster(cluster)}
                   aria-label={`进入聚类：${cluster.name}`}
                 >
-                  <div className="db-cluster-icon" aria-hidden="true">
-                    <FolderOpen size={16} strokeWidth={1.5} />
+                  {/* Left: icon + name */}
+                  <div className="db-cluster-main">
+                    <div className="db-cluster-icon" aria-hidden="true">
+                      <FolderOpen size={16} strokeWidth={1.5} />
+                    </div>
+                    <span className="db-cluster-name">{cluster.name}</span>
                   </div>
-                  <span className="db-cluster-name">{cluster.name}</span>
-                  <span className="db-cluster-meta">文件数:&nbsp;{cluster.fileCount}</span>
-                  <span className="db-cluster-date">{cluster.createdAt}</span>
+
+                  {/* Sub-divider line (vertical, from second screen style) */}
+                  <div className="db-cluster-sub-divider" aria-hidden="true" />
+
+                  {/* Right: file count + date stacked */}
+                  <div className="db-cluster-side">
+                    <span className="db-cluster-meta">文件数: {cluster.fileCount}</span>
+                    <span className="db-cluster-date">{cluster.createdAt}</span>
+                  </div>
                 </div>
               ))
             )}
           </div>
-        </section>
+        </div>
 
       </div>
 
-      {/* ── Menu layer (always on top) ───────────────────────────────────── */}
+      {/* ── Menu layer (always on top) ────────────────────────────────── */}
       <div className="db-menu-layer sm-scope">
         <StaggeredMenu
           position="right"
@@ -398,7 +452,7 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
         />
       </div>
 
-      {/* ── Cluster Detail Overlay ───────────────────────────────────────── */}
+      {/* ── Cluster Detail Overlay ────────────────────────────────────── */}
       {selectedCluster && (
         <ClusterDetailWindow
           cluster={selectedCluster}
@@ -406,7 +460,7 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
         />
       )}
 
-      {/* ── Create Cluster Modal ─────────────────────────────────────────── */}
+      {/* ── Create Cluster Modal ──────────────────────────────────────── */}
       {isModalOpen && (
         <div
           className="db-modal-overlay"

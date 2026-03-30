@@ -20,6 +20,9 @@ importers:
       '@fontsource/michroma':
         specifier: ^5.2.8
         version: 5.2.8
+      '@fontsource/noto-sans-sc':
+        specifier: ^5.2.9
+        version: 5.2.9
       '@fontsource/zcool-xiaowei':
         specifier: ^5.2.8
         version: 5.2.8
@@ -322,6 +325,9 @@ packages:
 
   '@fontsource/michroma@5.2.8':
     resolution: {integrity: sha512-52Ml9TU/yC5YluqHxXqLK/AVUWbIeI3lCTZcTRnIkvfKHPZ0GSvSFi49ti872oCdo+YAMUk8RIfxVxXa6Cjigw==}
+
+  '@fontsource/noto-sans-sc@5.2.9':
+    resolution: {integrity: sha512-bTUIWGBgJDpwi5qAr+x0/lcgv80IHTB9vl6s2f6EymZEa7qYV99yNRBZuKFT+SYDKVunZrjCEhWtpxqmbXWl5Q==}
 
   '@fontsource/zcool-xiaowei@5.2.8':
     resolution: {integrity: sha512-HppFdc8Y0djYbSpK6FbMFhEaZJwfGE5yIKLN3d5q5V239NQxm3sULJjfbMYyAMKswhG6hNTtXQkt8lOl4OmoLA==}
@@ -1793,6 +1799,8 @@ snapshots:
     optional: true
 
   '@fontsource/michroma@5.2.8': {}
+
+  '@fontsource/noto-sans-sc@5.2.9': {}
 
   '@fontsource/zcool-xiaowei@5.2.8': {}
 
