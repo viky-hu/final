@@ -1231,3 +1231,108 @@ R3F/后处理官方实践（性能与时序管理）：
 弹窗的样式可以采用svg+gsap，线条+画布+时间轴的逻辑————这个逻辑在我的项目的第一窗口（登录）和第三窗口（交互对话、模型配置）都有很成熟的实践，你可以设置线条框架绘制的时间轴，然后待到弹窗框架的四条线绘制完毕后按照我们曾经的成熟代码逻辑动态填充出一个svg画布，画布颜色可以使用F5F5F5，仍然跟readme中对第一窗口、第三窗口曾经的注意点保持一致————即确保svg+gsap的规范使用、明确画布并非div卡片，而是严格按照四条线的矩形为扩张边界，到时候弹窗内的所有内容都放置在这个svg画布中。
 
 五个光标对应五个板块，点击任一板块弹出对应弹窗，对话框需清晰展示对应实体信息。第一个光标弹窗展示实体为故意杀人案，类型为事件，描述为 2020 年 8 月 3 日秭归县发生的故意杀人案；第二个光标弹窗展示实体为郭某某，类型为人物，描述为秭归县 54 岁男性受害者，因纠纷谈判时被唐某杀害；第三个光标弹窗展示实体为谋杀案，类型为事件，描述为镇江持刀伤人案及 2020 年 8 月 27 日上午在三茅宫新村某室内发生的谋杀案。……按照这样的形式你再设计两个，凑齐五个。弹窗需简洁明了、交互流畅。
+
+上面是我们已经完成的，
+接下来我要给你派的任务是：
+
+现在每个弹窗的空间坐标布局我已经精心修改过，不要再改了。
+
+现在我需要你将弹窗重构成一个新的卡片，我有一个卡片样式模板，你可以直接照搬（尽量照搬，不要擅自改动）：
+html：
+ <div class="card">
+      <p class="card-title">Product Name</p>
+      <p class="small-desc">
+        Lorem ipsum dolor sit amet, consectetur adipisicing elit. Quaerat
+        veritatis nobis saepe itaque rerum nostrum aliquid obcaecati odio
+        officia deleniti. Expedita iste et illum, quaerat pariatur consequatur
+        eum nihil itaque!
+      </p>
+      <div class="go-corner">
+        <div class="go-arrow">→</div>
+      </div>
+    </div>
+css：
+.card-title {
+  color: #262626;
+  font-size: 1.5em;
+  line-height: normal;
+  font-weight: 700;
+  margin-bottom: 0.5em;
+}
+
+.small-desc {
+  font-size: 1em;
+  font-weight: 400;
+  line-height: 1.5em;
+  color: #452c2c;
+}
+
+.small-desc {
+  font-size: 1em;
+}
+
+.go-corner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  width: 2em;
+  height: 2em;
+  overflow: hidden;
+  top: 0;
+  right: 0;
+  background: linear-gradient(135deg, #6293c8, #384c6c);
+  border-radius: 0 4px 0 32px;
+}
+
+.go-arrow {
+  margin-top: -4px;
+  margin-right: -4px;
+  color: white;
+  font-family: courier, sans;
+}
+
+.card {
+  display: block;
+  position: relative;
+  max-width: 300px;
+  max-height: 320px;
+  background-color: #f2f8f9;
+  border-radius: 10px;
+  padding: 2em 1.2em;
+  margin: 12px;
+  text-decoration: none;
+  z-index: 0;
+  overflow: hidden;
+  background: linear-gradient(to bottom, #c3e6ec, #a7d1d9);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+.card:before {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: -16px;
+  right: -16px;
+  background: linear-gradient(135deg, #364a60, #384c6c);
+  height: 32px;
+  width: 32px;
+  border-radius: 32px;
+  transform: scale(1);
+  transform-origin: 50% 50%;
+  transition: transform 0.35s ease-out;
+}
+
+.card:hover:before {
+  transform: scale(28);
+}
+
+.card:hover .small-desc {
+  transition: all 0.5s ease-out;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.card:hover .card-title {
+  transition: all 0.5s ease-out;
+  color: #ffffff;
+}

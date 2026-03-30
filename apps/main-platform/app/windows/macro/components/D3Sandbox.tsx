@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef, useCallback, useState, useEffect } from "react";
+import { useMemo, useRef, useCallback, useState, useEffect } from "react";
 import * as d3geo from "d3-geo";
 import { gsap } from "gsap";
 import { useGSAP } from "@gsap/react";
@@ -238,6 +238,9 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
   const currentTimelineRef = useRef<gsap.core.Timeline | null>(null);
   const previousSelectedRef = useRef<string | null>(null);
   const [activePopupNodeId, setActivePopupNodeId] = useState<string | null>(null);
+  const [exitingPopupNodeId, setExitingPopupNodeId] = useState<string | null>(null);
+  const activePopupNodeIdRef = useRef<string | null>(null);
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mapWrapRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const pulseTimelinesRef = useRef<Record<string, gsap.core.Timeline>>({});
@@ -276,12 +279,22 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
   const handleNodeSelect = useCallback((nodeId: string) => {
     if (animationStateRef.current === "entering") return;
     onNodeSelect(nodeId);
+    const prev = activePopupNodeIdRef.current;
+    if (prev !== null && prev !== nodeId) {
+      setExitingPopupNodeId(prev);
+      if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
+      exitTimerRef.current = setTimeout(() => setExitingPopupNodeId(null), 220);
+    }
+    activePopupNodeIdRef.current = nodeId;
     setActivePopupNodeId(nodeId);
   }, [onNodeSelect]);
 
   useEffect(() => {
     if (!visible) {
       setActivePopupNodeId(null);
+      setExitingPopupNodeId(null);
+      activePopupNodeIdRef.current = null;
+      if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
     }
   }, [visible]);
 
@@ -620,8 +633,11 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
               style={{ overflow: "visible" }}
               aria-label="D3 实体信息弹窗"
             >
+              {exitingPopupNodeId && D3_POPUP_SPECS[exitingPopupNodeId] ? (
+                <D3EntityPopup key={`exit-${exitingPopupNodeId}`} spec={D3_POPUP_SPECS[exitingPopupNodeId]} isExiting />
+              ) : null}
               {activePopupNodeId && D3_POPUP_SPECS[activePopupNodeId] ? (
-                <D3EntityPopup spec={D3_POPUP_SPECS[activePopupNodeId]} />
+                <D3EntityPopup key={`enter-${activePopupNodeId}`} spec={D3_POPUP_SPECS[activePopupNodeId]} />
               ) : null}
             </svg>
           </div>
@@ -631,96 +647,17 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
   );
 }
 
-function D3EntityPopup({ spec }: { spec: D3PopupSpec }) {
-  const rootRef = useRef<SVGGElement>(null);
-
-  useLayoutEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-
-    const lines = [
-      root.querySelector<SVGLineElement>(".d3popup-line-top"),
-      root.querySelector<SVGLineElement>(".d3popup-line-right"),
-      root.querySelector<SVGLineElement>(".d3popup-line-bottom"),
-      root.querySelector<SVGLineElement>(".d3popup-line-left"),
-    ].filter((line): line is SVGLineElement => line !== null);
-
-    lines.forEach((line) => {
-      const len = line.getTotalLength();
-      gsap.set(line, { strokeDasharray: len, strokeDashoffset: len });
-    });
-
-    const panel = root.querySelector<SVGRectElement>(".d3popup-panel");
-    const content = root.querySelector<SVGGElement>(".d3popup-content");
-    const deco = root.querySelector<SVGGElement>(".d3popup-deco");
-
-    if (panel) gsap.set(panel, { fillOpacity: 0 });
-    if (content) gsap.set(content, { autoAlpha: 0, y: 9 });
-    if (deco) gsap.set(deco, { autoAlpha: 0 });
-
-    const tl = gsap.timeline();
-    tl.to(lines, {
-      strokeDashoffset: 0,
-      duration: 0.46,
-      stagger: 0.05,
-      ease: "power2.inOut",
-    }, 0);
-
-    if (panel) {
-      tl.to(panel, {
-        fillOpacity: 1,
-        duration: 0.2,
-        ease: "power2.out",
-      }, 0.48);
-    }
-
-    if (deco) {
-      tl.to(deco, {
-        autoAlpha: 1,
-        duration: 0.2,
-        ease: "power2.out",
-      }, 0.56);
-    }
-
-    if (content) {
-      tl.to(content, {
-        autoAlpha: 1,
-        y: 0,
-        duration: 0.28,
-        ease: "power2.out",
-      }, 0.62);
-    }
-
-    return () => {
-      tl.kill();
-    };
-  }, [spec.nodeId]);
-
+function D3EntityPopup({ spec, isExiting }: { spec: D3PopupSpec; isExiting?: boolean }) {
   const { x, y, width, height } = spec.layout;
-  const descWidth = Math.max(120, width - 24);
-  const descHeight = Math.max(64, height - 86);
 
   return (
-    <g ref={rootRef} className="d3popup-root" transform={`translate(${x} ${y})`} aria-hidden="true">
-      <rect className="d3popup-panel" x={0} y={0} width={width} height={height} rx={0} fill="#F5F5F5" />
-
-      <line className="d3popup-line d3popup-line-top" x1={0} y1={0} x2={width} y2={0} />
-      <line className="d3popup-line d3popup-line-right" x1={width} y1={0} x2={width} y2={height} />
-      <line className="d3popup-line d3popup-line-bottom" x1={width} y1={height} x2={0} y2={height} />
-      <line className="d3popup-line d3popup-line-left" x1={0} y1={height} x2={0} y2={0} />
-
-      <g className="d3popup-deco">
-        <line className="d3popup-deco-line" x1={14} y1={18} x2={92} y2={18} />
-        <line className="d3popup-deco-line" x1={14} y1={40} x2={width - 14} y2={40} />
-      </g>
-
-      <g className="d3popup-content">
-        <text x={14} y={30} className="d3popup-title">{spec.payload.entity}</text>
-        <text x={width - 14} y={30} textAnchor="end" className="d3popup-type">{spec.payload.type}</text>
-        <foreignObject x={12} y={48} width={descWidth} height={descHeight}>
-          <div className="d3popup-desc">{spec.payload.description}</div>
-        </foreignObject>
-      </g>
+    <g className="d3popup-root" transform={`translate(${x} ${y})`} aria-hidden="true">
+      <foreignObject x={0} y={0} width={width} height={height} overflow="visible" pointerEvents="auto">
+        <div className={isExiting ? 'card card--exiting' : 'card'}>
+          <p className="card-title">{spec.payload.entity}</p>
+          <p className="small-desc">{spec.payload.description}</p>
+        </div>
+      </foreignObject>
     </g>
   );
 }
