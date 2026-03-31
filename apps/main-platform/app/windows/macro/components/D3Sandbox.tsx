@@ -858,7 +858,6 @@ function D3EntityPopup({ spec, isExiting }: { spec: D3PopupSpec; isExiting?: boo
     <g className="d3popup-root" transform={`translate(${x} ${y})`} aria-hidden="true">
       <foreignObject x={0} y={0} width={width} height={height} overflow="visible" pointerEvents="auto">
         <div className={cardClass}>
-          <span className="card-type-badge">{spec.payload.type}</span>
           <p className="card-title">{spec.payload.entity}</p>
           <p className="small-desc">{spec.payload.description}</p>
         </div>

@@ -552,7 +552,7 @@
 }
 
 .card.card--red::before {
-  background: #e84040;
+  background: #D96868;
 }
 
 .card.card--red:hover::before {
