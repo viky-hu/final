@@ -61,7 +61,8 @@ export const BEACON_PERF_CONFIG: BeaconPerfConfig = {
 };
 
 export const BEACON_NODE_CONFIGS: BeaconNodeConfig[] = [
-  { nodeId: "node-current", anchorOffset: { dx: 0,   dy: -8  } },
+  { nodeId: "node-current",    anchorOffset: { dx: -52, dy: -8  } },
+  { nodeId: "node-center-red", anchorOffset: { dx: 52,  dy: -8  } },
   { nodeId: "node-2",       anchorOffset: { dx: -4,  dy: 4   } },
   { nodeId: "node-3",       anchorOffset: { dx: 6,   dy: -4  } },
   { nodeId: "node-4",       anchorOffset: { dx: -2,  dy: 6   } },

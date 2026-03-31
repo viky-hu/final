@@ -25,6 +25,7 @@ const LAYER_TOP_ACTIVE_Y = -40;
 const LAYER_TOP_ACTIVE_Y_PIN = Math.round(LAYER_TOP_ACTIVE_Y * Math.cos(52 * Math.PI / 180));
 const MIDDLE_LAYER_COUNT = 15;
 const COLOR_TOP_STROKE = "#5aafe0";
+const RED_CENTER_NODE_ID = "node-center-red";
 
 // ── New flat pin geometry ──────────────────────────────────
 const PIN_HEAD_R = 46;
@@ -54,7 +55,10 @@ const NODE_TO_ADCODES = Object.entries(ADCODE_MAP).reduce((acc, [ad, node]) => {
   return acc;
 }, {} as Record<string, number[]>);
 
-const ALL_NODE_IDS = [...new Set(Object.values(ADCODE_MAP))];
+NODE_TO_ADCODES[RED_CENTER_NODE_ID] = [320111];
+
+const ALL_NODE_IDS = [...new Set([...Object.values(ADCODE_MAP), RED_CENTER_NODE_ID])];
+const PLATE_NODE_IDS = [...new Set(Object.values(ADCODE_MAP))];
 
 interface D3SandboxProps {
   visible: boolean;
@@ -71,7 +75,9 @@ interface DistrictItem {
   centroidY: number;
 }
 
-interface BeaconAnchor { nodeId: string; adcode: number; cx: number; cy: number; }
+type PinTheme = "blue" | "red";
+
+interface BeaconAnchor { nodeId: string; adcode: number; cx: number; cy: number; theme: PinTheme; }
 
 interface D3PopupPayload {
   entity: string;
@@ -161,8 +167,78 @@ function LaptopIcon({ cx, cy }: { cx: number; cy: number }) {
   );
 }
 
+function ServerHostIcon({ cx, cy }: { cx: number; cy: number }) {
+  const bodyW = 25;
+  const bodyH = 36;
+  const bodyX = cx - 19;
+  const bodyY = cy - 19;
+  const dbR = 10;
+  const dbCx = cx + 16;
+  const dbCy = cy + 8;
+
+  return (
+    <g style={{ pointerEvents: "none" }}>
+      <path
+        d={`M ${bodyX + 2} ${bodyY + 2} L ${bodyX + bodyW - 3} ${bodyY - 4} L ${bodyX + bodyW - 3} ${bodyY + bodyH - 4} L ${bodyX + 2} ${bodyY + bodyH + 2} Z`}
+        fill="none"
+        stroke="rgba(255,255,255,0.95)"
+        strokeWidth={1.9}
+        strokeLinejoin="round"
+      />
+      <path
+        d={`M ${bodyX + 2} ${bodyY + 2} L ${bodyX - 4} ${bodyY - 1} L ${bodyX - 4} ${bodyY + bodyH + 4} L ${bodyX + 2} ${bodyY + bodyH + 2}`}
+        fill="none"
+        stroke="rgba(255,255,255,0.95)"
+        strokeWidth={1.7}
+        strokeLinejoin="round"
+      />
+      <line
+        x1={bodyX - 4}
+        y1={bodyY - 1}
+        x2={bodyX + bodyW - 3}
+        y2={bodyY - 4}
+        stroke="rgba(255,255,255,0.92)"
+        strokeWidth={1.7}
+      />
+      <line
+        x1={bodyX + 1}
+        y1={bodyY + 20}
+        x2={bodyX + bodyW - 6}
+        y2={bodyY + 26}
+        stroke="rgba(255,255,255,0.84)"
+        strokeWidth={1.6}
+      />
+      <line
+        x1={bodyX + 1}
+        y1={bodyY + 26}
+        x2={bodyX + bodyW - 6}
+        y2={bodyY + 31}
+        stroke="rgba(255,255,255,0.84)"
+        strokeWidth={1.6}
+      />
+      <ellipse cx={dbCx} cy={dbCy} rx={dbR} ry={5.4} fill="none" stroke="rgba(255,255,255,0.95)" strokeWidth={1.7} />
+      <path d={`M ${dbCx - dbR} ${dbCy} L ${dbCx - dbR} ${dbCy + 13}`} fill="none" stroke="rgba(255,255,255,0.95)" strokeWidth={1.7} />
+      <path d={`M ${dbCx + dbR} ${dbCy} L ${dbCx + dbR} ${dbCy + 13}`} fill="none" stroke="rgba(255,255,255,0.95)" strokeWidth={1.7} />
+      <ellipse cx={dbCx} cy={dbCy + 8} rx={dbR} ry={5.4} fill="none" stroke="rgba(255,255,255,0.95)" strokeWidth={1.7} />
+      <ellipse cx={dbCx} cy={dbCy + 13} rx={dbR} ry={5.4} fill="none" stroke="rgba(255,255,255,0.95)" strokeWidth={1.7} />
+    </g>
+  );
+}
+
 // ── New flat map pin (no 3D, no perspective) ───────────────
-function MapPin({ nodeId, cx, cy }: { nodeId: string; cx: number; cy: number }) {
+function MapPin({
+  nodeId,
+  cx,
+  cy,
+  theme,
+  onSelect,
+}: {
+  nodeId: string;
+  cx: number;
+  cy: number;
+  theme: PinTheme;
+  onSelect: (nodeId: string) => void;
+}) {
   const hcx = cx;
   // Head center sits PIN_STEM_H + PIN_HEAD_R above the centroid anchor
   const hcy = cy - PIN_STEM_H - PIN_HEAD_R;
@@ -170,40 +246,55 @@ function MapPin({ nodeId, cx, cy }: { nodeId: string; cx: number; cy: number }) 
   const tailBaseY = hcy + PIN_HEAD_R;           // = cy - PIN_STEM_H
   const tailHalf = PIN_HEAD_R * 0.50;           // ~23 — clean taper
   const tailPath = `M ${cx} ${cy} L ${cx - tailHalf} ${tailBaseY} L ${cx + tailHalf} ${tailBaseY} Z`;
+  const isRed = theme === "red";
+  const tailGradId = isRed ? "pin-tail-grad-red" : "pin-tail-grad";
+  const headGradId = isRed ? "pin-head-grad-red" : "pin-head-grad";
+  const innerGradId = isRed ? "pin-inner-grad-red" : "pin-inner-grad";
+  const ringOuterColor = isRed ? "rgba(255,112,112,0.9)" : "rgba(96,218,255,0.88)";
+  const ringInnerColor = isRed ? "rgba(255,186,186,0.82)" : "rgba(195,248,255,0.80)";
+  const pulseColor = isRed ? "rgba(248,82,82,0.76)" : "rgba(60,196,255,0.70)";
+  const tipColor = isRed ? "rgba(255,142,142,0.96)" : "rgba(140,230,255,0.95)";
 
   return (
-    <g id={`pin-g-${nodeId}`} style={{ pointerEvents: "none" }}>
+    <g
+      id={`pin-g-${nodeId}`}
+      style={{ pointerEvents: "auto", cursor: "pointer" }}
+      onClick={(event) => {
+        event.stopPropagation();
+        onSelect(nodeId);
+      }}
+    >
       {/* Tail pointing to centroid */}
-      <path d={tailPath} fill="url(#pin-tail-grad)" />
+      <path d={tailPath} fill={`url(#${tailGradId})`} />
       {/* Head outer fill */}
-      <circle cx={hcx} cy={hcy} r={PIN_HEAD_R} fill="url(#pin-head-grad)" />
+      <circle cx={hcx} cy={hcy} r={PIN_HEAD_R} fill={`url(#${headGradId})`} />
       {/* Static thin border */}
       <circle cx={hcx} cy={hcy} r={PIN_HEAD_R - 1.5}
         fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth={1.5} />
       {/* Inner circle */}
-      <circle cx={hcx} cy={hcy} r={PIN_INNER_R} fill="url(#pin-inner-grad)" />
-      {/* Laptop icon */}
-      <LaptopIcon cx={hcx} cy={hcy} />
+      <circle cx={hcx} cy={hcy} r={PIN_INNER_R} fill={`url(#${innerGradId})`} />
+      {isRed ? <ServerHostIcon cx={hcx} cy={hcy} /> : <LaptopIcon cx={hcx} cy={hcy} />}
       {/* Active outer highlight ring — opacity animated by GSAP */}
       <circle id={`pin-active-outer-${nodeId}`} cx={hcx} cy={hcy}
         r={PIN_HEAD_R + 4} fill="none"
-        stroke="rgba(96,218,255,0.88)" strokeWidth={2.5} opacity={0} />
+        stroke={ringOuterColor} strokeWidth={2.5} opacity={0} />
       {/* Active inner highlight ring */}
       <circle id={`pin-active-inner-${nodeId}`} cx={hcx} cy={hcy}
         r={PIN_INNER_R + 2.5} fill="none"
-        stroke="rgba(195,248,255,0.80)" strokeWidth={2} opacity={0} />
+        stroke={ringInnerColor} strokeWidth={2} opacity={0} />
       {/* Pulse ring — animated by GSAP */}
       <circle id={`pin-pulse-${nodeId}`} cx={hcx} cy={hcy}
-        r={PIN_HEAD_R + 4} fill="none"
-        stroke="rgba(60,196,255,0.70)" strokeWidth={2} opacity={0} />
+        r={PIN_HEAD_R + 8} fill="none"
+        stroke={pulseColor} strokeWidth={2.4} opacity={0}
+        strokeDasharray="12 8" strokeLinecap="round" />
       {/* Tip dot — sits exactly at centroid anchor */}
-      <circle cx={cx} cy={cy} r={4.5} fill="rgba(140,230,255,0.95)" />
+      <circle cx={cx} cy={cy} r={4.5} fill={tipColor} />
     </g>
   );
 }
 
 // ── Pin layer (always rendered AFTER plates — SVG paint order) ──
-function PinLayer({ anchors }: { anchors: BeaconAnchor[] }) {
+function PinLayer({ anchors, onPinSelect }: { anchors: BeaconAnchor[]; onPinSelect: (nodeId: string) => void }) {
   return (
     <g id="pin-layer">
       <defs>
@@ -221,12 +312,26 @@ function PinLayer({ anchors }: { anchors: BeaconAnchor[] }) {
           <stop offset="55%" stopColor="rgba(22,140,238,0.62)" />
           <stop offset="100%" stopColor="rgba(8,58,192,0.42)" />
         </radialGradient>
+        <linearGradient id="pin-tail-grad-red" x1="50%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%" stopColor="#ff8f8f" stopOpacity="0.96" />
+          <stop offset="100%" stopColor="#c31f1f" stopOpacity="0.95" />
+        </linearGradient>
+        <radialGradient id="pin-head-grad-red" cx="38%" cy="28%" r="68%">
+          <stop offset="0%" stopColor="#ffc5c5" />
+          <stop offset="42%" stopColor="#f35b5b" />
+          <stop offset="100%" stopColor="#9e1313" />
+        </radialGradient>
+        <radialGradient id="pin-inner-grad-red" cx="42%" cy="35%" r="62%">
+          <stop offset="0%" stopColor="rgba(255,238,238,0.9)" />
+          <stop offset="55%" stopColor="rgba(246,98,98,0.62)" />
+          <stop offset="100%" stopColor="rgba(154,16,16,0.42)" />
+        </radialGradient>
       </defs>
-      {anchors.map(({ nodeId, cx, cy }) => {
+      {anchors.map(({ nodeId, cx, cy, theme }) => {
         const cfg = BEACON_NODE_CONFIGS.find((c) => c.nodeId === nodeId);
         const ox = cfg?.anchorOffset.dx ?? 0;
         const oy = cfg?.anchorOffset.dy ?? 0;
-        return <MapPin key={nodeId} nodeId={nodeId} cx={cx + ox} cy={cy + oy} />;
+        return <MapPin key={nodeId} nodeId={nodeId} cx={cx + ox} cy={cy + oy} theme={theme} onSelect={onPinSelect} />;
       })}
     </g>
   );
@@ -270,7 +375,11 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
     for (const d of mapped) {
       if (!seenNodes.has(d.nodeId)) {
         seenNodes.add(d.nodeId);
-        anchors.push({ nodeId: d.nodeId, adcode: d.adcode, cx: d.centroidX, cy: d.centroidY });
+        anchors.push({ nodeId: d.nodeId, adcode: d.adcode, cx: d.centroidX, cy: d.centroidY, theme: "blue" });
+      }
+      if (d.nodeId === "node-current" && !seenNodes.has(RED_CENTER_NODE_ID)) {
+        seenNodes.add(RED_CENTER_NODE_ID);
+        anchors.push({ nodeId: RED_CENTER_NODE_ID, adcode: d.adcode, cx: d.centroidX, cy: d.centroidY, theme: "red" });
       }
     }
     return { districts: mapped, beaconAnchors: anchors };
@@ -303,33 +412,39 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
     pulseTimelinesRef.current[nodeId]?.kill();
     delete pulseTimelinesRef.current[nodeId];
     const el = document.getElementById(`pin-pulse-${nodeId}`);
-    if (el) gsap.set(el, { opacity: 0, attr: { r: PIN_HEAD_R + 4 } });
+    if (el) gsap.set(el, { opacity: 0, attr: { r: PIN_HEAD_R + 8, "stroke-width": 2.4, "stroke-dashoffset": 0 } });
   }
 
   function _startPulse(nodeId: string) {
     _stopPulse(nodeId);
     const el = document.getElementById(`pin-pulse-${nodeId}`);
     if (!el) return;
-    const tl = gsap.timeline({ repeat: -1, delay: 0.25 });
+    const tl = gsap.timeline({ repeat: -1, yoyo: true, delay: 0.2 });
     tl.fromTo(el,
-      { opacity: 0.72, attr: { r: PIN_HEAD_R + 4 } },
-      { opacity: 0, attr: { r: PIN_HEAD_R + 30 }, duration: 1.9, ease: "power2.out" },
+      { opacity: 0.24, attr: { "stroke-width": 2.2, "stroke-dashoffset": 0 } },
+      { opacity: 0.9, attr: { "stroke-width": 3.6, "stroke-dashoffset": -28 }, duration: 0.78, ease: "sine.inOut" },
     );
     pulseTimelinesRef.current[nodeId] = tl;
   }
 
   // ── Immediately set all nodes to their correct state ───────
   function _applyAllStatesImmediate(selectedId: string) {
+    const selectedPlateNodeId = selectedId === RED_CENTER_NODE_ID ? "node-current" : selectedId;
+
     ALL_NODE_IDS.forEach((nodeId) => {
       const isSelected = nodeId === selectedId;
-      const targetY    = isSelected ? LAYER_TOP_ACTIVE_Y     : LAYER_TOP_DEFAULT_Y;
       const pinTargetY = isSelected ? LAYER_TOP_ACTIVE_Y_PIN : LAYER_TOP_DEFAULT_Y;
-      const adcodes = NODE_TO_ADCODES[nodeId] || [];
 
       const pinEl = document.getElementById(`pin-g-${nodeId}`);
       if (pinEl) gsap.set(pinEl, { y: pinTargetY });
       gsap.set(`#pin-active-outer-${nodeId}`, { opacity: isSelected ? 1 : 0 });
       gsap.set(`#pin-active-inner-${nodeId}`, { opacity: isSelected ? 1 : 0 });
+    });
+
+    PLATE_NODE_IDS.forEach((nodeId) => {
+      const isSelected = nodeId === selectedPlateNodeId;
+      const targetY    = isSelected ? LAYER_TOP_ACTIVE_Y : LAYER_TOP_DEFAULT_Y;
+      const adcodes = NODE_TO_ADCODES[nodeId] || [];
 
       adcodes.forEach((adcode) => {
         gsap.set(`#d3-top-${adcode}`, { y: targetY });
@@ -424,10 +539,8 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
     // Animate ALL nodes to their target states simultaneously (position 0)
     ALL_NODE_IDS.forEach((nodeId) => {
       const isSelected = nodeId === selectedNodeId;
-      const targetY    = isSelected ? LAYER_TOP_ACTIVE_Y     : LAYER_TOP_DEFAULT_Y;
       const pinTargetY = isSelected ? LAYER_TOP_ACTIVE_Y_PIN : LAYER_TOP_DEFAULT_Y;
       const ease = isSelected ? "back.out(1.1)" : "power3.inOut";
-      const adcodes = NODE_TO_ADCODES[nodeId] || [];
 
       // Pin group y + opacity
       switchTl.to(`#pin-g-${nodeId}`,
@@ -438,6 +551,14 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
         { opacity: isSelected ? 1 : 0, duration: SWITCH_DURATION * 0.65 }, 0);
       switchTl.to(`#pin-active-inner-${nodeId}`,
         { opacity: isSelected ? 1 : 0, duration: SWITCH_DURATION * 0.65 }, 0);
+    });
+
+    const selectedPlateNodeId = selectedNodeId === RED_CENTER_NODE_ID ? "node-current" : selectedNodeId;
+    PLATE_NODE_IDS.forEach((nodeId) => {
+      const isSelected = nodeId === selectedPlateNodeId;
+      const targetY    = isSelected ? LAYER_TOP_ACTIVE_Y : LAYER_TOP_DEFAULT_Y;
+      const ease = isSelected ? "back.out(1.1)" : "power3.inOut";
+      const adcodes = NODE_TO_ADCODES[nodeId] || [];
 
       // Plates
       adcodes.forEach((adcode) => {
@@ -600,7 +721,7 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
               zIndex: 30,
               transform: "translateZ(40px) rotateZ(15deg) rotateX(-52deg)",
               transformOrigin: "50% 50%",
-              pointerEvents: "none",
+              pointerEvents: "auto",
               willChange: "transform",
             }}
           >
@@ -610,7 +731,7 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
               height="100%"
               style={{ overflow: "visible" }}
             >
-              <PinLayer anchors={beaconAnchors} />
+              <PinLayer anchors={beaconAnchors} onPinSelect={handleNodeSelect} />
             </svg>
           </div>
 
