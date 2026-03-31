@@ -383,6 +383,8 @@ export function D3Sandbox({ visible, activeSectorId, selectedNodeId, onSectorCha
   const animationStateRef = useRef<"entering" | "ready">("entering");
   const currentTimelineRef = useRef<gsap.core.Timeline | null>(null);
   const previousSectorRef = useRef<string | null>(null);
+  const selectedNodeIdRef = useRef<string | null>(selectedNodeId);
+  const pendingPopupNodeIdRef = useRef<string | null>(null);
   const [activePopupNodeId, setActivePopupNodeId] = useState<string | null>(null);
   const [exitingPopupNodeId, setExitingPopupNodeId] = useState<string | null>(null);
   const activePopupNodeIdRef = useRef<string | null>(null);
@@ -428,6 +430,10 @@ export function D3Sandbox({ visible, activeSectorId, selectedNodeId, onSectorCha
 
   const activeNodeIds = useMemo(() => new Set(SECTOR_NODES[activeSectorId] ?? []), [activeSectorId]);
 
+  useEffect(() => {
+    selectedNodeIdRef.current = selectedNodeId;
+  }, [selectedNodeId]);
+
   // ── Plate click: switch sector (clears node selection via parent) ─
   const handlePlateClick = useCallback((plateNodeId: string) => {
     if (animationStateRef.current === "entering") return;
@@ -440,9 +446,7 @@ export function D3Sandbox({ visible, activeSectorId, selectedNodeId, onSectorCha
     onNodeSelect(nodeId);
   }, [onNodeSelect]);
 
-  // ── Sync selectedNodeId → popup state ──────────────────────
-  useEffect(() => {
-    const newNodeId = selectedNodeId;
+  const applyPopupNode = useCallback((newNodeId: string | null) => {
     const prev = activePopupNodeIdRef.current;
     if (prev !== null && prev !== newNodeId) {
       setExitingPopupNodeId(prev);
@@ -451,13 +455,23 @@ export function D3Sandbox({ visible, activeSectorId, selectedNodeId, onSectorCha
     }
     activePopupNodeIdRef.current = newNodeId;
     setActivePopupNodeId(newNodeId);
-  }, [selectedNodeId]);
+  }, []);
+
+  // ── Sync selectedNodeId → popup state ──────────────────────
+  useEffect(() => {
+    if (animationStateRef.current === "entering") {
+      pendingPopupNodeIdRef.current = selectedNodeId;
+      return;
+    }
+    applyPopupNode(selectedNodeId);
+  }, [selectedNodeId, applyPopupNode]);
 
   useEffect(() => {
     if (!visible) {
       setActivePopupNodeId(null);
       setExitingPopupNodeId(null);
       activePopupNodeIdRef.current = null;
+      pendingPopupNodeIdRef.current = null;
       if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
     }
   }, [visible]);
@@ -548,6 +562,39 @@ export function D3Sandbox({ visible, activeSectorId, selectedNodeId, onSectorCha
     masterTl.call(() => {
       animationStateRef.current = "ready";
       previousSectorRef.current = activeSectorId;
+
+      const latestSelectedNodeId = selectedNodeIdRef.current;
+      if (latestSelectedNodeId && activeSectorNodes.includes(latestSelectedNodeId)) {
+        const startupSelectTl = gsap.timeline({
+          onComplete: () => {
+            _startPulse(latestSelectedNodeId);
+            applyPopupNode(latestSelectedNodeId);
+            pendingPopupNodeIdRef.current = null;
+          },
+        });
+
+        activeSectorNodes.forEach((nodeId) => {
+          const isSelected = nodeId === latestSelectedNodeId;
+          startupSelectTl.to(`#pin-g-${nodeId}`, {
+            y: isSelected ? LAYER_TOP_ACTIVE_Y_PIN : LAYER_TOP_DEFAULT_Y,
+            opacity: isSelected ? 1 : 0.45,
+            duration: isSelected ? 0.55 : 0.4,
+            ease: isSelected ? "back.out(1.15)" : "power2.out",
+          }, 0);
+          startupSelectTl.to(`#pin-active-outer-${nodeId}`, {
+            opacity: isSelected ? 1 : 0,
+            duration: 0.35,
+            ease: "power2.out",
+          }, 0.08);
+          startupSelectTl.to(`#pin-active-inner-${nodeId}`, {
+            opacity: isSelected ? 1 : 0,
+            duration: 0.35,
+            ease: "power2.out",
+          }, 0.12);
+        });
+      } else if (pendingPopupNodeIdRef.current === null) {
+        applyPopupNode(null);
+      }
     }, [], "steady");
 
     return () => {

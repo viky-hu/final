@@ -27,6 +27,8 @@ const Y_MID = VH / 2;             // 450  – p3 / p4
 
 /* ─── 菜单展开时画面整体水平偏移目标（与 Window 3 一致） ─── */
 const MENU_SHIFT_PX = 0.15 * VW; // 216
+const DEFAULT_INITIAL_NODE_ID = "node-center-red";
+const INITIAL_AUTO_SELECT_DELAY_MS = 980;
 
 interface MacroWindowProps {
   onBack?: () => void;
@@ -49,6 +51,7 @@ export function MacroWindow({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
     defaultSelectedNodeId ?? null,
   );
+  const autoSelectedRef = useRef(false);
 
   const handleSectorChange = useCallback((sectorId: string) => {
     setActiveSectorId(sectorId);
@@ -58,6 +61,21 @@ export function MacroWindow({
   const handleNodeSelect = useCallback((nodeId: string) => {
     setSelectedNodeId(nodeId);
   }, []);
+
+  useEffect(() => {
+    if (!d1Visible) return;
+    if (autoSelectedRef.current) return;
+    if (defaultSelectedNodeId) return;
+
+    const timer = window.setTimeout(() => {
+      autoSelectedRef.current = true;
+      setSelectedNodeId(DEFAULT_INITIAL_NODE_ID);
+    }, INITIAL_AUTO_SELECT_DELAY_MS);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [d1Visible, defaultSelectedNodeId]);
 
   // 菜单联动补间
   const menuTweenRef = useRef<gsap.core.Tween | null>(null);
