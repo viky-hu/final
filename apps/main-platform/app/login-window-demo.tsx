@@ -73,5 +73,5 @@ export function LoginWindowDemo() {
     return <ProductIntroWindow onBack={handleBackToLogin} onShoot={handleShoot} />;
   }
 
-  return <LoginIntroWindow key={loginRenderKey} onSignIn={handleOpenProduct} />;
+  return <LoginIntroWindow key={loginRenderKey} onSignIn={handleOpenMacro} />;
 }

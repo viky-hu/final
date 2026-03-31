@@ -229,9 +229,9 @@ export function MacroWindow({
   /* ─── 菜单配置 ─────────────────────────────────────────── */
   const menuItems: StaggeredMenuItem[] = [
     { label: "返回初始界面", ariaLabel: "返回初始界面", link: "#", onClick: onBack },
-    { label: "交互对话",     ariaLabel: "交互对话",     link: "#", onClick: onNavigateToMain },
-    { label: "数据库",       ariaLabel: "数据库",       link: "#", onClick: onOpenDatabase },
     { label: "宏观平台",     ariaLabel: "宏观平台",     link: "#" },
+    { label: "数据库",       ariaLabel: "数据库",       link: "#", onClick: onOpenDatabase },
+    { label: "交互对话",     ariaLabel: "交互对话",     link: "#", onClick: onNavigateToMain },
   ];
 
   return (

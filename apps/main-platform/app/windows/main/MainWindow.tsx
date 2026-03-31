@@ -35,9 +35,10 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
       onClick: onBack,
     },
     {
-      label: "交互对话",
-      ariaLabel: "交互对话",
+      label: "宏观平台",
+      ariaLabel: "宏观平台",
       link: "#",
+      onClick: onOpenMacro,
     },
     {
       label: "数据库",
@@ -46,10 +47,9 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
       onClick: onOpenDatabase,
     },
     {
-      label: "宏观平台",
-      ariaLabel: "宏观平台",
+      label: "交互对话",
+      ariaLabel: "交互对话",
       link: "#",
-      onClick: onOpenMacro,
     },
   ];
 
@@ -58,8 +58,8 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
       {/* DotGrid: z-index 0, full-screen background */}
       <div className="main-window-dotgrid-bg">
         <DotGrid
-          dotSize={4}
-          gap={20}
+          dotSize={2}
+          gap={12}
           baseColor="#6b6b6b"
           activeColor="#27FF64"
           proximity={150}
@@ -98,8 +98,8 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
           position="right"
           items={menuItems}
           displayItemNumbering={true}
-          menuButtonColor="#fff"
-          openMenuButtonColor="#fff"
+          menuButtonColor="#111111"
+          openMenuButtonColor="#111111"
           changeMenuColorOnOpen={true}
           colors={["#9EF2B2", "#27FF64"]}
           accentColor="#27FF64"
