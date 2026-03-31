@@ -105,7 +105,7 @@ interface D3PopupSpec {
 const D3_POPUP_SPECS: Record<string, D3PopupSpec> = {
   "node-current": {
     nodeId: "node-current",
-    layout: { x: 15, y: 50, width: 318, height: 260 },
+    layout: { x: 400, y: 50, width: 318, height: 260 },
     payload: {
       entity: "节点一 · SECTOR-01",
       type: "静态知识主库",
@@ -115,7 +115,7 @@ const D3_POPUP_SPECS: Record<string, D3PopupSpec> = {
   },
   "node-2": {
     nodeId: "node-2",
-    layout: { x: 340, y: 700, width: 318, height: 260 },
+    layout: { x: 440, y: 60, width: 318, height: 260 },
     payload: {
       entity: "节点二 · SECTOR-02",
       type: "实战动态库",
@@ -156,10 +156,10 @@ const D3_POPUP_SPECS: Record<string, D3PopupSpec> = {
   "node-center-red": {
     nodeId: "node-center-red",
     isRed: true,
-    layout: { x: 15, y: 340, width: 318, height: 260 },
+    layout: { x: 450, y: 70, width: 318, height: 260 },
     payload: {
-      entity: "核心节点 · 高权限",
-      type: "综合管控主节点",
+      entity: "中心节点",
+      type: "当前服务器节点",
       description:
         "高权限综合管控节点，静态知识与动态实战档案深度融合，汇聚全网节点核心数据，整合加密传输通道与审计日志体系，统筹权限管控与节点互联，是整体数据体系的枢纽与指挥核心。",
     },
