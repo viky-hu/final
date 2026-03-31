@@ -135,7 +135,7 @@ const D3_POPUP_SPECS: Record<string, D3PopupSpec> = {
   },
   "node-4": {
     nodeId: "node-4",
-    layout: { x: 240, y: 55, width: 318, height: 260 },
+    layout: { x: 200, y: 55, width: 318, height: 260 },
     payload: {
       entity: "节点四 · SECTOR-04",
       type: "研判分析库",
@@ -145,7 +145,7 @@ const D3_POPUP_SPECS: Record<string, D3PopupSpec> = {
   },
   "node-5": {
     nodeId: "node-5",
-    layout: { x: 480, y: 700, width: 318, height: 260 },
+    layout: { x: 350, y: 45, width: 318, height: 260 },
     payload: {
       entity: "节点五 · SECTOR-05",
       type: "协作共享库",
@@ -251,12 +251,14 @@ function MapPin({
   cx,
   cy,
   theme,
+  interactive,
   onSelect,
 }: {
   nodeId: string;
   cx: number;
   cy: number;
   theme: PinTheme;
+  interactive: boolean;
   onSelect: (nodeId: string) => void;
 }) {
   const hcx = cx;
@@ -278,8 +280,9 @@ function MapPin({
   return (
     <g
       id={`pin-g-${nodeId}`}
-      style={{ pointerEvents: "auto", cursor: "pointer" }}
+      style={{ pointerEvents: interactive ? "auto" : "none", cursor: interactive ? "pointer" : "default" }}
       onClick={(event) => {
+        if (!interactive) return;
         event.stopPropagation();
         onSelect(nodeId);
       }}
@@ -314,7 +317,15 @@ function MapPin({
 }
 
 // ── Pin layer (always rendered AFTER plates — SVG paint order) ──
-function PinLayer({ anchors, onPinSelect }: { anchors: BeaconAnchor[]; onPinSelect: (nodeId: string) => void }) {
+function PinLayer({
+  anchors,
+  activeNodeIds,
+  onPinSelect,
+}: {
+  anchors: BeaconAnchor[];
+  activeNodeIds: Set<string>;
+  onPinSelect: (nodeId: string) => void;
+}) {
   return (
     <g id="pin-layer">
       <defs>
@@ -351,7 +362,17 @@ function PinLayer({ anchors, onPinSelect }: { anchors: BeaconAnchor[]; onPinSele
         const cfg = BEACON_NODE_CONFIGS.find((c) => c.nodeId === nodeId);
         const ox = cfg?.anchorOffset.dx ?? 0;
         const oy = cfg?.anchorOffset.dy ?? 0;
-        return <MapPin key={nodeId} nodeId={nodeId} cx={cx + ox} cy={cy + oy} theme={theme} onSelect={onPinSelect} />;
+        return (
+          <MapPin
+            key={nodeId}
+            nodeId={nodeId}
+            cx={cx + ox}
+            cy={cy + oy}
+            theme={theme}
+            interactive={activeNodeIds.has(nodeId)}
+            onSelect={onPinSelect}
+          />
+        );
       })}
     </g>
   );
@@ -404,6 +425,8 @@ export function D3Sandbox({ visible, activeSectorId, selectedNodeId, onSectorCha
     }
     return { districts: mapped, beaconAnchors: anchors };
   }, []);
+
+  const activeNodeIds = useMemo(() => new Set(SECTOR_NODES[activeSectorId] ?? []), [activeSectorId]);
 
   // ── Plate click: switch sector (clears node selection via parent) ─
   const handlePlateClick = useCallback((plateNodeId: string) => {
@@ -467,6 +490,7 @@ export function D3Sandbox({ visible, activeSectorId, selectedNodeId, onSectorCha
       const adcodes  = NODE_TO_ADCODES[nodeId] || [];
       adcodes.forEach((adcode) => {
         gsap.set(`#d3-top-${adcode}`, { y: targetY });
+        gsap.set(`#d3-hit-${adcode}`, { y: targetY });
         Array.from({ length: MIDDLE_LAYER_COUNT }, (_, i) => {
           const defaultY = LAYER_TOP_DEFAULT_Y + (i / (MIDDLE_LAYER_COUNT - 1)) * (LAYER_BOTTOM_Y - LAYER_TOP_DEFAULT_Y);
           const stretchY = targetY + (i / (MIDDLE_LAYER_COUNT - 1)) * (LAYER_BOTTOM_Y - targetY);
@@ -573,6 +597,7 @@ export function D3Sandbox({ visible, activeSectorId, selectedNodeId, onSectorCha
       const adcodes  = NODE_TO_ADCODES[nodeId] || [];
       adcodes.forEach((adcode) => {
         switchTl.to(`#d3-top-${adcode}`, { y: targetY, duration: SWITCH_DURATION, ease }, 0.1);
+        switchTl.to(`#d3-hit-${adcode}`, { y: targetY, duration: SWITCH_DURATION, ease }, 0.1);
         Array.from({ length: MIDDLE_LAYER_COUNT }, (_, i) => {
           const defaultY = LAYER_TOP_DEFAULT_Y + (i / (MIDDLE_LAYER_COUNT - 1)) * (LAYER_BOTTOM_Y - LAYER_TOP_DEFAULT_Y);
           const stretchY = targetY + (i / (MIDDLE_LAYER_COUNT - 1)) * (LAYER_BOTTOM_Y - targetY);
@@ -718,6 +743,13 @@ export function D3Sandbox({ visible, activeSectorId, selectedNodeId, onSectorCha
                   onClick={() => handlePlateClick(district.nodeId)}
                 >
                   <path
+                    id={`d3-hit-${district.adcode}`}
+                    d={district.pathD}
+                    fill="rgba(0, 0, 0, 0.001)"
+                    stroke="none"
+                    transform={`translate(0, ${LAYER_TOP_DEFAULT_Y})`}
+                  />
+                  <path
                     d={district.pathD}
                     fill="#c2d8ec"
                     stroke="none"
@@ -768,7 +800,7 @@ export function D3Sandbox({ visible, activeSectorId, selectedNodeId, onSectorCha
               zIndex: 30,
               transform: "translateZ(40px) rotateZ(15deg) rotateX(-52deg)",
               transformOrigin: "50% 50%",
-              pointerEvents: "auto",
+              pointerEvents: "none",
               willChange: "transform",
             }}
           >
@@ -776,9 +808,9 @@ export function D3Sandbox({ visible, activeSectorId, selectedNodeId, onSectorCha
               viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
               width="100%"
               height="100%"
-              style={{ overflow: "visible" }}
+              style={{ overflow: "visible", pointerEvents: "none" }}
             >
-              <PinLayer anchors={beaconAnchors} onPinSelect={handlePinClick} />
+              <PinLayer anchors={beaconAnchors} activeNodeIds={activeNodeIds} onPinSelect={handlePinClick} />
             </svg>
           </div>
 
