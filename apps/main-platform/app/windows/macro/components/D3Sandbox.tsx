@@ -10,6 +10,7 @@ import {
   BEACON_NODE_CONFIGS,
   BEACON_PERF_CONFIG,
   MACRO_NODES,
+  SECTOR_NODES,
 } from "../macroData";
 
 gsap.registerPlugin(useGSAP);
@@ -62,7 +63,9 @@ const PLATE_NODE_IDS = [...new Set(Object.values(ADCODE_MAP))];
 
 interface D3SandboxProps {
   visible: boolean;
-  selectedNodeId: string;
+  activeSectorId: string;
+  selectedNodeId: string | null;
+  onSectorChange: (sectorId: string) => void;
   onNodeSelect: (nodeId: string) => void;
 }
 
@@ -94,6 +97,7 @@ interface D3PopupLayout {
 
 interface D3PopupSpec {
   nodeId: string;
+  isRed?: boolean;
   payload: D3PopupPayload;
   layout: D3PopupLayout;
 }
@@ -101,47 +105,63 @@ interface D3PopupSpec {
 const D3_POPUP_SPECS: Record<string, D3PopupSpec> = {
   "node-current": {
     nodeId: "node-current",
-    layout: { x: 15, y: 50, width: 312, height: 204 },
+    layout: { x: 15, y: 50, width: 318, height: 260 },
     payload: {
-      entity: "故意杀人案",
-      type: "事件",
-      description: "2020 年 8 月 3 日秭归县发生的故意杀人案。",
+      entity: "节点一 · SECTOR-01",
+      type: "静态知识主库",
+      description:
+        "以公安领域静态知识为核心，涵盖各警种专业指导书籍、现行法律条文及官方释义、标准化警务规范，配套存储基础案件卷宗与警务通报等简易动态资料，贴合基础警务工作与专业研究需求。",
     },
   },
   "node-2": {
     nodeId: "node-2",
-    layout: { x: 350, y: 740, width: 316, height: 210 },
+    layout: { x: 340, y: 700, width: 318, height: 260 },
     payload: {
-      entity: "郭某某",
-      type: "人物",
-      description: "秭归县 54 岁男性受害者，因纠纷谈判时被唐某杀害。",
+      entity: "节点二 · SECTOR-02",
+      type: "实战动态库",
+      description:
+        "聚焦公安实战动态数据，核心为警务实战过程中形成的动态资料，包含案件询问笔录、完整卷宗档案、警情原始通报，同步留存现场图像等多模态实战数据，配套法律适用细则与处置规范。",
     },
   },
   "node-3": {
     nodeId: "node-3",
-    layout: { x: 468, y: 50, width: 316, height: 220 },
+    layout: { x: 460, y: 50, width: 318, height: 260 },
     payload: {
-      entity: "谋杀案",
-      type: "事件",
-      description: "镇江持刀伤人案及 2020 年 8 月 27 日上午在三茅宫新村某室内发生的谋杀案。",
+      entity: "节点三 · SECTOR-03",
+      type: "综合融合库",
+      description:
+        "综合型公安数据节点，静态知识与动态实战资料均衡覆盖，静态侧收录跨领域融合类知识与研究成果，动态侧汇聚复杂案件全流程档案，兼顾研究参考与实战支撑双重需求。",
     },
   },
   "node-4": {
     nodeId: "node-4",
-    layout: { x: 250, y: 55, width: 314, height: 214 },
+    layout: { x: 240, y: 55, width: 318, height: 260 },
     payload: {
-      entity: "唐某",
-      type: "人物",
-      description: "涉案嫌疑人，因纠纷升级实施暴力行为并致人死亡。",
+      entity: "节点四 · SECTOR-04",
+      type: "研判分析库",
+      description:
+        "专注情报研判与关联分析，存储跨案件关系网络、人员身份档案及行为轨迹数据，整合多源情报形成知识图谱，支撑专项行动方案生成与风险预警研判，为指挥决策提供数据支持。",
     },
   },
   "node-5": {
     nodeId: "node-5",
-    layout: { x: 500, y: 710, width: 322, height: 206 },
+    layout: { x: 480, y: 700, width: 318, height: 260 },
     payload: {
-      entity: "三茅宫新村某室",
-      type: "地点",
-      description: "2020 年 8 月 27 日案发室内场所，系重点勘验点位。",
+      entity: "节点五 · SECTOR-05",
+      type: "协作共享库",
+      description:
+        "跨部门协作数据共享节点，汇聚各警种协作办案记录与联合部署方案，存储跨区域案件协查资料、信息互通通报及联勤联动数据，确保多方协同作战的信息一致性与实时同步。",
+    },
+  },
+  "node-center-red": {
+    nodeId: "node-center-red",
+    isRed: true,
+    layout: { x: 15, y: 340, width: 318, height: 260 },
+    payload: {
+      entity: "核心节点 · 高权限",
+      type: "综合管控主节点",
+      description:
+        "高权限综合管控节点，静态知识与动态实战档案深度融合，汇聚全网节点核心数据，整合加密传输通道与审计日志体系，统筹权限管控与节点互联，是整体数据体系的枢纽与指挥核心。",
     },
   },
 };
@@ -338,10 +358,10 @@ function PinLayer({ anchors, onPinSelect }: { anchors: BeaconAnchor[]; onPinSele
 }
 
 // ── Main component ──────────────────────────────────────────
-export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxProps) {
+export function D3Sandbox({ visible, activeSectorId, selectedNodeId, onSectorChange, onNodeSelect }: D3SandboxProps) {
   const animationStateRef = useRef<"entering" | "ready">("entering");
   const currentTimelineRef = useRef<gsap.core.Timeline | null>(null);
-  const previousSelectedRef = useRef<string | null>(null);
+  const previousSectorRef = useRef<string | null>(null);
   const [activePopupNodeId, setActivePopupNodeId] = useState<string | null>(null);
   const [exitingPopupNodeId, setExitingPopupNodeId] = useState<string | null>(null);
   const activePopupNodeIdRef = useRef<string | null>(null);
@@ -385,18 +405,30 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
     return { districts: mapped, beaconAnchors: anchors };
   }, []);
 
-  const handleNodeSelect = useCallback((nodeId: string) => {
+  // ── Plate click: switch sector (clears node selection via parent) ─
+  const handlePlateClick = useCallback((plateNodeId: string) => {
+    if (animationStateRef.current === "entering") return;
+    onSectorChange(plateNodeId);
+  }, [onSectorChange]);
+
+  // ── Pin click: select specific node + open popup ────────────
+  const handlePinClick = useCallback((nodeId: string) => {
     if (animationStateRef.current === "entering") return;
     onNodeSelect(nodeId);
+  }, [onNodeSelect]);
+
+  // ── Sync selectedNodeId → popup state ──────────────────────
+  useEffect(() => {
+    const newNodeId = selectedNodeId;
     const prev = activePopupNodeIdRef.current;
-    if (prev !== null && prev !== nodeId) {
+    if (prev !== null && prev !== newNodeId) {
       setExitingPopupNodeId(prev);
       if (exitTimerRef.current) clearTimeout(exitTimerRef.current);
       exitTimerRef.current = setTimeout(() => setExitingPopupNodeId(null), 220);
     }
-    activePopupNodeIdRef.current = nodeId;
-    setActivePopupNodeId(nodeId);
-  }, [onNodeSelect]);
+    activePopupNodeIdRef.current = newNodeId;
+    setActivePopupNodeId(newNodeId);
+  }, [selectedNodeId]);
 
   useEffect(() => {
     if (!visible) {
@@ -427,31 +459,18 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
     pulseTimelinesRef.current[nodeId] = tl;
   }
 
-  // ── Immediately set all nodes to their correct state ───────
-  function _applyAllStatesImmediate(selectedId: string) {
-    const selectedPlateNodeId = selectedId === RED_CENTER_NODE_ID ? "node-current" : selectedId;
-
-    ALL_NODE_IDS.forEach((nodeId) => {
-      const isSelected = nodeId === selectedId;
-      const pinTargetY = isSelected ? LAYER_TOP_ACTIVE_Y_PIN : LAYER_TOP_DEFAULT_Y;
-
-      const pinEl = document.getElementById(`pin-g-${nodeId}`);
-      if (pinEl) gsap.set(pinEl, { y: pinTargetY });
-      gsap.set(`#pin-active-outer-${nodeId}`, { opacity: isSelected ? 1 : 0 });
-      gsap.set(`#pin-active-inner-${nodeId}`, { opacity: isSelected ? 1 : 0 });
-    });
-
+  // ── Set plate positions for a given sectorId (immediate) ────
+  function _applyPlatesImmediate(sectorId: string) {
     PLATE_NODE_IDS.forEach((nodeId) => {
-      const isSelected = nodeId === selectedPlateNodeId;
-      const targetY    = isSelected ? LAYER_TOP_ACTIVE_Y : LAYER_TOP_DEFAULT_Y;
-      const adcodes = NODE_TO_ADCODES[nodeId] || [];
-
+      const isActive = nodeId === sectorId;
+      const targetY  = isActive ? LAYER_TOP_ACTIVE_Y : LAYER_TOP_DEFAULT_Y;
+      const adcodes  = NODE_TO_ADCODES[nodeId] || [];
       adcodes.forEach((adcode) => {
         gsap.set(`#d3-top-${adcode}`, { y: targetY });
         Array.from({ length: MIDDLE_LAYER_COUNT }, (_, i) => {
           const defaultY = LAYER_TOP_DEFAULT_Y + (i / (MIDDLE_LAYER_COUNT - 1)) * (LAYER_BOTTOM_Y - LAYER_TOP_DEFAULT_Y);
           const stretchY = targetY + (i / (MIDDLE_LAYER_COUNT - 1)) * (LAYER_BOTTOM_Y - targetY);
-          gsap.set(`#d3-mid-${adcode}-${i}`, { y: isSelected ? stretchY : defaultY });
+          gsap.set(`#d3-mid-${adcode}-${i}`, { y: isActive ? stretchY : defaultY });
         });
       });
     });
@@ -462,6 +481,7 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
     if (!visible) return;
     animationStateRef.current = "entering";
 
+    // All pins start hidden
     ALL_NODE_IDS.forEach((nodeId) => {
       const el = document.getElementById(`pin-g-${nodeId}`);
       if (el) gsap.set(el, { y: LAYER_TOP_DEFAULT_Y, opacity: 0 });
@@ -487,33 +507,23 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
       );
     }
 
-    // Set plate positions while canvas is appearing
-    masterTl.call(() => { _applyAllStatesImmediate(selectedNodeId); }, [], "canvasReady+=0.45");
+    // Apply plate states while canvas appears
+    masterTl.call(() => { _applyPlatesImmediate(activeSectorId); }, [], "canvasReady+=0.45");
 
-    // Stagger pins in
+    // Stagger in only the active sector's nodes
+    const activeSectorNodes = SECTOR_NODES[activeSectorId] ?? [];
     masterTl.addLabel("pinsIn", "canvasReady+=0.55");
-    beaconAnchors.forEach(({ nodeId }, i) => {
-      const isSelected = nodeId === selectedNodeId;
-      const pinTargetY = isSelected ? LAYER_TOP_ACTIVE_Y_PIN : LAYER_TOP_DEFAULT_Y;
+    activeSectorNodes.forEach((nodeId, i) => {
       masterTl.to(`#pin-g-${nodeId}`,
-        {
-          y: pinTargetY,
-          opacity: isSelected ? 1 : 0.82,
-          duration: isSelected ? 0.65 : 0.5,
-          ease: isSelected ? "back.out(1.1)" : "power2.out",
-        },
+        { y: LAYER_TOP_DEFAULT_Y, opacity: 0.82, duration: 0.5, ease: "power2.out" },
         `pinsIn+=${i * BEACON_PERF_CONFIG.staggerDelay}`,
       );
     });
 
-    masterTl.to(`#pin-active-outer-${selectedNodeId}`, { opacity: 1, duration: 0.45 }, "pinsIn+=0.5");
-    masterTl.to(`#pin-active-inner-${selectedNodeId}`, { opacity: 1, duration: 0.45 }, "pinsIn+=0.5");
-
-    masterTl.addLabel("steady", "pinsIn+=1.1");
+    masterTl.addLabel("steady", "pinsIn+=0.9");
     masterTl.call(() => {
       animationStateRef.current = "ready";
-      previousSelectedRef.current = selectedNodeId;
-      _startPulse(selectedNodeId);
+      previousSectorRef.current = activeSectorId;
     }, [], "steady");
 
     return () => {
@@ -522,72 +532,109 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
     };
   }, { dependencies: [visible] });
 
-  // ── Switch timeline ────────────────────────────────────────
+  // ── Sector switch timeline ─────────────────────────────────
   useGSAP(() => {
     if (!visible || animationStateRef.current === "entering") return;
-    if (previousSelectedRef.current === selectedNodeId) return;
+    if (previousSectorRef.current === activeSectorId) return;
+
+    const prevSector = previousSectorRef.current;
+    previousSectorRef.current = activeSectorId;
 
     currentTimelineRef.current?.kill();
     Object.values(pulseTimelinesRef.current).forEach((tl) => tl.kill());
     pulseTimelinesRef.current = {};
 
-    const switchTl = gsap.timeline({
-      onComplete: () => { _startPulse(selectedNodeId); },
-    });
+    const switchTl = gsap.timeline();
     currentTimelineRef.current = switchTl;
 
-    // Animate ALL nodes to their target states simultaneously (position 0)
+    // Fade out old sector's nodes
+    if (prevSector) {
+      const oldNodes = SECTOR_NODES[prevSector] ?? [];
+      oldNodes.forEach((nodeId, i) => {
+        switchTl.to(`#pin-g-${nodeId}`,
+          { opacity: 0, y: LAYER_TOP_DEFAULT_Y + 10, duration: 0.3, ease: "power3.in" },
+          i * 0.06,
+        );
+      });
+    }
+
+    // Clear all highlight rings
     ALL_NODE_IDS.forEach((nodeId) => {
-      const isSelected = nodeId === selectedNodeId;
-      const pinTargetY = isSelected ? LAYER_TOP_ACTIVE_Y_PIN : LAYER_TOP_DEFAULT_Y;
-      const ease = isSelected ? "back.out(1.1)" : "power3.inOut";
-
-      // Pin group y + opacity
-      switchTl.to(`#pin-g-${nodeId}`,
-        { y: pinTargetY, opacity: isSelected ? 1 : 0.82, duration: SWITCH_DURATION, ease }, 0);
-
-      // Highlight rings
-      switchTl.to(`#pin-active-outer-${nodeId}`,
-        { opacity: isSelected ? 1 : 0, duration: SWITCH_DURATION * 0.65 }, 0);
-      switchTl.to(`#pin-active-inner-${nodeId}`,
-        { opacity: isSelected ? 1 : 0, duration: SWITCH_DURATION * 0.65 }, 0);
+      switchTl.to(`#pin-active-outer-${nodeId}`, { opacity: 0, duration: 0.2 }, 0);
+      switchTl.to(`#pin-active-inner-${nodeId}`, { opacity: 0, duration: 0.2 }, 0);
+      _stopPulse(nodeId);
     });
 
-    const selectedPlateNodeId = selectedNodeId === RED_CENTER_NODE_ID ? "node-current" : selectedNodeId;
+    // Animate plates
     PLATE_NODE_IDS.forEach((nodeId) => {
-      const isSelected = nodeId === selectedPlateNodeId;
-      const targetY    = isSelected ? LAYER_TOP_ACTIVE_Y : LAYER_TOP_DEFAULT_Y;
-      const ease = isSelected ? "back.out(1.1)" : "power3.inOut";
-      const adcodes = NODE_TO_ADCODES[nodeId] || [];
-
-      // Plates
+      const isActive = nodeId === activeSectorId;
+      const targetY  = isActive ? LAYER_TOP_ACTIVE_Y : LAYER_TOP_DEFAULT_Y;
+      const ease     = isActive ? "back.out(1.1)" : "power3.inOut";
+      const adcodes  = NODE_TO_ADCODES[nodeId] || [];
       adcodes.forEach((adcode) => {
-        switchTl.to(`#d3-top-${adcode}`,
-          { y: targetY, duration: SWITCH_DURATION, ease }, 0);
-
+        switchTl.to(`#d3-top-${adcode}`, { y: targetY, duration: SWITCH_DURATION, ease }, 0.1);
         Array.from({ length: MIDDLE_LAYER_COUNT }, (_, i) => {
           const defaultY = LAYER_TOP_DEFAULT_Y + (i / (MIDDLE_LAYER_COUNT - 1)) * (LAYER_BOTTOM_Y - LAYER_TOP_DEFAULT_Y);
           const stretchY = targetY + (i / (MIDDLE_LAYER_COUNT - 1)) * (LAYER_BOTTOM_Y - targetY);
           switchTl.to(`#d3-mid-${adcode}-${i}`,
-            { y: isSelected ? stretchY : defaultY, duration: SWITCH_DURATION, ease: "power3.inOut" }, 0);
+            { y: isActive ? stretchY : defaultY, duration: SWITCH_DURATION, ease: "power3.inOut" }, 0.1);
         });
-
-        // Glow filter
         const filterEl = document.getElementById(`glow-filter-${adcode}`);
         const feBlur = filterEl?.querySelector("feGaussianBlur");
         if (feBlur) {
           const proxy = { val: parseFloat(feBlur.getAttribute("stdDeviation") || "0") };
           switchTl.to(proxy, {
-            val: isSelected ? 3.2 : 0,
+            val: isActive ? 3.2 : 0,
             duration: SWITCH_DURATION * 1.4,
             ease: "power2.out",
             onUpdate() { feBlur.setAttribute("stdDeviation", proxy.val.toFixed(2)); },
-          }, 0);
+          }, 0.1);
         }
       });
     });
 
-    previousSelectedRef.current = selectedNodeId;
+    // Fade in new sector's nodes
+    const newNodes = SECTOR_NODES[activeSectorId] ?? [];
+    newNodes.forEach((nodeId, i) => {
+      switchTl.to(`#pin-g-${nodeId}`,
+        { opacity: 0.82, y: LAYER_TOP_DEFAULT_Y, duration: 0.45, ease: "power2.out" },
+        0.35 + i * 0.1,
+      );
+    });
+  }, { dependencies: [visible, activeSectorId] });
+
+  // ── Node highlight timeline ────────────────────────────────
+  useGSAP(() => {
+    if (!visible || animationStateRef.current === "entering") return;
+
+    // Stop all pulses first
+    ALL_NODE_IDS.forEach((nodeId) => { _stopPulse(nodeId); });
+
+    if (!selectedNodeId) {
+      // Clear all highlight rings
+      ALL_NODE_IDS.forEach((nodeId) => {
+        gsap.to(`#pin-active-outer-${nodeId}`, { opacity: 0, duration: 0.25 });
+        gsap.to(`#pin-active-inner-${nodeId}`, { opacity: 0, duration: 0.25 });
+      });
+      // Reset position/opacity only for the active sector's nodes (others remain hidden)
+      const activeSectorNodes = SECTOR_NODES[activeSectorId] ?? [];
+      activeSectorNodes.forEach((nodeId) => {
+        gsap.to(`#pin-g-${nodeId}`, { y: LAYER_TOP_DEFAULT_Y, opacity: 0.82, duration: 0.3, ease: "power2.inOut" });
+      });
+      return;
+    }
+
+    // Highlight selected node, dim others (only within active sector)
+    const activeSectorNodes = SECTOR_NODES[activeSectorId] ?? [];
+    const highlightTl = gsap.timeline({ onComplete: () => { _startPulse(selectedNodeId); } });
+
+    activeSectorNodes.forEach((nodeId) => {
+      const isSelected = nodeId === selectedNodeId;
+      highlightTl.to(`#pin-g-${nodeId}`,
+        { y: isSelected ? LAYER_TOP_ACTIVE_Y_PIN : LAYER_TOP_DEFAULT_Y, opacity: isSelected ? 1 : 0.45, duration: SWITCH_DURATION * 0.7, ease: "power2.out" }, 0);
+      highlightTl.to(`#pin-active-outer-${nodeId}`, { opacity: isSelected ? 1 : 0, duration: SWITCH_DURATION * 0.55 }, 0);
+      highlightTl.to(`#pin-active-inner-${nodeId}`, { opacity: isSelected ? 1 : 0, duration: SWITCH_DURATION * 0.55 }, 0);
+    });
   }, { dependencies: [visible, selectedNodeId] });
 
   return (
@@ -668,7 +715,7 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
                   key={district.adcode}
                   id={`group-adcode-${district.adcode}`}
                   className="district-group cursor-pointer"
-                  onClick={() => handleNodeSelect(district.nodeId)}
+                  onClick={() => handlePlateClick(district.nodeId)}
                 >
                   <path
                     d={district.pathD}
@@ -702,7 +749,7 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
                   />
                   <DistrictLabel
                     district={district}
-                    isSelected={(NODE_TO_ADCODES[selectedNodeId] || []).includes(district.adcode)}
+                    isSelected={selectedNodeId != null ? (NODE_TO_ADCODES[selectedNodeId] || []).includes(district.adcode) : (NODE_TO_ADCODES[activeSectorId] || []).includes(district.adcode)}
                   />
                 </g>
               ))}
@@ -731,7 +778,7 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
               height="100%"
               style={{ overflow: "visible" }}
             >
-              <PinLayer anchors={beaconAnchors} onPinSelect={handleNodeSelect} />
+              <PinLayer anchors={beaconAnchors} onPinSelect={handlePinClick} />
             </svg>
           </div>
 
@@ -770,11 +817,16 @@ export function D3Sandbox({ visible, selectedNodeId, onNodeSelect }: D3SandboxPr
 
 function D3EntityPopup({ spec, isExiting }: { spec: D3PopupSpec; isExiting?: boolean }) {
   const { x, y, width, height } = spec.layout;
+  const cardClass = [
+    isExiting ? 'card card--exiting' : 'card',
+    spec.isRed ? 'card--red' : '',
+  ].filter(Boolean).join(' ');
 
   return (
     <g className="d3popup-root" transform={`translate(${x} ${y})`} aria-hidden="true">
       <foreignObject x={0} y={0} width={width} height={height} overflow="visible" pointerEvents="auto">
-        <div className={isExiting ? 'card card--exiting' : 'card'}>
+        <div className={cardClass}>
+          <span className="card-type-badge">{spec.payload.type}</span>
           <p className="card-title">{spec.payload.entity}</p>
           <p className="small-desc">{spec.payload.description}</p>
         </div>

@@ -70,14 +70,25 @@ export const BEACON_NODE_CONFIGS: BeaconNodeConfig[] = [
 ];
 
 export const MACRO_NODES: MacroNode[] = [
-  { id: "node-current", label: "text1", labelCode: "SECTOR-01", position: [0, 0, 0], isHome: true },
-  { id: "node-2",       label: "text2", labelCode: "SECTOR-02", position: [-8, 0, -6], isHome: false },
-  { id: "node-3",       label: "text3", labelCode: "SECTOR-03", position: [8, 0, 2], isHome: false },
-  { id: "node-4",       label: "text4", labelCode: "SECTOR-04", position: [-3, 0, 8], isHome: false },
-  { id: "node-5",       label: "text5", labelCode: "SECTOR-05", position: [5, 0, -4], isHome: false },
+  { id: "node-current",    label: "节点一", labelCode: "SECTOR-01", position: [0, 0, 0], isHome: true },
+  { id: "node-2",          label: "节点二", labelCode: "SECTOR-02", position: [-8, 0, -6], isHome: false },
+  { id: "node-3",          label: "节点三", labelCode: "SECTOR-03", position: [8, 0, 2], isHome: false },
+  { id: "node-4",          label: "节点四", labelCode: "SECTOR-04", position: [-3, 0, 8], isHome: false },
+  { id: "node-5",          label: "节点五", labelCode: "SECTOR-05", position: [5, 0, -4], isHome: false },
+  { id: "node-center-red", label: "核心节点", labelCode: "CORE-RED", position: [0, 0, 0], isHome: false },
 ];
 
 export const DEFAULT_SELECTED_NODE_ID = "node-current";
+export const DEFAULT_ACTIVE_SECTOR_ID = "node-current";
+
+/** 每个板块对应的所有 beacon 节点 ID（含红色特殊节点） */
+export const SECTOR_NODES: Record<string, string[]> = {
+  "node-current": ["node-current", "node-center-red"],
+  "node-2":       ["node-2"],
+  "node-3":       ["node-3"],
+  "node-4":       ["node-4"],
+  "node-5":       ["node-5"],
+};
 
 export type NodeSelectSource = "plate" | "beacon" | "external_inject";
 
@@ -252,5 +263,37 @@ export const NODE_WORD_CLOUDS: Record<string, WordCloudDatum[]> = {
     { text: "text共享办公区", weight: 27 },
     { text: "text文化廊道", weight: 25 },
     { text: "text夜间步道", weight: 23 },
+  ],
+  "node-center-red": [
+    { text: "高权限节点", weight: 99 },
+    { text: "综合型数据", weight: 96 },
+    { text: "静态知识库", weight: 92 },
+    { text: "动态实战档", weight: 90 },
+    { text: "跨领域融合", weight: 87 },
+    { text: "案件卷宗", weight: 84 },
+    { text: "警情通报", weight: 82 },
+    { text: "多模态数据", weight: 79 },
+    { text: "实战资料", weight: 76 },
+    { text: "法律条文", weight: 73 },
+    { text: "警务规范", weight: 70 },
+    { text: "现场图像", weight: 68 },
+    { text: "询问笔录", weight: 65 },
+    { text: "身份档案", weight: 62 },
+    { text: "情报研判", weight: 60 },
+    { text: "关联分析", weight: 57 },
+    { text: "节点互联", weight: 55 },
+    { text: "管控标签", weight: 52 },
+    { text: "指挥调度", weight: 50 },
+    { text: "安全态势", weight: 47 },
+    { text: "风险预警", weight: 45 },
+    { text: "数据融合", weight: 42 },
+    { text: "知识图谱", weight: 40 },
+    { text: "证据链条", weight: 37 },
+    { text: "专项行动", weight: 35 },
+    { text: "研判报告", weight: 32 },
+    { text: "权限管控", weight: 30 },
+    { text: "加密传输", weight: 27 },
+    { text: "审计日志", weight: 25 },
+    { text: "核查记录", weight: 22 },
   ],
 };

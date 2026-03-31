@@ -7,7 +7,8 @@ import { MACRO_NODES, NODE_WORD_CLOUDS, WordCloudDatum } from "../macroData";
 
 interface D5WordCloudProps {
   visible: boolean;
-  selectedNodeId: string;
+  activeSectorId: string;
+  selectedNodeId: string | null;
 }
 
 interface LayoutWord extends WordCloudDatum {
@@ -216,7 +217,7 @@ function buildWordCloudLayout(source: WordCloudDatum[], width: number, height: n
   });
 }
 
-export function D5WordCloud({ visible, selectedNodeId }: D5WordCloudProps) {
+export function D5WordCloud({ visible, activeSectorId, selectedNodeId }: D5WordCloudProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const canvasRevealRef = useRef<SVGRectElement>(null);
@@ -224,11 +225,14 @@ export function D5WordCloud({ visible, selectedNodeId }: D5WordCloudProps) {
   const wordsRef = useRef<(SVGTextElement | null)[]>([]);
   const [size, setSize] = useState(DEFAULT_SIZE);
 
+  // Dual-layer: if node selected → show node cloud; else → show sector cloud
+  const cloudNodeId = selectedNodeId ?? activeSectorId;
+
   const nodeLabel = useMemo(
-    () => MACRO_NODES.find((item) => item.id === selectedNodeId)?.label ?? "text1",
-    [selectedNodeId],
+    () => MACRO_NODES.find((item) => item.id === cloudNodeId)?.label ?? activeSectorId,
+    [cloudNodeId, activeSectorId],
   );
-  const sourceWords = NODE_WORD_CLOUDS[selectedNodeId] ?? NODE_WORD_CLOUDS["node-current"];
+  const sourceWords = NODE_WORD_CLOUDS[cloudNodeId] ?? NODE_WORD_CLOUDS["node-current"];
   const layoutWords = useMemo(
     () => buildWordCloudLayout(sourceWords, size.width, size.height),
     [sourceWords, size.width, size.height],
@@ -315,7 +319,7 @@ export function D5WordCloud({ visible, selectedNodeId }: D5WordCloudProps) {
         tl.kill();
       };
     },
-    { dependencies: [visible, selectedNodeId, layoutWords], scope: rootRef },
+    { dependencies: [visible, cloudNodeId, layoutWords], scope: rootRef },
   );
 
   if (!visible) return null;
@@ -329,12 +333,12 @@ export function D5WordCloud({ visible, selectedNodeId }: D5WordCloudProps) {
 
       <div className="d5cloud-canvas-wrap">
         <svg
-          key={selectedNodeId}
+          key={cloudNodeId}
           viewBox={`0 0 ${size.width} ${size.height}`}
           className="d5cloud-svg"
           preserveAspectRatio="xMidYMid meet"
           role="img"
-          aria-label={`${nodeLabel} 节点词云`}
+          aria-label={`${nodeLabel} 词云`}
         >
           <defs>
             <pattern id="d5-grid-pattern" width="18" height="18" patternUnits="userSpaceOnUse">
@@ -355,7 +359,7 @@ export function D5WordCloud({ visible, selectedNodeId }: D5WordCloudProps) {
           <g ref={cloudGroupRef}>
             {layoutWords.map((word, index) => (
               <text
-                key={`${selectedNodeId}-${word.text}`}
+                key={`${cloudNodeId}-${word.text}`}
                 ref={(el) => {
                   wordsRef.current[index] = el;
                 }}

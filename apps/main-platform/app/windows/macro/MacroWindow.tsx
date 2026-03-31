@@ -16,9 +16,8 @@ import {
   MACRO_STROKE_WIDTH,
   MACRO_LINE_INITIAL,
   MACRO_LINE_SETTLED,
-  MACRO_BG,
 } from "../shared/coords";
-import { DEFAULT_SELECTED_NODE_ID } from "./macroData";
+import { DEFAULT_ACTIVE_SECTOR_ID } from "./macroData";
 
 /* ─── 坐标常量 ────────────────────────────────────────────── */
 // viewBox = 1440 × 900 (same as Window 1 / 3)
@@ -46,9 +45,19 @@ export function MacroWindow({
   const modulesRef = useRef<HTMLDivElement>(null);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [d1Visible, setD1Visible] = useState(false);
-  const [selectedNodeId, setSelectedNodeId] = useState(
-    defaultSelectedNodeId ?? DEFAULT_SELECTED_NODE_ID,
+  const [activeSectorId, setActiveSectorId] = useState(DEFAULT_ACTIVE_SECTOR_ID);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
+    defaultSelectedNodeId ?? null,
   );
+
+  const handleSectorChange = useCallback((sectorId: string) => {
+    setActiveSectorId(sectorId);
+    setSelectedNodeId(null);
+  }, []);
+
+  const handleNodeSelect = useCallback((nodeId: string) => {
+    setSelectedNodeId(nodeId);
+  }, []);
 
   // 菜单联动补间
   const menuTweenRef = useRef<gsap.core.Tween | null>(null);
@@ -274,7 +283,7 @@ export function MacroWindow({
         </section>
         {/* d3 区 — 中间大片（暗色） */}
         <section className="macro-zone macro-zone--d3" style={{ padding: 0, overflow: 'hidden' }}>
-          <D3Sandbox visible={d1Visible} selectedNodeId={selectedNodeId} onNodeSelect={setSelectedNodeId} />
+          <D3Sandbox visible={d1Visible} activeSectorId={activeSectorId} selectedNodeId={selectedNodeId} onSectorChange={handleSectorChange} onNodeSelect={handleNodeSelect} />
         </section>
         {/* d4 区 — 右上 */}
         <section className="macro-zone macro-zone--d4">
@@ -282,7 +291,7 @@ export function MacroWindow({
         </section>
         {/* d5 区 — 右下 */}
         <section className="macro-zone macro-zone--d5">
-          <D5WordCloud visible={d1Visible} selectedNodeId={selectedNodeId} />
+          <D5WordCloud visible={d1Visible} activeSectorId={activeSectorId} selectedNodeId={selectedNodeId} />
         </section>
       </div>
 

@@ -522,11 +522,11 @@
 .card {
   display: block;
   position: relative;
-  max-width: 300px;
-  max-height: 320px;
+  max-width: 310px;
+  max-height: 360px;
   background-color: #f2f8f9;
   border-radius: 10px;
-  padding: 2em 1.2em;
+  padding: 1.5em 1.2em 1.8em;
   margin: 12px;
   text-decoration: none;
   z-index: 0;
@@ -536,13 +536,60 @@
   pointer-events: auto;
   will-change: opacity, transform;
   animation: cardEnter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  border: 1.5px solid rgba(68, 172, 255, 0.45);
+  box-shadow: 0 0 18px rgba(68, 172, 255, 0.22), 0 4px 24px rgba(0,0,0,0.08);
 }
 
 .card.card--exiting {
   animation: cardExit 0.18s cubic-bezier(0.7, 0, 0.84, 0) both;
 }
 
-.card:before {
+/* ── Red card variant (high-permission node) ── */
+.card.card--red {
+  background: #ffe8e8;
+  border: 1.5px solid rgba(220, 60, 60, 0.55);
+  box-shadow: 0 0 22px rgba(220, 60, 60, 0.28), 0 4px 24px rgba(0,0,0,0.1);
+}
+
+.card.card--red::before {
+  background: #e84040;
+}
+
+.card.card--red:hover::before {
+  transform: scale(28);
+}
+
+.card.card--red .card-title {
+  color: #8b1010;
+}
+
+.card.card--red .small-desc {
+  color: #5c1818;
+}
+
+.card.card--red .card-type-badge {
+  background: rgba(220, 60, 60, 0.12);
+  color: #c01010;
+  border: 1px solid rgba(220, 60, 60, 0.3);
+}
+
+/* ── Type badge above card title ── */
+.card-type-badge {
+  display: inline-block;
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
+  font-size: 0.65em;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  border-radius: 3px;
+  background: rgba(68, 172, 255, 0.14);
+  color: #1a5fa8;
+  border: 1px solid rgba(68, 172, 255, 0.28);
+  margin-bottom: 0.55em;
+  text-transform: uppercase;
+}
+
+.card::before {
   content: '';
   position: absolute;
   z-index: -1;
