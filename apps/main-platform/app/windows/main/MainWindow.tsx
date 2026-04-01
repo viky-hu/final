@@ -61,7 +61,7 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
           dotSize={2}
           gap={12}
           baseColor="#6b6b6b"
-          activeColor="#27FF64"
+          activeColor="#0047FF"
           proximity={150}
           speedTrigger={100}
           shockRadius={250}

@@ -117,9 +117,9 @@ export const MAIN_CANVAS_MENU_OPEN = {
   y2: 1 * VH,
 };
 
-export const MAIN_CANVAS_FILL = "#1e1919";
-export const MAIN_CANVAS_LINE_ACTIVE = "#27FF64";
-export const MAIN_CANVAS_LINE_INITIAL = "#ffffff";
+export const MAIN_CANVAS_FILL = "#F5F5F5";
+export const MAIN_CANVAS_LINE_ACTIVE = "#0047FF";
+export const MAIN_CANVAS_LINE_INITIAL = "#0047FF";
 export const MAIN_CANVAS_STROKE_WIDTH = 1.5;
 
 // ─────────────────────────────────────────────
@@ -149,7 +149,7 @@ export const MC_CANVAS_MENU_OPEN = {
 };
 
 export const MC_CANVAS_FILL = "#FFF6F6";
-export const MC_CANVAS_LINE_ACTIVE = "#27FF64";
+export const MC_CANVAS_LINE_ACTIVE = "#0047FF";
 export const MC_CANVAS_LINE_INITIAL = "#ffffff";
 export const MC_CANVAS_STROKE_WIDTH = 1.5;
 

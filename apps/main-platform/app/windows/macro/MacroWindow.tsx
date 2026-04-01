@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { D1Timeline } from "./components/D1Timeline";
 import { D2Visualization } from "./components/D2Visualization";
-import { D3Sandbox } from "./components/D3Sandbox";
+import { D3SandboxThreeMvp } from "./components/D3SandboxThreeMvp";
 import { D4Visualization } from "./components/D4Visualization";
 import { D5WordCloud } from "./components/D5WordCloud";
 import { gsap } from "gsap";
@@ -301,7 +301,7 @@ export function MacroWindow({
         </section>
         {/* d3 区 — 中间大片（暗色） */}
         <section className="macro-zone macro-zone--d3" style={{ padding: 0, overflow: 'hidden' }}>
-          <D3Sandbox visible={d1Visible} activeSectorId={activeSectorId} selectedNodeId={selectedNodeId} onSectorChange={handleSectorChange} onNodeSelect={handleNodeSelect} />
+          <D3SandboxThreeMvp visible={d1Visible} activeSectorId={activeSectorId} selectedNodeId={selectedNodeId} onSectorChange={handleSectorChange} onNodeSelect={handleNodeSelect} />
         </section>
         {/* d4 区 — 右上 */}
         <section className="macro-zone macro-zone--d4">

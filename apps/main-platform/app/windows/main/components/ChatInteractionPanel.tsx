@@ -17,19 +17,19 @@ gsap.registerPlugin(Flip);
 
 // ─── BotBubble ────────────────────────────────────────────────────────────────
 interface BotBubbleProps {
-  msgId:   string;
+  msgId: string;
   content: string;
   onTrace: (msgId: string) => void;
 }
 
 function BotBubble({ msgId, content, onTrace }: BotBubbleProps) {
-  const bubbleRef   = useRef<HTMLDivElement>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
   const btnOuterRef = useRef<HTMLDivElement>(null);
   const btnInnerRef = useRef<HTMLDivElement>(null);
-  const tlRef       = useRef<gsap.core.Timeline | null>(null);
+  const tlRef = useRef<gsap.core.Timeline | null>(null);
 
   useLayoutEffect(() => {
-    const bubble   = bubbleRef.current;
+    const bubble = bubbleRef.current;
     const btnOuter = btnOuterRef.current;
     const btnInner = btnInnerRef.current;
     if (!bubble || !btnOuter || !btnInner) return;
@@ -39,23 +39,16 @@ function BotBubble({ msgId, content, onTrace }: BotBubbleProps) {
 
     const tl = gsap.timeline({ paused: true });
 
-    tl.to(bubble, {
-      boxShadow:
-        "0 0 40px rgba(39,255,100,0.5), 0 0 80px rgba(39,255,100,0.18), inset 0 0 20px rgba(39,255,100,0.15)",
-      duration: 0.22,
-      ease: "power2.out",
-    }, 0);
-
     tl.to(btnOuter, {
-      width:    80,
+      width: 80,
       duration: 0.38,
-      ease:     LINE_DRAW_EASE,
+      ease: LINE_DRAW_EASE,
     }, 0.14);
 
     tl.to(btnInner, {
-      opacity:  1,
+      opacity: 1,
       duration: 0.18,
-      ease:     "power2.out",
+      ease: "power2.out",
     }, 0.38);
 
     tlRef.current = tl;
@@ -94,95 +87,95 @@ function BotBubble({ msgId, content, onTrace }: BotBubbleProps) {
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
-type Mode        = "local" | "global";
+type Mode = "local" | "global";
 type MessageRole = "user" | "bot" | "typing";
 
 interface Message {
-  id:      string;
-  role:    MessageRole;
+  id: string;
+  role: MessageRole;
   content: string;
 }
 
 // 模型配置状态机
-type MCPhase    = "closed" | "opening" | "opened" | "fading_out" | "closing_canvas";
+type MCPhase = "closed" | "opening" | "opened" | "fading_out" | "closing_canvas";
 type MCProvider = "OpenAI" | "Ollama" | "Local";
 
 const MC_MODEL_OPTIONS: Record<MCProvider, string[]> = {
   OpenAI: ["gpt", "qwen", "deepseek"],
   Ollama: ["llama", "deepseek", "gemma", "qwen"],
-  Local:  ["Auto", "llama", "gemma", "qwen"],
+  Local: ["Auto", "llama", "gemma", "qwen"],
 };
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const BOT_REPLY       = "这是模拟回答，后续将接入实际代码。";
+const BOT_REPLY = "这是模拟回答，后续将接入实际代码。";
 const TYPING_DELAY_MS = 700;
 
 export interface ChatInteractionPanelProps {
-  menuOpen?:    boolean;
+  menuOpen?: boolean;
   canvasReady?: boolean;
   onOpenTrace?: (msgId: string) => void;
 }
 
 export function ChatInteractionPanel({
-  menuOpen    = false,
+  menuOpen = false,
   canvasReady = false,
   onOpenTrace,
 }: ChatInteractionPanelProps) {
 
   // ── Chat state ──────────────────────────────────────────────────────────────
-  const [mode,          setMode]          = useState<Mode>("local");
-  const [messages,      setMessages]      = useState<Message[]>([]);
-  const [inputValue,    setInputValue]    = useState("");
-  const [isSending,     setIsSending]     = useState(false);
+  const [mode, setMode] = useState<Mode>("local");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [inputValue, setInputValue] = useState("");
+  const [isSending, setIsSending] = useState(false);
   const [showSemicircle, setShowSemicircle] = useState(true);
 
   // ── Model config state ──────────────────────────────────────────────────────
-  const [mcPhase,          setMCPhase]          = useState<MCPhase>("closed");
-  const [mcProvider,       setMCProvider]       = useState<MCProvider>("OpenAI");
-  const [mcModel,          setMCModel]          = useState("gpt");
-  const [mcBaseUrl,        setMCBaseUrl]        = useState("");
-  const [mcApiKey,         setMCApiKey]         = useState("");
-  const [mcModelPath,      setMCModelPath]      = useState("");
-  const [mcLocalUrl,       setMCLocalUrl]       = useState("");
-  const [mcConnectError,   setMCConnectError]   = useState("");
+  const [mcPhase, setMCPhase] = useState<MCPhase>("closed");
+  const [mcProvider, setMCProvider] = useState<MCProvider>("OpenAI");
+  const [mcModel, setMCModel] = useState("gpt");
+  const [mcBaseUrl, setMCBaseUrl] = useState("");
+  const [mcApiKey, setMCApiKey] = useState("");
+  const [mcModelPath, setMCModelPath] = useState("");
+  const [mcLocalUrl, setMCLocalUrl] = useState("");
+  const [mcConnectError, setMCConnectError] = useState("");
   const [mcConnectSuccess, setMCConnectSuccess] = useState(false);
-  const [mcIsConnecting,   setMCIsConnecting]   = useState(false);
+  const [mcIsConnecting, setMCIsConnecting] = useState(false);
 
   // Derived
-  const mcMounted    = mcPhase !== "closed";
+  const mcMounted = mcPhase !== "closed";
   const mcCanvasOpen = mcPhase === "opening" || mcPhase === "opened" || mcPhase === "fading_out";
 
   // ── Chat refs ───────────────────────────────────────────────────────────────
-  const listRef                = useRef<HTMLDivElement>(null);
-  const semicircleOverlayRef   = useRef<HTMLDivElement>(null);
-  const panelRef               = useRef<HTMLDivElement>(null);
-  const inputRef               = useRef<HTMLTextAreaElement>(null);
-  const isSendingRef           = useRef(false);
-  const pendingFlipRef         = useRef<ReturnType<typeof Flip.getState> | null>(null);
-  const pendingEntryIdsRef     = useRef<Set<string>>(new Set());
-  const bubbleTweensRef        = useRef<Map<string, gsap.core.Tween>>(new Map());
+  const listRef = useRef<HTMLDivElement>(null);
+  const semicircleOverlayRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const isSendingRef = useRef(false);
+  const pendingFlipRef = useRef<ReturnType<typeof Flip.getState> | null>(null);
+  const pendingEntryIdsRef = useRef<Set<string>>(new Set());
+  const bubbleTweensRef = useRef<Map<string, gsap.core.Tween>>(new Map());
   const scrollHandledByFlipRef = useRef(false);
 
-  const modeRowRef   = useRef<HTMLDivElement>(null);
-  const msgMaskRef   = useRef<HTMLDivElement>(null);
+  const modeRowRef = useRef<HTMLDivElement>(null);
+  const msgMaskRef = useRef<HTMLDivElement>(null);
   const inputAreaRef = useRef<HTMLDivElement>(null);
-  const revealTlRef  = useRef<gsap.core.Timeline | null>(null);
+  const revealTlRef = useRef<gsap.core.Timeline | null>(null);
 
   // ── Model config refs ───────────────────────────────────────────────────────
   const mcPanelLayerRef = useRef<HTMLDivElement>(null);
-  const mcHeaderRef     = useRef<HTMLDivElement>(null);
-  const mcProviderRef   = useRef<HTMLDivElement>(null);
-  const mcModelRef      = useRef<HTMLDivElement>(null);
-  const mcFieldsRef     = useRef<HTMLDivElement>(null);
-  const mcFooterRef     = useRef<HTMLDivElement>(null);
-  const mcRevealTlRef   = useRef<gsap.core.Timeline | null>(null);
-  const fileInputRef    = useRef<HTMLInputElement>(null);
+  const mcHeaderRef = useRef<HTMLDivElement>(null);
+  const mcProviderRef = useRef<HTMLDivElement>(null);
+  const mcModelRef = useRef<HTMLDivElement>(null);
+  const mcFieldsRef = useRef<HTMLDivElement>(null);
+  const mcFooterRef = useRef<HTMLDivElement>(null);
+  const mcRevealTlRef = useRef<gsap.core.Timeline | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // ─── Chat: FLIP helper ─────────────────────────────────────────────────────
   const captureFlip = useCallback(() => {
     const list = listRef.current;
     if (!list) return;
-    const nodes   = list.querySelectorAll<HTMLElement>(".chat-bubble-wrapper");
+    const nodes = list.querySelectorAll<HTMLElement>(".chat-bubble-wrapper");
     const settled = Array.from(nodes).filter((el) => {
       const id = el.getAttribute("data-msg-id");
       return !id || !bubbleTweensRef.current.has(id);
@@ -202,7 +195,7 @@ export function ChatInteractionPanel({
         opacity: 1, scale: 1, y: 0,
         duration: 0.5, ease: "power3.out",
         clearProps: "transform,opacity",
-        onKill:     () => { bubbleTweensRef.current.delete(msgId); },
+        onKill: () => { bubbleTweensRef.current.delete(msgId); },
         onComplete: () => { bubbleTweensRef.current.delete(msgId); },
       }
     );
@@ -226,10 +219,10 @@ export function ChatInteractionPanel({
     if (pendingFlipRef.current) {
       scrollHandledByFlipRef.current = true;
       Flip.from(pendingFlipRef.current, {
-        targets:    ".chat-bubble-wrapper",
-        duration:   0.35,
-        ease:       "power3.out",
-        stagger:    0.01,
+        targets: ".chat-bubble-wrapper",
+        duration: 0.35,
+        ease: "power3.out",
+        stagger: 0.01,
         onComplete: () => {
           pendingFlipRef.current = null;
           scrollToBottom();
@@ -288,7 +281,7 @@ export function ChatInteractionPanel({
     const layer = mcPanelLayerRef.current;
     if (!layer) return;
     if (menuOpen) gsap.set(layer, { x: "-15vw" });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mcMounted]);
 
   // ─── Model config: mc-panel-layer follows menu （照搬 panelRef 逻辑）────────
@@ -314,9 +307,9 @@ export function ChatInteractionPanel({
     revealTlRef.current = tl;
 
     const sections = [
-      { el: modeRowRef.current,   at: 0.12, fromY: 16, fromBlur: 5,  duration: 0.50, ease: "power3.out"     },
-      { el: msgMaskRef.current,   at: 0.30, fromY: 28, fromBlur: 3,  duration: 0.62, ease: "power3.out"     },
-      { el: inputAreaRef.current, at: 0.50, fromY: 38, fromBlur: 8,  duration: 0.68, ease: "back.out(1.4)"  },
+      { el: modeRowRef.current, at: 0.12, fromY: 16, fromBlur: 5, duration: 0.50, ease: "power3.out" },
+      { el: msgMaskRef.current, at: 0.30, fromY: 28, fromBlur: 3, duration: 0.62, ease: "power3.out" },
+      { el: inputAreaRef.current, at: 0.50, fromY: 38, fromBlur: 8, duration: 0.68, ease: "back.out(1.4)" },
     ];
 
     for (const { el, at, fromY, fromBlur, duration, ease } of sections) {
@@ -342,10 +335,10 @@ export function ChatInteractionPanel({
     setIsSending(true);
     setInputValue("");
 
-    const now     = Date.now();
-    const userId  = `msg-${now}-user`;
+    const now = Date.now();
+    const userId = `msg-${now}-user`;
     const typingId = `msg-${now + 1}-typing`;
-    const botId   = `msg-${now + 2}-bot`;
+    const botId = `msg-${now + 2}-bot`;
 
     captureFlip();
     pendingEntryIdsRef.current.add(userId);
@@ -403,7 +396,7 @@ export function ChatInteractionPanel({
     if (targets.length > 0) {
       gsap.set(targets, { visibility: "hidden", opacity: 0, y: 20 });
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mcMounted]);
 
   // ─── Model config: reveal form when opened ────────────────────────────────
@@ -478,8 +471,8 @@ export function ChatInteractionPanel({
   const handleMCConnect = useCallback(async () => {
     // Front-end validation
     if (mcProvider !== "Local") {
-      if (!mcBaseUrl.trim())  { setMCConnectError("接口地址不能为空"); return; }
-      if (!mcApiKey.trim())   { setMCConnectError("API Key 不能为空"); return; }
+      if (!mcBaseUrl.trim()) { setMCConnectError("接口地址不能为空"); return; }
+      if (!mcApiKey.trim()) { setMCConnectError("API Key 不能为空"); return; }
       try { new URL(mcBaseUrl); } catch {
         setMCConnectError("接口地址格式不正确，请输入完整 URL");
         return;
@@ -496,13 +489,15 @@ export function ChatInteractionPanel({
       const payload =
         mcProvider !== "Local"
           ? { provider: mcProvider, model: mcModel, baseUrl: mcBaseUrl, apiKey: mcApiKey }
-          : { provider: mcProvider, model: mcModel, modelPath: mcModelPath,
-              localUrl: mcLocalUrl || "http://localhost:8000/v1" };
+          : {
+            provider: mcProvider, model: mcModel, modelPath: mcModelPath,
+            localUrl: mcLocalUrl || "http://localhost:8000/v1"
+          };
 
-      const res  = await fetch("/api/model-config/connect", {
-        method:  "POST",
+      const res = await fetch("/api/model-config/connect", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify(payload),
+        body: JSON.stringify(payload),
       });
       const data = await res.json() as { error?: string };
 
@@ -725,7 +720,7 @@ export function ChatInteractionPanel({
               className="chat-mode-toggle"
               aria-label="数据库模式切换"
             >
-              <ToggleGroup.Item value="local"  className="chat-mode-item" aria-label="本地模式">本地</ToggleGroup.Item>
+              <ToggleGroup.Item value="local" className="chat-mode-item" aria-label="本地模式">本地</ToggleGroup.Item>
               <ToggleGroup.Item value="global" className="chat-mode-item" aria-label="全局模式">全局</ToggleGroup.Item>
             </ToggleGroup.Root>
 
@@ -772,7 +767,7 @@ export function ChatInteractionPanel({
                       <BotBubble
                         msgId={msg.id}
                         content={msg.content}
-                        onTrace={onOpenTrace ?? (() => {})}
+                        onTrace={onOpenTrace ?? (() => { })}
                       />
                     ) : (
                       <div className={`chat-bubble chat-bubble--${msg.role}`}>{msg.content}</div>
