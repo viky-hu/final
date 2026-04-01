@@ -101,8 +101,8 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
           menuButtonColor="#111111"
           openMenuButtonColor="#111111"
           changeMenuColorOnOpen={true}
-          colors={["#9EF2B2", "#27FF64"]}
-          accentColor="#27FF64"
+          colors={["#7A96FF", "#0047FF"]}
+          accentColor="#0047FF"
           onMenuOpen={() => setIsMenuOpen(true)}
           onMenuClose={() => setIsMenuOpen(false)}
         />

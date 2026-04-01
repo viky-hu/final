@@ -39,6 +39,7 @@ const BASE_DEPTH = 24;
 const SELECTED_DEPTH_SCALE = 2.5;
 const SPREAD_DISTANCE = 12;
 const SCENE_SCALE_XY = 0.78;
+const SIDE_LINE_Z_EPSILON = 0.28;
 
 const PLATE_CONFIGS = [
   {
@@ -87,7 +88,7 @@ function makeSideLineGeometry(shape: Shape, spreadX: number, spreadY: number): B
   points.forEach((point) => {
     const tx = point.x - SVG_CENTER_X + spreadX;
     const ty = SVG_CENTER_Y - point.y + spreadY;
-    positions.push(tx, ty, 0, tx, ty, BASE_DEPTH);
+    positions.push(tx, ty, SIDE_LINE_Z_EPSILON, tx, ty, BASE_DEPTH - SIDE_LINE_Z_EPSILON);
   });
 
   const geometry = new BufferGeometry();
@@ -159,14 +160,18 @@ function PlateMesh({
   const topMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
-        color: new Color("#dff1ff"),
-        roughness: 0.34,
-        metalness: 0.18,
+        color: new Color("#c4e4ff"),
+        roughness: 0.28,
+        metalness: 0.12,
         emissive: new Color("#5ebeff"),
-        emissiveIntensity: 0.08,
-        transparent: true,
-        opacity: 0.96,
+        emissiveIntensity: 0.04,
+        transparent: false,
+        opacity: 1,
         side: DoubleSide,
+        depthWrite: true,
+        polygonOffset: true,
+        polygonOffsetFactor: 1,
+        polygonOffsetUnits: 1,
       }),
     [],
   );
@@ -180,8 +185,13 @@ function PlateMesh({
         emissive: new Color("#49cbff"),
         emissiveIntensity: 0.25,
         transparent: true,
-        opacity: 0.62,
+        opacity: 0.66,
         side: DoubleSide,
+        forceSinglePass: true,
+        depthWrite: false,
+        polygonOffset: true,
+        polygonOffsetFactor: 2,
+        polygonOffsetUnits: 2,
       }),
     [],
   );
@@ -191,9 +201,11 @@ function PlateMesh({
       new LineBasicMaterial({
         color: new Color("#8ee8ff"),
         transparent: true,
-        opacity: 0.2,
+        opacity: 0.16,
         blending: AdditiveBlending,
+        depthTest: true,
         depthWrite: false,
+        toneMapped: false,
       }),
     [],
   );
@@ -203,9 +215,11 @@ function PlateMesh({
       new LineBasicMaterial({
         color: new Color("#5fd7ff"),
         transparent: true,
-        opacity: 0.26,
+        opacity: 0.2,
         blending: AdditiveBlending,
+        depthTest: true,
         depthWrite: false,
+        toneMapped: false,
       }),
     [],
   );
@@ -250,6 +264,7 @@ function PlateMesh({
     >
       <mesh
         geometry={plate.geometry}
+        renderOrder={1}
         onPointerDown={(event) => {
           event.stopPropagation();
           onToggle(plate.id);
@@ -259,11 +274,11 @@ function PlateMesh({
         <primitive object={sideMaterial} attach="material-1" />
       </mesh>
 
-      <lineSegments geometry={plate.sideLinesGeometry} renderOrder={3}>
+      <lineSegments geometry={plate.sideLinesGeometry} renderOrder={5}>
         <primitive object={sideLineMaterial} attach="material" />
       </lineSegments>
 
-      <lineSegments geometry={plate.edgeGeometry} renderOrder={4}>
+      <lineSegments geometry={plate.edgeGeometry} renderOrder={6}>
         <primitive object={edgeMaterial} attach="material" />
       </lineSegments>
     </group>
@@ -317,7 +332,7 @@ function PlateScene({
       <pointLight position={[200, 140, 320]} intensity={1.2} color="#79d9ff" />
       <pointLight position={[-260, -140, 220]} intensity={0.56} color="#8ea8ff" />
 
-      <group scale={[SCENE_SCALE_XY, SCENE_SCALE_XY, 1]} position={[0, -28, 0]}>
+      <group scale={[SCENE_SCALE_XY, SCENE_SCALE_XY, 1]} position={[0, 14, 0]}>
         {plates.map((plate) => (
           <PlateMesh key={plate.id} plate={plate} onToggle={onToggle} registerVisual={registerVisualWithStore} />
         ))}
@@ -424,11 +439,11 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
         <Canvas
           className="d3three-canvas"
           dpr={[1, 1.8]}
-          gl={{ antialias: true, alpha: true, powerPreference: "high-performance" }}
+          gl={{ antialias: true, alpha: true, powerPreference: "high-performance", logarithmicDepthBuffer: true }}
           camera={{
             fov: 36,
-            near: 1,
-            far: 5200,
+            near: 10,
+            far: 3000,
             position: [72, -900, 980],
           }}
           onCreated={({ camera }) => {
