@@ -16,6 +16,7 @@ import {
   LinearMipmapLinearFilter,
   LineBasicMaterial,
   MathUtils,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   SRGBColorSpace,
   Shape,
@@ -257,16 +258,13 @@ function PlateMesh({
 
   const topMaterial = useMemo(
     () =>
-      new MeshStandardMaterial({
-        color: new Color("#f5fbff"),
-        roughness: 0.28,
-        metalness: 0.12,
-        emissive: new Color("#5ebeff"),
-        emissiveIntensity: 0.03,
-        transparent: false,
-        opacity: 1,
+      new MeshBasicMaterial({
+        color: new Color("#ffffff"),
         side: DoubleSide,
         map: topTexture,
+        toneMapped: false,
+        transparent: false,
+        opacity: 1,
         depthWrite: true,
         polygonOffset: true,
         polygonOffsetFactor: 1,
@@ -494,6 +492,7 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
         texture.minFilter = LinearMipmapLinearFilter;
         texture.magFilter = LinearFilter;
         texture.generateMipmaps = true;
+        texture.anisotropy = 16;
         texture.needsUpdate = true;
 
         if (loadedTextureRef.current && loadedTextureRef.current !== texture) {
@@ -605,7 +604,7 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
       <div ref={canvasWrapRef} className="d3three-canvas-wrap">
         <Canvas
           className="d3three-canvas"
-          dpr={[1, 1.8]}
+          dpr={[1.25, 2.4]}
           gl={{ antialias: true, alpha: true, powerPreference: "high-performance", logarithmicDepthBuffer: true }}
           camera={{
             fov: 36,
