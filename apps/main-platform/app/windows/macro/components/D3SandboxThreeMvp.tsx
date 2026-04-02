@@ -332,7 +332,7 @@ function PlateMesh({
   const topScanMaterial = useMemo(
     () =>
       new MeshBasicMaterial({
-        color: new Color("#9af4ff"),
+        color: new Color("#b9fbff"),
         alphaMap: topScanTexture,
         transparent: true,
         opacity: 0,
@@ -507,7 +507,7 @@ function PlateScene({
       const wave = (Math.sin(t * 2.25) + 1) * 0.5;
       const pulse = visual.pulse.value;
 
-      visual.topScanMaterial.opacity = pulse * (0.2 + wave * 0.12);
+      visual.topScanMaterial.opacity = pulse * (0.24 + wave * 0.16);
       visual.topScanTexture.offset.x = (t * 0.26) % 1;
       visual.sideMaterial.emissiveIntensity = 0.2 + pulse * (0.9 + wave * 0.28);
       visual.sideMaterial.opacity = 0.6 + pulse * 0.22;
