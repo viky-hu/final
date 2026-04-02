@@ -8,6 +8,8 @@ import {
   AdditiveBlending,
   BufferAttribute,
   BufferGeometry,
+  CanvasTexture,
+  ClampToEdgeWrapping,
   Color,
   DoubleSide,
   EdgesGeometry,
@@ -18,8 +20,10 @@ import {
   MathUtils,
   MeshBasicMaterial,
   MeshStandardMaterial,
+  RepeatWrapping,
   SRGBColorSpace,
   Shape,
+  ShapeGeometry,
   Texture,
   TextureLoader,
   Vector2,
@@ -63,12 +67,15 @@ const DEFAULT_ACTIVE_PLATE_ID = "plate-4";
 interface PlateGeometryBundle {
   id: PlateId;
   geometry: ExtrudeGeometry;
+  topOverlayGeometry: ShapeGeometry;
   sideLinesGeometry: BufferGeometry;
   edgeGeometry: EdgesGeometry;
 }
 
 interface PlateVisualRef {
   group: Group;
+  topScanMaterial: MeshBasicMaterial;
+  topScanTexture: Texture;
   sideMaterial: MeshStandardMaterial;
   sideLineMaterial: LineBasicMaterial;
   edgeMaterial: LineBasicMaterial;
@@ -107,6 +114,47 @@ function applySvgTextureUv(geometry: ExtrudeGeometry, spreadX: number, spreadY: 
   }
 
   geometry.setAttribute("uv", new BufferAttribute(uvArray, 2));
+}
+
+function createTopScanTexture(): Texture {
+  const canvas = document.createElement("canvas");
+  canvas.width = 512;
+  canvas.height = 64;
+  const ctx = canvas.getContext("2d");
+
+  if (ctx) {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    const primary = ctx.createLinearGradient(0, 0, canvas.width, 0);
+    primary.addColorStop(0, "rgba(255,255,255,0)");
+    primary.addColorStop(0.34, "rgba(255,255,255,0)");
+    primary.addColorStop(0.5, "rgba(255,255,255,1)");
+    primary.addColorStop(0.66, "rgba(255,255,255,0)");
+    primary.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = primary;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const accent = ctx.createLinearGradient(0, 0, canvas.width, 0);
+    accent.addColorStop(0.18, "rgba(255,255,255,0)");
+    accent.addColorStop(0.24, "rgba(255,255,255,0.55)");
+    accent.addColorStop(0.3, "rgba(255,255,255,0)");
+    accent.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.globalAlpha = 0.68;
+    ctx.fillStyle = accent;
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.globalAlpha = 1;
+  }
+
+  const texture = new CanvasTexture(canvas);
+  texture.wrapS = RepeatWrapping;
+  texture.wrapT = ClampToEdgeWrapping;
+  texture.repeat.set(2.05, 1);
+  texture.offset.set(0, 0);
+  texture.minFilter = LinearFilter;
+  texture.magFilter = LinearFilter;
+  texture.generateMipmaps = false;
+  texture.needsUpdate = true;
+  return texture;
 }
 
 function extractDesktopMaskPaths(svgMarkup: string): string[] {
@@ -221,12 +269,18 @@ function buildPlateGeometries(pathDefs: string[]): PlateGeometryBundle[] {
     applySvgTextureUv(geometry, spread.x, spread.y);
     geometry.computeVertexNormals();
 
+    const topOverlayGeometry = new ShapeGeometry(shape, 24);
+    topOverlayGeometry.translate(-SVG_CENTER_X, -SVG_CENTER_Y, 0);
+    topOverlayGeometry.scale(1, -1, 1);
+    topOverlayGeometry.translate(spread.x, spread.y, BASE_DEPTH + 0.26);
+
     const sideLinesGeometry = makeSideLineGeometry(shape, spread.x, spread.y);
     const edgeGeometry = new EdgesGeometry(geometry, 35);
 
     return {
       id,
       geometry,
+      topOverlayGeometry,
       sideLinesGeometry,
       edgeGeometry,
     };
@@ -271,6 +325,27 @@ function PlateMesh({
         polygonOffsetUnits: 1,
       }),
     [topTexture],
+  );
+
+  const topScanTexture = useMemo(() => createTopScanTexture(), []);
+
+  const topScanMaterial = useMemo(
+    () =>
+      new MeshBasicMaterial({
+        color: new Color("#9af4ff"),
+        alphaMap: topScanTexture,
+        transparent: true,
+        opacity: 0,
+        side: DoubleSide,
+        blending: AdditiveBlending,
+        depthTest: true,
+        depthWrite: false,
+        toneMapped: false,
+        polygonOffset: true,
+        polygonOffsetFactor: -1,
+        polygonOffsetUnits: -1,
+      }),
+    [topScanTexture],
   );
 
   const sideMaterial = useMemo(
@@ -325,6 +400,8 @@ function PlateMesh({
     if (!groupRef.current) return;
     registerVisual(plate.id, {
       group: groupRef.current,
+      topScanMaterial,
+      topScanTexture,
       sideMaterial,
       sideLineMaterial,
       edgeMaterial,
@@ -334,19 +411,22 @@ function PlateMesh({
     return () => {
       registerVisual(plate.id, null);
     };
-  }, [plate.id, sideMaterial, sideLineMaterial, edgeMaterial, registerVisual]);
+  }, [plate.id, topScanMaterial, topScanTexture, sideMaterial, sideLineMaterial, edgeMaterial, registerVisual]);
 
   useEffect(
     () => () => {
       plate.geometry.dispose();
+      plate.topOverlayGeometry.dispose();
       plate.sideLinesGeometry.dispose();
       plate.edgeGeometry.dispose();
       topMaterial.dispose();
+      topScanMaterial.dispose();
+      topScanTexture.dispose();
       sideMaterial.dispose();
       sideLineMaterial.dispose();
       edgeMaterial.dispose();
     },
-    [plate, topMaterial, sideMaterial, sideLineMaterial, edgeMaterial],
+    [plate, topMaterial, topScanMaterial, topScanTexture, sideMaterial, sideLineMaterial, edgeMaterial],
   );
 
   return (
@@ -369,6 +449,17 @@ function PlateMesh({
       >
         <primitive object={topMaterial} attach="material-0" />
         <primitive object={sideMaterial} attach="material-1" />
+      </mesh>
+
+      <mesh
+        geometry={plate.topOverlayGeometry}
+        renderOrder={7}
+        onPointerDown={(event) => {
+          event.stopPropagation();
+          onToggle(plate.id);
+        }}
+      >
+        <primitive object={topScanMaterial} attach="material" />
       </mesh>
 
       <lineSegments geometry={plate.sideLinesGeometry} renderOrder={5}>
@@ -416,6 +507,8 @@ function PlateScene({
       const wave = (Math.sin(t * 2.25) + 1) * 0.5;
       const pulse = visual.pulse.value;
 
+      visual.topScanMaterial.opacity = pulse * (0.2 + wave * 0.12);
+      visual.topScanTexture.offset.x = (t * 0.26) % 1;
       visual.sideMaterial.emissiveIntensity = 0.2 + pulse * (0.9 + wave * 0.28);
       visual.sideMaterial.opacity = 0.6 + pulse * 0.22;
       visual.sideLineMaterial.opacity = 0.18 + pulse * (0.38 + wave * 0.12);
