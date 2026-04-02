@@ -148,9 +148,9 @@ export const MC_CANVAS_MENU_OPEN = {
   y2: VH,
 };
 
-export const MC_CANVAS_FILL = "#FFF6F6";
+export const MC_CANVAS_FILL = "#F3F4F4";
 export const MC_CANVAS_LINE_ACTIVE = "#0047FF";
-export const MC_CANVAS_LINE_INITIAL = "#ffffff";
+export const MC_CANVAS_LINE_INITIAL = "#0047FF";
 export const MC_CANVAS_STROKE_WIDTH = 1.5;
 
 // ─────────────────────────────────────────────
@@ -166,5 +166,5 @@ export const MACRO_STROKE_WIDTH = 1.5;
 // ─────────────────────────────────────────────
 // Main vertical divider at ~42% of viewport width
 export const DB_V_LINE_X_RATIO = 0.42;
-export const DB_LINE_COLOR       = "#111111";
-export const DB_LINE_STROKE_W    = 1.5;
+export const DB_LINE_COLOR = "#111111";
+export const DB_LINE_STROKE_W = 1.5;

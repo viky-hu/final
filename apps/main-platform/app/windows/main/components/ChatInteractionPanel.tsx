@@ -9,7 +9,6 @@ import {
 } from "react";
 import { gsap } from "gsap";
 import { Flip } from "gsap/Flip";
-import * as ToggleGroup from "@radix-ui/react-toggle-group";
 import { LINE_DRAW_EASE } from "../../shared/animation";
 import { ModelConfigCanvasLines } from "./ModelConfigCanvasLines";
 
@@ -713,16 +712,16 @@ export function ChatInteractionPanel({
 
           {/* ── Mode Toggle + Model Config Trigger ── */}
           <div ref={modeRowRef} className="chat-mode-row">
-            <ToggleGroup.Root
-              type="single"
-              value={mode}
-              onValueChange={(v) => v && setMode(v as Mode)}
-              className="chat-mode-toggle"
-              aria-label="数据库模式切换"
-            >
-              <ToggleGroup.Item value="local" className="chat-mode-item" aria-label="本地模式">本地</ToggleGroup.Item>
-              <ToggleGroup.Item value="global" className="chat-mode-item" aria-label="全局模式">全局</ToggleGroup.Item>
-            </ToggleGroup.Root>
+            <label htmlFor="mode-switch" className="switch" aria-label="切换模式">
+              <input
+                id="mode-switch"
+                type="checkbox"
+                checked={mode === "global"}
+                onChange={(e) => setMode(e.target.checked ? "global" : "local")}
+              />
+              <span>本地</span>
+              <span>全局</span>
+            </label>
 
             {/* 按钮结构完全照搬 README animated-button，文案改为"模型配置" */}
             <button

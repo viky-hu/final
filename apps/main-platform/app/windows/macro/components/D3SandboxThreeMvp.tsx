@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useCallback, useEffect } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { gsap } from "gsap";
 import { useGSAP } from "@gsap/react";
 import {
@@ -12,10 +12,15 @@ import {
   DoubleSide,
   EdgesGeometry,
   ExtrudeGeometry,
+  LinearFilter,
+  LinearMipmapLinearFilter,
   LineBasicMaterial,
   MathUtils,
   MeshStandardMaterial,
+  SRGBColorSpace,
   Shape,
+  Texture,
+  TextureLoader,
   Vector2,
   type Group,
 } from "three";
@@ -40,34 +45,22 @@ const SELECTED_DEPTH_SCALE = 2.5;
 const SPREAD_DISTANCE = 12;
 const SCENE_SCALE_XY = 0.78;
 const SIDE_LINE_Z_EPSILON = 0.28;
+const DESKTOP_SVG_URL = "/Desktop.svg";
+const PLATE_IDS = ["plate-1", "plate-2", "plate-3", "plate-4", "plate-5"] as const;
+type PlateId = (typeof PLATE_IDS)[number];
 
-const PLATE_CONFIGS = [
-  {
-    id: "plate-1",
-    path: "M307 181.5L443.5 76H449.5L454.5 81L458 90.5V313.5V487.5V504.5V520.5L477.5 606.5H300.5V190L303.5 185.5L307 181.5Z",
-  },
-  {
-    id: "plate-2",
-    path: "M561.952 969.5L557.115 954.5L531 803H829.393H841V810.5L805.212 963L799.409 975L791.671 984.5L781.031 993L768.941 997H595.321L580.329 993L570.173 982.5L561.952 969.5Z",
-  },
-  {
-    id: "plate-3",
-    path: "M463.5 619H239.5V685.5L268.5 824L274 832.5L280.5 836.5L287.5 839H374.5L488 813V665.5L479.5 619H463.5Z",
-  },
-  {
-    id: "plate-4",
-    path: "M478 490.5V275.5V266H595.5L604 268.5L609 273L614 280L616 288.5V397H863.5V351.5L869 341.5L876.5 336L884 333.5H942.5L968 346.5H1092V462L1059.5 503.5L1049.5 515L1039 524L1022.5 532.5L1000.5 537H976.5H843.5H823L804 543L787 551L775 559L761 569.5L742.5 579.5H650.5V490.5H478Z",
-  },
-  {
-    id: "plate-5",
-    path: "M483 522.5V507H630.358V596H751.801L769.077 588.5L792.451 572L809.22 560.5L827.512 553L848.346 549.5H983V572L973.346 592L959.626 610L904.24 672.5L884.931 701L865.114 747L848.346 789H532.289L483 522.5Z",
-  },
+const DESKTOP_MASK_PATHS_FALLBACK = [
+  "M503.519 307.009L510.068 300H603.264L607.295 301.001L613.34 304.506L617.37 308.511L619.889 312.516L622.911 319.024V430.165H870.26V388.112L871.772 382.104L876.305 375.596L881.343 370.589L889.403 366.084H949.855L976.555 380.101H1055.14V493.745H1103V511.267H1096.95V512.769L1078.82 533.796L1067.74 547.313L1057.66 557.326L1045.57 565.837L1028.95 572.345L1017.36 574.848L1006.28 576.35H997.713H968.998V589.366V610.894L962.953 622.909L954.389 635.925L939.78 651.445L923.659 672.471L903.005 695L868.749 668.967V573.847H853.132H837.516L821.899 577.351L809.305 580.856L795.703 587.364L782.605 595.374L771.018 603.384L761.447 609.392L755.402 613.397L745.83 616.401H651.626V523.783H505.03H501V314.518L503.519 307.009Z",
+  "M566.948 995.453L541 845H842L805.672 1000.31L797.18 1011.95L785.857 1021.66L773.119 1027H603.276L597.143 1025.54L583.461 1018.75L575.44 1010.01L566.948 995.453Z",
+  "M626.284 538H486V549.5L539.915 838H839.327L842.991 829.5L847.702 811.5L855.03 787.5L862.359 768.5L871.257 749.5L880.679 730L889.578 714L899 702V698.5L856.601 667V580H836.71L833.046 581L820.483 583.5L802.162 590L791.17 596.5L767.615 612.5L758.716 618L749.294 622.5L738.302 626H626.284V538Z",
+  "M483.32 657H260V723.235L273.593 795.252L285.73 861.487L290.1 867.795L293.983 869.897L300.78 872H384.768L419.237 865.166L465.842 853.601L474.581 850.447L494 847.819L491.573 712.196L490.116 704.836V699.054L483.32 657Z",
+  "M457.61 120.5L463.43 119L468.192 118L474.012 119L479.302 122.5L483.006 126.5L486.709 131L489.884 136.5L492 142.5V149.5V346.5H465.547L453.907 347V555L473.483 652H322.169L310 643V232L311.587 230.5L313.174 228L457.61 120.5Z",
 ] as const;
 
 const DEFAULT_ACTIVE_PLATE_ID = "plate-4";
 
 interface PlateGeometryBundle {
-  id: string;
+  id: PlateId;
   geometry: ExtrudeGeometry;
   sideLinesGeometry: BufferGeometry;
   edgeGeometry: EdgesGeometry;
@@ -96,52 +89,146 @@ function makeSideLineGeometry(shape: Shape, spreadX: number, spreadY: number): B
   return geometry;
 }
 
-function buildPlateGeometries(): PlateGeometryBundle[] {
+function applySvgTextureUv(geometry: ExtrudeGeometry, spreadX: number, spreadY: number) {
+  const position = geometry.getAttribute("position");
+  const uvArray = new Float32Array(position.count * 2);
+
+  for (let i = 0; i < position.count; i += 1) {
+    const x = position.getX(i);
+    const y = position.getY(i);
+    const sourceX = x - spreadX + SVG_CENTER_X;
+    const sourceY = SVG_CENTER_Y - (y - spreadY);
+
+    const u = MathUtils.clamp(sourceX / SVG_WIDTH, 0, 1);
+    const v = 1 - MathUtils.clamp(sourceY / SVG_HEIGHT, 0, 1);
+    uvArray[i * 2] = u;
+    uvArray[i * 2 + 1] = v;
+  }
+
+  geometry.setAttribute("uv", new BufferAttribute(uvArray, 2));
+}
+
+function extractDesktopMaskPaths(svgMarkup: string): string[] {
+  const xml = new DOMParser().parseFromString(svgMarkup, "image/svg+xml");
+  const maskPaths = Array.from(xml.querySelectorAll("mask path[d]"))
+    .map((node) => node.getAttribute("d")?.trim())
+    .filter((value): value is string => Boolean(value));
+
+  if (maskPaths.length >= 5) {
+    return maskPaths.slice(0, 5);
+  }
+
+  return [...DESKTOP_MASK_PATHS_FALLBACK];
+}
+
+function computeRawCentroid(shape: Shape): { x: number; y: number } {
+  const points = shape.getSpacedPoints(120);
+  const sum = points.reduce(
+    (acc, point) => {
+      acc.x += point.x;
+      acc.y += point.y;
+      return acc;
+    },
+    { x: 0, y: 0 },
+  );
+
+  return {
+    x: sum.x / Math.max(1, points.length),
+    y: sum.y / Math.max(1, points.length),
+  };
+}
+
+function mapShapesToPlateIds(shapes: Shape[]): Array<{ id: PlateId; shape: Shape }> {
+  const entries = shapes.map((shape, index) => {
+    const center = computeRawCentroid(shape);
+    return { index, shape, cx: center.x, cy: center.y };
+  });
+
+  if (entries.length < 5) return [];
+
+  const idByIndex = new Map<number, PlateId>();
+  const remaining = entries.map((entry) => entry.index);
+  const removeIndex = (indexToRemove: number) => {
+    const idx = remaining.indexOf(indexToRemove);
+    if (idx >= 0) remaining.splice(idx, 1);
+  };
+
+  const top = entries.reduce((best, item) => (item.cy < best.cy ? item : best));
+  idByIndex.set(top.index, "plate-1");
+  removeIndex(top.index);
+
+  const bottom = entries.reduce((best, item) => (item.cy > best.cy ? item : best));
+  idByIndex.set(bottom.index, "plate-2");
+  removeIndex(bottom.index);
+
+  const remainingEntries = entries.filter((entry) => remaining.includes(entry.index));
+  const left = remainingEntries.reduce((best, item) => (item.cx < best.cx ? item : best));
+  idByIndex.set(left.index, "plate-3");
+  removeIndex(left.index);
+
+  const tail = entries
+    .filter((entry) => remaining.includes(entry.index))
+    .sort((a, b) => a.cy - b.cy);
+  if (tail[0]) idByIndex.set(tail[0].index, "plate-4");
+  if (tail[1]) idByIndex.set(tail[1].index, "plate-5");
+
+  return entries
+    .map((entry) => {
+      const id = idByIndex.get(entry.index);
+      if (!id) return null;
+      return { id, shape: entry.shape };
+    })
+    .filter((item): item is { id: PlateId; shape: Shape } => item !== null)
+    .sort((a, b) => PLATE_IDS.indexOf(a.id) - PLATE_IDS.indexOf(b.id));
+}
+
+function buildPlateGeometries(pathDefs: string[]): PlateGeometryBundle[] {
   const loader = new SVGLoader();
-  const svgMarkup = `<svg viewBox="0 0 ${SVG_WIDTH} ${SVG_HEIGHT}" xmlns="http://www.w3.org/2000/svg">${PLATE_CONFIGS.map((item) => `<path d="${item.path}" />`).join("")}</svg>`;
+  const svgMarkup = `<svg viewBox="0 0 ${SVG_WIDTH} ${SVG_HEIGHT}" xmlns="http://www.w3.org/2000/svg">${pathDefs
+    .slice(0, 5)
+    .map((path) => `<path d="${path}" />`)
+    .join("")}</svg>`;
+
   const parsed = loader.parse(svgMarkup);
+  const shapes = parsed.paths.flatMap((svgPath) => SVGLoader.createShapes(svgPath));
+  const mapped = mapShapesToPlateIds(shapes);
 
-  return parsed.paths.flatMap((svgPath, index) => {
-    const config = PLATE_CONFIGS[index];
-    if (!config) return [];
-    const shapes = SVGLoader.createShapes(svgPath);
+  return mapped.map(({ id, shape }) => {
+    const sample = shape.getSpacedPoints(100);
+    const center = sample.reduce(
+      (acc, point) => {
+        acc.x += point.x - SVG_CENTER_X;
+        acc.y += SVG_CENTER_Y - point.y;
+        return acc;
+      },
+      { x: 0, y: 0 },
+    );
+    const cx = center.x / Math.max(1, sample.length);
+    const cy = center.y / Math.max(1, sample.length);
+    const direction = new Vector2(cx, cy);
+    const spread = direction.lengthSq() > 0.0001 ? direction.normalize().multiplyScalar(SPREAD_DISTANCE) : new Vector2();
 
-    return shapes.map((shape) => {
-      const sample = shape.getSpacedPoints(100);
-      const center = sample.reduce(
-        (acc, point) => {
-          acc.x += point.x - SVG_CENTER_X;
-          acc.y += SVG_CENTER_Y - point.y;
-          return acc;
-        },
-        { x: 0, y: 0 },
-      );
-      const cx = center.x / Math.max(1, sample.length);
-      const cy = center.y / Math.max(1, sample.length);
-      const direction = new Vector2(cx, cy);
-      const spread = direction.lengthSq() > 0.0001 ? direction.normalize().multiplyScalar(SPREAD_DISTANCE) : new Vector2();
-
-      const geometry = new ExtrudeGeometry(shape, {
-        depth: BASE_DEPTH,
-        bevelEnabled: false,
-        steps: 1,
-        curveSegments: 24,
-      });
-      geometry.translate(-SVG_CENTER_X, -SVG_CENTER_Y, 0);
-      geometry.scale(1, -1, 1);
-      geometry.translate(spread.x, spread.y, 0);
-      geometry.computeVertexNormals();
-
-      const sideLinesGeometry = makeSideLineGeometry(shape, spread.x, spread.y);
-      const edgeGeometry = new EdgesGeometry(geometry, 35);
-
-      return {
-        id: config.id,
-        geometry,
-        sideLinesGeometry,
-        edgeGeometry,
-      };
+    const geometry = new ExtrudeGeometry(shape, {
+      depth: BASE_DEPTH,
+      bevelEnabled: false,
+      steps: 1,
+      curveSegments: 24,
     });
+    geometry.translate(-SVG_CENTER_X, -SVG_CENTER_Y, 0);
+    geometry.scale(1, -1, 1);
+    geometry.translate(spread.x, spread.y, 0);
+    applySvgTextureUv(geometry, spread.x, spread.y);
+    geometry.computeVertexNormals();
+
+    const sideLinesGeometry = makeSideLineGeometry(shape, spread.x, spread.y);
+    const edgeGeometry = new EdgesGeometry(geometry, 35);
+
+    return {
+      id,
+      geometry,
+      sideLinesGeometry,
+      edgeGeometry,
+    };
   });
 }
 
@@ -149,31 +236,43 @@ function PlateMesh({
   plate,
   onToggle,
   registerVisual,
+  topTexture,
 }: {
   plate: PlateGeometryBundle;
   onToggle: (id: string) => void;
   registerVisual: (id: string, value: PlateVisualRef | null) => void;
+  topTexture: Texture | null;
 }) {
   const groupRef = useRef<Group>(null);
   const pulseRef = useRef({ value: 0 });
+  const maxAnisotropy = useThree((state) => state.gl.capabilities.getMaxAnisotropy());
+
+  useEffect(() => {
+    if (!topTexture) return;
+    const nextAnisotropy = Math.max(1, Math.min(16, maxAnisotropy || 1));
+    if (topTexture.anisotropy === nextAnisotropy) return;
+    topTexture.anisotropy = nextAnisotropy;
+    topTexture.needsUpdate = true;
+  }, [maxAnisotropy, topTexture]);
 
   const topMaterial = useMemo(
     () =>
       new MeshStandardMaterial({
-        color: new Color("#c4e4ff"),
+        color: new Color("#f5fbff"),
         roughness: 0.28,
         metalness: 0.12,
         emissive: new Color("#5ebeff"),
-        emissiveIntensity: 0.04,
+        emissiveIntensity: 0.03,
         transparent: false,
         opacity: 1,
         side: DoubleSide,
+        map: topTexture,
         depthWrite: true,
         polygonOffset: true,
         polygonOffsetFactor: 1,
         polygonOffsetUnits: 1,
       }),
-    [],
+    [topTexture],
   );
 
   const sideMaterial = useMemo(
@@ -289,10 +388,12 @@ function PlateScene({
   plates,
   onToggle,
   registerVisual,
+  topTexture,
 }: {
   plates: PlateGeometryBundle[];
   onToggle: (id: string) => void;
   registerVisual: (id: string, value: PlateVisualRef | null) => void;
+  topTexture: Texture | null;
 }) {
   const visualsRef = useRef<Record<string, PlateVisualRef>>({});
 
@@ -334,7 +435,13 @@ function PlateScene({
 
       <group scale={[SCENE_SCALE_XY, SCENE_SCALE_XY, 1]} position={[0, 14, 0]}>
         {plates.map((plate) => (
-          <PlateMesh key={plate.id} plate={plate} onToggle={onToggle} registerVisual={registerVisualWithStore} />
+          <PlateMesh
+            key={plate.id}
+            plate={plate}
+            onToggle={onToggle}
+            registerVisual={registerVisualWithStore}
+            topTexture={topTexture}
+          />
         ))}
       </group>
     </>
@@ -345,11 +452,71 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
+  const loadedTextureRef = useRef<Texture | null>(null);
 
   const visualRefs = useRef<Record<string, PlateVisualRef>>({});
   const [selectedPlateId, setSelectedPlateId] = useState<string | null>(null);
+  const [plates, setPlates] = useState<PlateGeometryBundle[]>([]);
+  const [topTexture, setTopTexture] = useState<Texture | null>(null);
 
-  const plates = useMemo(() => buildPlateGeometries(), []);
+  useEffect(() => {
+    let active = true;
+
+    fetch(DESKTOP_SVG_URL)
+      .then((response) => response.text())
+      .then((svgMarkup) => {
+        if (!active) return;
+        const paths = extractDesktopMaskPaths(svgMarkup);
+        setPlates(buildPlateGeometries(paths));
+      })
+      .catch(() => {
+        if (!active) return;
+        setPlates(buildPlateGeometries([...DESKTOP_MASK_PATHS_FALLBACK]));
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    const loader = new TextureLoader();
+
+    loader.load(
+      DESKTOP_SVG_URL,
+      (texture) => {
+        if (!active) {
+          texture.dispose();
+          return;
+        }
+        texture.colorSpace = SRGBColorSpace;
+        texture.minFilter = LinearMipmapLinearFilter;
+        texture.magFilter = LinearFilter;
+        texture.generateMipmaps = true;
+        texture.needsUpdate = true;
+
+        if (loadedTextureRef.current && loadedTextureRef.current !== texture) {
+          loadedTextureRef.current.dispose();
+        }
+        loadedTextureRef.current = texture;
+        setTopTexture(texture);
+      },
+      undefined,
+      () => {
+        if (!active) return;
+        setTopTexture(null);
+      },
+    );
+
+    return () => {
+      active = false;
+      if (loadedTextureRef.current) {
+        loadedTextureRef.current.dispose();
+        loadedTextureRef.current = null;
+      }
+    };
+  }, []);
 
   const registerVisual = useCallback((id: string, value: PlateVisualRef | null) => {
     if (value) {
@@ -423,7 +590,7 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
         });
       });
     },
-    { dependencies: [selectedPlateId, props.visible], scope: rootRef },
+    { dependencies: [selectedPlateId, props.visible, plates.length], scope: rootRef },
   );
 
   if (!props.visible) return null;
@@ -455,6 +622,7 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
             plates={plates}
             onToggle={handleToggle}
             registerVisual={registerVisual}
+            topTexture={topTexture}
           />
         </Canvas>
       </div>
