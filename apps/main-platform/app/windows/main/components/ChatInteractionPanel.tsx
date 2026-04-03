@@ -18,16 +18,19 @@ gsap.registerPlugin(Flip);
 interface BotBubbleProps {
   msgId: string;
   content: string;
+  showTrace: boolean;
   onTrace: (msgId: string) => void;
 }
 
-function BotBubble({ msgId, content, onTrace }: BotBubbleProps) {
+function BotBubble({ msgId, content, showTrace, onTrace }: BotBubbleProps) {
   const bubbleRef = useRef<HTMLDivElement>(null);
   const btnOuterRef = useRef<HTMLDivElement>(null);
   const btnInnerRef = useRef<HTMLDivElement>(null);
   const tlRef = useRef<gsap.core.Timeline | null>(null);
 
   useLayoutEffect(() => {
+    if (!showTrace) return;
+
     const bubble = bubbleRef.current;
     const btnOuter = btnOuterRef.current;
     const btnInner = btnInnerRef.current;
@@ -39,7 +42,7 @@ function BotBubble({ msgId, content, onTrace }: BotBubbleProps) {
     const tl = gsap.timeline({ paused: true });
 
     tl.to(btnOuter, {
-      width: 80,
+      width: TRACE_BUTTON_WIDTH,
       duration: 0.38,
       ease: LINE_DRAW_EASE,
     }, 0.14);
@@ -52,7 +55,7 @@ function BotBubble({ msgId, content, onTrace }: BotBubbleProps) {
 
     tlRef.current = tl;
 
-    const onEnter = () => tlRef.current?.play();
+    const onEnter = () => tlRef.current?.play(0);
     const onLeave = () => tlRef.current?.reverse();
     bubble.addEventListener("mouseenter", onEnter);
     bubble.addEventListener("mouseleave", onLeave);
@@ -63,7 +66,11 @@ function BotBubble({ msgId, content, onTrace }: BotBubbleProps) {
       tl.kill();
       tlRef.current = null;
     };
-  }, []);
+  }, [showTrace]);
+
+  if (!showTrace) {
+    return <div className="chat-bubble chat-bubble--bot">{content}</div>;
+  }
 
   return (
     <div ref={bubbleRef} className="chat-bubble chat-bubble--bot chat-bubble--bot-traceable">
@@ -108,21 +115,55 @@ const MC_MODEL_OPTIONS: Record<MCProvider, string[]> = {
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BOT_REPLY = "这是模拟回答，后续将接入实际代码。";
 const TYPING_DELAY_MS = 700;
+const TRACE_BUTTON_WIDTH = 80;
+
+interface MockQAPair {
+  matchers: string[];
+  answer: string;
+}
+
+const MOCK_QA_PAIRS: MockQAPair[] = [
+  {
+    matchers: ["中国法制史配套测试", "动产担保权公示及优先顺位规则研究", "法学教育中的定位"],
+    answer:
+      "《中国法制史配套测试》旨在帮助法学院校学生掌握法律专业知识和培养法律思维能力，属于《高校法学专业核心课程配套测试丛书》系列，考点全面、题量充足、解答详尽且应试性强；《动产担保权公示及优先顺位规则研究》则基于我国动产担保实践，深入探讨动产担保的公示制度与优先顺位规则，并提出相关法律对策，以期为完善我国动产担保制度提供立法建议和法理支持。",
+  },
+  {
+    matchers: ["秭归县茅坪镇九里村", "故意杀人案", "江苏南通", "山东临沂", "孟某"],
+    answer:
+      "在秭归县茅坪镇九里村的案件中，唐某某因矛盾纠纷持刀将郭某某当场杀死，具有明显的故意杀人动机和直接的致死结果，因此被采取刑事强制措施；而在江苏南通和山东临沂的案件中，孟某的具体犯罪行为尚未完全明确，且没有直接导致人员死亡的结果，因此案件仍在进一步侦办中，未明确具体的法律定性。",
+  },
+];
+
+function normalizeForMockQa(input: string): string {
+  return input.replace(/\s+/g, "").replace(/[“”"'‘’]/g, "");
+}
+
+function resolveMockReply(question: string): string {
+  const normalized = normalizeForMockQa(question);
+  const hit = MOCK_QA_PAIRS.find((pair) =>
+    pair.matchers.every((matcher) => normalized.includes(normalizeForMockQa(matcher))),
+  );
+  return hit?.answer ?? BOT_REPLY;
+}
 
 export interface ChatInteractionPanelProps {
   menuOpen?: boolean;
   canvasReady?: boolean;
+  mode?: Mode;
+  onModeChange?: (mode: Mode) => void;
   onOpenTrace?: (msgId: string) => void;
 }
 
 export function ChatInteractionPanel({
   menuOpen = false,
   canvasReady = false,
+  mode = "local",
+  onModeChange,
   onOpenTrace,
 }: ChatInteractionPanelProps) {
 
   // ── Chat state ──────────────────────────────────────────────────────────────
-  const [mode, setMode] = useState<Mode>("local");
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -330,6 +371,8 @@ export function ChatInteractionPanel({
     const text = inputValue.trim();
     if (!text || isSendingRef.current) return;
 
+    const replyText = resolveMockReply(text);
+
     isSendingRef.current = true;
     setIsSending(true);
     setInputValue("");
@@ -352,7 +395,7 @@ export function ChatInteractionPanel({
         captureFlip();
         pendingEntryIdsRef.current.add(botId);
         setMessages((prev) =>
-          prev.filter((m) => m.id !== typingId).concat({ id: botId, role: "bot", content: BOT_REPLY })
+          prev.filter((m) => m.id !== typingId).concat({ id: botId, role: "bot", content: replyText })
         );
         isSendingRef.current = false;
         setIsSending(false);
@@ -526,7 +569,7 @@ export function ChatInteractionPanel({
   // Render
   // ──────────────────────────────────────────────────────────────────────────
   return (
-    <div className="chat-interaction-layer" data-menu-open={menuOpen}>
+    <div className="chat-interaction-layer" data-menu-open={menuOpen} data-mode={mode}>
 
       {/* ── Model Config Overlay ─────────────────────────────────────────── */}
       {mcMounted && (
@@ -717,7 +760,7 @@ export function ChatInteractionPanel({
                 id="mode-switch"
                 type="checkbox"
                 checked={mode === "global"}
-                onChange={(e) => setMode(e.target.checked ? "global" : "local")}
+                onChange={(e) => onModeChange?.(e.target.checked ? "global" : "local")}
               />
               <span>本地</span>
               <span>全局</span>
@@ -766,6 +809,7 @@ export function ChatInteractionPanel({
                       <BotBubble
                         msgId={msg.id}
                         content={msg.content}
+                        showTrace={mode === "local"}
                         onTrace={onOpenTrace ?? (() => { })}
                       />
                     ) : (

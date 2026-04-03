@@ -16,9 +16,11 @@ import {
 import { LINE_DRAW_EASE } from "../../shared/animation";
 
 type Coords = { x1: number; x2: number; y1: number; y2: number };
+type ChatMode = "local" | "global";
 
 export interface ChatCanvasLinesProps {
   menuOpen?: boolean;
+  mode?: ChatMode;
   onComplete?: () => void;
 }
 
@@ -46,7 +48,7 @@ function syncRect(rect: SVGRectElement | null, c: Coords) {
   rect.setAttribute("height", String(Math.max(0, c.y2 - c.y1)));
 }
 
-export function ChatCanvasLines({ menuOpen = false, onComplete }: ChatCanvasLinesProps) {
+export function ChatCanvasLines({ menuOpen = false, mode = "local", onComplete }: ChatCanvasLinesProps) {
   const svgRef = useRef<SVGSVGElement>(null);
 
   // 单一坐标源，所有线条和 rect 由此驱动
@@ -74,6 +76,9 @@ export function ChatCanvasLines({ menuOpen = false, onComplete }: ChatCanvasLine
     if (!svg) return;
 
     const coords = coordsRef.current;
+    const isGlobal = mode === "global";
+    const activeStroke = isGlobal ? "url(#cc-global-neon-grad)" : MAIN_CANVAS_LINE_ACTIVE;
+    const initialStroke = isGlobal ? "url(#cc-global-neon-grad)" : MAIN_CANVAS_LINE_INITIAL;
 
     const lineLeft   = svg.querySelector<SVGLineElement>("#cc-line-left");
     const lineRight  = svg.querySelector<SVGLineElement>("#cc-line-right");
@@ -90,7 +95,7 @@ export function ChatCanvasLines({ menuOpen = false, onComplete }: ChatCanvasLine
       gsap.set(line, {
         strokeDasharray: len,
         strokeDashoffset: len,
-        stroke: MAIN_CANVAS_LINE_INITIAL,
+        stroke: initialStroke,
         opacity: 1,
       });
     });
@@ -113,10 +118,14 @@ export function ChatCanvasLines({ menuOpen = false, onComplete }: ChatCanvasLine
     // 阶段2：变色 + 扩张 + 填充，在四条线绘制完成后立即开始（0.24 + 1.08 = 1.32）
     const lineDrawEnd = 0.24 + 1.08;
     tl.to(lines, {
-      stroke: MAIN_CANVAS_LINE_ACTIVE,
+      stroke: activeStroke,
       duration: 0.5,
       ease: "power2.out",
     }, lineDrawEnd);
+
+    tl.set(lines, {
+      clearProps: "strokeDasharray,strokeDashoffset",
+    }, lineDrawEnd + 0.5);
 
     if (fillRect) {
       tl.to(fillRect, {
@@ -162,6 +171,16 @@ export function ChatCanvasLines({ menuOpen = false, onComplete }: ChatCanvasLine
     };
   }, []);
 
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const nextStroke = mode === "global" ? "url(#cc-global-neon-grad)" : MAIN_CANVAS_LINE_ACTIVE;
+    const lines = svg.querySelectorAll<SVGLineElement>(".cc-main-line");
+    lines.forEach((line) => {
+      line.setAttribute("stroke", nextStroke);
+    });
+  }, [mode]);
+
   // ─── 菜单联动：监听 menuOpen 变化，平移 x1/x2 ──────────
   useEffect(() => {
     const svg = svgRef.current;
@@ -202,9 +221,18 @@ export function ChatCanvasLines({ menuOpen = false, onComplete }: ChatCanvasLine
       ref={svgRef}
       viewBox={`0 0 ${VW} ${VH}`}
       preserveAspectRatio="xMidYMid slice"
-      className="main-window-canvas-svg"
+      className={`main-window-canvas-svg${mode === "global" ? " main-window-canvas-svg--global" : ""}`}
+      data-mode={mode}
       aria-hidden="true"
     >
+      <defs>
+        <linearGradient id="cc-global-neon-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#48A7FF" />
+          <stop offset="52%" stopColor="#7A6CFF" />
+          <stop offset="100%" stopColor="#9D4DFF" />
+        </linearGradient>
+      </defs>
+
       {/* 画布填充 rect：必须在线条之下，四线始终覆盖在上方 */}
       <rect
         id="cc-fill-rect"
@@ -219,42 +247,42 @@ export function ChatCanvasLines({ menuOpen = false, onComplete }: ChatCanvasLine
       {/* 四条边界线：渲染在 rect 之上，保证线条始终可见 */}
       <line
         id="cc-line-top"
-        className="cc-main-line"
+        className={`cc-main-line${mode === "global" ? " cc-main-line--global" : ""}`}
         x1={0}
         y1={MAIN_CANVAS_INITIAL.y1}
         x2={VW}
         y2={MAIN_CANVAS_INITIAL.y1}
-        stroke={MAIN_CANVAS_LINE_INITIAL}
+        stroke={mode === "global" ? "url(#cc-global-neon-grad)" : MAIN_CANVAS_LINE_INITIAL}
         strokeWidth={MAIN_CANVAS_STROKE_WIDTH}
       />
       <line
         id="cc-line-bottom"
-        className="cc-main-line"
+        className={`cc-main-line${mode === "global" ? " cc-main-line--global" : ""}`}
         x1={0}
         y1={MAIN_CANVAS_INITIAL.y2}
         x2={VW}
         y2={MAIN_CANVAS_INITIAL.y2}
-        stroke={MAIN_CANVAS_LINE_INITIAL}
+        stroke={mode === "global" ? "url(#cc-global-neon-grad)" : MAIN_CANVAS_LINE_INITIAL}
         strokeWidth={MAIN_CANVAS_STROKE_WIDTH}
       />
       <line
         id="cc-line-left"
-        className="cc-main-line"
+        className={`cc-main-line${mode === "global" ? " cc-main-line--global" : ""}`}
         x1={MAIN_CANVAS_INITIAL.x1}
         y1={0}
         x2={MAIN_CANVAS_INITIAL.x1}
         y2={VH}
-        stroke={MAIN_CANVAS_LINE_INITIAL}
+        stroke={mode === "global" ? "url(#cc-global-neon-grad)" : MAIN_CANVAS_LINE_INITIAL}
         strokeWidth={MAIN_CANVAS_STROKE_WIDTH}
       />
       <line
         id="cc-line-right"
-        className="cc-main-line"
+        className={`cc-main-line${mode === "global" ? " cc-main-line--global" : ""}`}
         x1={MAIN_CANVAS_INITIAL.x2}
         y1={0}
         x2={MAIN_CANVAS_INITIAL.x2}
         y2={VH}
-        stroke={MAIN_CANVAS_LINE_INITIAL}
+        stroke={mode === "global" ? "url(#cc-global-neon-grad)" : MAIN_CANVAS_LINE_INITIAL}
         strokeWidth={MAIN_CANVAS_STROKE_WIDTH}
       />
     </svg>

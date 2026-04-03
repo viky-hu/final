@@ -278,7 +278,7 @@ export function LoginIntroWindow({ onSignIn }: LoginIntroWindowProps) {
             <div className={`svg-text-content ${inverted ? "is-inverted" : ""}`}>
               <div className="svg-intro">
                 <h1 className="svg-headline">
-                  LightRAG makes police information retrieval smarter.
+                  基于LightRAG逻辑实现警务数据可检索信息获取更智能
                 </h1>
               </div>
             </div>

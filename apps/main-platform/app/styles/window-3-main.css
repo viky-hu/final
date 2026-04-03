@@ -41,6 +41,33 @@
   will-change: stroke-dashoffset;
 }
 
+.main-window-canvas-svg--global .cc-main-line--global {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 28 16;
+  animation: ccGlobalNeonFlow 2.6s linear infinite, ccGlobalNeonPulse 1.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 6px rgba(72, 167, 255, 0.88))
+    drop-shadow(0 0 14px rgba(122, 108, 255, 0.72))
+    drop-shadow(0 0 24px rgba(157, 77, 255, 0.48));
+}
+
+@keyframes ccGlobalNeonFlow {
+  to {
+    stroke-dashoffset: -132;
+  }
+}
+
+@keyframes ccGlobalNeonPulse {
+  0%,
+  100% {
+    opacity: 0.88;
+  }
+
+  50% {
+    opacity: 1;
+  }
+}
+
 /*
  * StaggeredMenu 全屏前景层：pointer-events: none，不拦截背景点击。
  */
@@ -546,7 +573,7 @@
   flex-direction: column;
   justify-content: flex-end;
   padding: 1.5vh 0.25rem 0.5rem;
-  gap: 0.9rem;
+  gap: 0.72rem;
   min-height: min-content;
   mask-image: linear-gradient(to bottom, transparent, black 12%, black 100%);
   -webkit-mask-image: linear-gradient(to bottom, transparent, black 12%, black 100%);
@@ -637,6 +664,25 @@
   background-size: 100% 200%;
 }
 
+.chat-interaction-layer[data-mode="global"] .semicircle,
+.chat-interaction-layer[data-mode="global"] .semicircle div {
+  filter: drop-shadow(0 0 8px rgba(72, 167, 255, 0.72))
+    drop-shadow(0 0 16px rgba(122, 108, 255, 0.56))
+    drop-shadow(0 0 28px rgba(157, 77, 255, 0.38));
+}
+
+.chat-interaction-layer[data-mode="global"] .semicircle:before,
+.chat-interaction-layer[data-mode="global"] .semicircle div:before {
+  background: radial-gradient(
+    transparent,
+    transparent 58%,
+    rgba(72, 167, 255, 0.88) 58%,
+    rgba(122, 108, 255, 0.96) 78%,
+    rgba(157, 77, 255, 0.92)
+  );
+  background-size: 100% 200%;
+}
+
 @keyframes rotate141 {
   to {
     transform: rotate(360deg);
@@ -660,10 +706,11 @@
 }
 
 .chat-bubble {
-  max-width: 72%;
-  padding: 0.82em 1.15em;
-  line-height: 1.65;
-  font-size: clamp(0.82rem, 1vw, 0.95rem);
+  max-width: 82%;
+  padding: 0.68em 0.92em;
+  line-height: 1.52;
+  font-size: clamp(0.74rem, 0.88vw, 0.88rem);
+  white-space: pre-line;
   word-break: break-word;
   font-family: system-ui, -apple-system, sans-serif;
 }
@@ -893,7 +940,7 @@
   position: relative;
   display: inline-block;
   width: fit-content;
-  max-width: 72%;
+  max-width: 82%;
   border-radius: 2px 20px 20px 2px;
   overflow: visible;
 }
@@ -917,7 +964,7 @@
 }
 
 .trace-btn-inner {
-  width: 80px;
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: center;

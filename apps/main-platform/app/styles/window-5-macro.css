@@ -1050,3 +1050,300 @@
   font-variant-numeric: tabular-nums;
   opacity: 0.8;
 }
+
+/* ========== D3 节点游标 (Three.js Html overlay) ========== */
+
+.d3-node-cursor {
+  position: relative;
+  width: 30px;
+  height: 39px;
+  cursor: pointer;
+  pointer-events: auto;
+  transform: translate(-50%, -100%);
+  will-change: filter, transform;
+  user-select: none;
+  transition: transform 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.d3-node-cursor:hover {
+  transform: translate(-50%, -110%) scale(1.12);
+}
+
+.d3-node-cursor svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+
+/* Selected: lift + glow */
+.d3-node-cursor--selected {
+  transform: translate(-50%, -118%) scale(1.1);
+  filter: drop-shadow(0 0 5px rgba(220, 50, 50, 0.95))
+          drop-shadow(0 0 14px rgba(220, 50, 50, 0.55))
+          drop-shadow(0 2px 8px rgba(0, 0, 0, 0.45));
+}
+
+.d3-node-cursor--blue.d3-node-cursor--selected {
+  filter: drop-shadow(0 0 5px rgba(68, 172, 255, 0.95))
+          drop-shadow(0 0 14px rgba(68, 172, 255, 0.55))
+          drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+}
+
+.d3-node-cursor--selected:hover {
+  transform: translate(-50%, -122%) scale(1.14);
+}
+
+/* Pulse ring */
+.d3-node-cursor-pulse {
+  position: absolute;
+  top: 45%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.d3-node-cursor--red.d3-node-cursor--selected .d3-node-cursor-pulse {
+  opacity: 1;
+  border: 1.5px solid rgba(220, 50, 50, 0.7);
+  animation: d3-node-pulse-red 1.6s ease-out infinite;
+}
+
+.d3-node-cursor--blue.d3-node-cursor--selected .d3-node-cursor-pulse {
+  opacity: 1;
+  border: 1.5px solid rgba(68, 172, 255, 0.7);
+  animation: d3-node-pulse-blue 1.6s ease-out infinite;
+}
+
+@keyframes d3-node-pulse-red {
+  0%   { transform: translate(-50%, -50%) scale(1);   opacity: 0.8; }
+  100% { transform: translate(-50%, -50%) scale(3.2); opacity: 0; }
+}
+
+@keyframes d3-node-pulse-blue {
+  0%   { transform: translate(-50%, -50%) scale(1);   opacity: 0.8; }
+  100% { transform: translate(-50%, -50%) scale(3.2); opacity: 0; }
+}
+
+/* Node label tooltip */
+.d3-node-label {
+  position: absolute;
+  bottom: calc(100% + 3px);
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
+  font-size: 0.58rem;
+  letter-spacing: 0.08em;
+  color: #1e1919;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(30, 25, 25, 0.12);
+  border-radius: 3px;
+  padding: 2px 6px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.d3-node-cursor--selected .d3-node-label,
+.d3-node-cursor:hover .d3-node-label {
+  opacity: 1;
+}
+
+.d3-node-label--red {
+  border-color: rgba(220, 50, 50, 0.25);
+  color: #8b1010;
+}
+
+/* ========== D3 信息面板 (水平横屏画布) ========== */
+
+/* CSS-first hidden state — GSAP drives visibility */
+.d3-info-canvas {
+  position: absolute;
+  top: 36px;
+  left: 0;
+  right: 0;
+  z-index: 8;
+  height: 0;
+  visibility: hidden;
+  opacity: 0;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.97);
+  border-bottom: 1px solid rgba(0, 160, 220, 0.14);
+  will-change: height, opacity;
+}
+
+.d3-info-canvas-inner {
+  display: flex;
+  align-items: stretch;
+  height: 88px;
+  overflow: hidden;
+  will-change: opacity;
+}
+
+/* ── ID 区 (左) ── */
+.d3-info-id-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 4px;
+  padding: 0 16px;
+  min-width: 144px;
+  flex-shrink: 0;
+  border-right: 1px solid rgba(30, 25, 25, 0.08);
+}
+
+.d3-info-cursor-thumb {
+  width: 18px;
+  height: 22px;
+  flex-shrink: 0;
+  overflow: visible;
+  display: block;
+}
+
+.d3-info-node-name {
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
+  font-size: clamp(0.72rem, 0.98vw, 0.88rem);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #1e1919;
+  line-height: 1.2;
+}
+
+.d3-info-node-name--red {
+  color: #8b1010;
+}
+
+.d3-info-node-code {
+  font-family: "Michroma", "DingTalk JinBuTi", system-ui, sans-serif;
+  font-size: clamp(0.5rem, 0.66vw, 0.6rem);
+  letter-spacing: 0.14em;
+  color: rgba(30, 25, 25, 0.4);
+  text-transform: uppercase;
+}
+
+.d3-info-node-code--red {
+  color: rgba(180, 20, 20, 0.5);
+}
+
+/* ── 指标区 (中) ── */
+.d3-info-metrics {
+  flex: 1;
+  display: flex;
+  align-items: stretch;
+  padding: 0 4px;
+}
+
+.d3-info-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 0 16px;
+  border-right: 1px solid rgba(30, 25, 25, 0.07);
+  min-width: 76px;
+}
+
+.d3-info-metric:last-child {
+  border-right: none;
+}
+
+.d3-info-metric-val {
+  font-family: "Michroma", "DingTalk JinBuTi", system-ui, sans-serif;
+  font-size: clamp(0.88rem, 1.25vw, 1.12rem);
+  font-weight: 700;
+  color: #111;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.d3-info-metric-val--red {
+  color: #b91c1c;
+}
+
+.d3-info-metric-lbl {
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
+  font-size: clamp(0.48rem, 0.63vw, 0.58rem);
+  letter-spacing: 0.1em;
+  color: rgba(30, 25, 25, 0.42);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* ── 状态区 (右) ── */
+.d3-info-status-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 16px;
+  min-width: 100px;
+  flex-shrink: 0;
+  border-left: 1px solid rgba(30, 25, 25, 0.08);
+}
+
+.d3-info-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  padding: 2px 7px;
+  border-radius: 3px;
+  text-transform: uppercase;
+}
+
+.d3-info-badge--online {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.28);
+}
+
+.d3-info-badge--online::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #10b981;
+  flex-shrink: 0;
+  animation: d4viz-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.d3-info-badge--restricted {
+  background: rgba(220, 60, 60, 0.09);
+  color: #b91c1c;
+  border: 1px solid rgba(220, 60, 60, 0.26);
+}
+
+.d3-info-badge--restricted::before {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #ef4444;
+  flex-shrink: 0;
+  animation: d4viz-pulse 1.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.d3-info-lastseen {
+  font-family: "Michroma", "DingTalk JinBuTi", system-ui, sans-serif;
+  font-size: clamp(0.5rem, 0.65vw, 0.6rem);
+  color: rgba(30, 25, 25, 0.38);
+  letter-spacing: 0.07em;
+  font-variant-numeric: tabular-nums;
+}
+
+@keyframes d3TickerScroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}

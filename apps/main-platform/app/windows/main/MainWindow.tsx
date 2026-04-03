@@ -8,6 +8,8 @@ import { ChatInteractionPanel } from "./components/ChatInteractionPanel";
 import { TraceWindow } from "./components/TraceWindow";
 import type { StaggeredMenuItem } from "./components/StaggeredMenu";
 
+type ChatMode = "local" | "global";
+
 interface MainWindowProps {
   onBack?: () => void;
   onOpenDatabase?: () => void;
@@ -18,6 +20,7 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
   const [traceMsgId, setTraceMsgId] = useState<string | null>(null);
+  const [chatMode, setChatMode] = useState<ChatMode>("local");
 
   const handleOpenTrace = useCallback((msgId: string) => {
     setTraceMsgId(msgId);
@@ -76,6 +79,7 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
       <div className="main-window-canvas-layer">
         <ChatCanvasLines
           menuOpen={isMenuOpen}
+          mode={chatMode}
           onComplete={() => setCanvasReady(true)}
         />
       </div>
@@ -84,6 +88,8 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
       <ChatInteractionPanel
         menuOpen={isMenuOpen}
         canvasReady={canvasReady}
+        mode={chatMode}
+        onModeChange={setChatMode}
         onOpenTrace={handleOpenTrace}
       />
 

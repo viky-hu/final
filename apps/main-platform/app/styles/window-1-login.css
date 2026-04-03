@@ -40,7 +40,7 @@
   justify-content: flex-start;
   padding: clamp(14px, 1.1vw, 20px);
   box-sizing: border-box;
-  font-family: "Michroma", system-ui, sans-serif;
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
 }
 
 /* ========== Intro (Stage 1) ========== */
@@ -67,6 +67,7 @@
 
 .svg-login-form {
   width: min(320px, 100%);
+  margin: auto;
   display: grid;
   gap: 1.1rem;
   color: #ffffff;

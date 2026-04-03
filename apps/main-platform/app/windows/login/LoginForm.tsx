@@ -13,7 +13,7 @@ export function LoginForm({ onSignIn }: LoginFormProps) {
     <form className="svg-login-form" onClick={(e) => e.stopPropagation()}>
       <div className="svg-field">
         <input type="email" placeholder=" " id="sv-email" autoComplete="email" required />
-        <label htmlFor="sv-email">Email</label>
+        <label htmlFor="sv-email">邮箱</label>
       </div>
       <div className="svg-field svg-field-pwd">
         <input
@@ -23,27 +23,27 @@ export function LoginForm({ onSignIn }: LoginFormProps) {
           autoComplete="current-password"
           required
         />
-        <label htmlFor="sv-pwd">Password</label>
+        <label htmlFor="sv-pwd">密码</label>
         <button
           type="button"
           className="svg-toggle-pwd"
           onClick={() => setShowPwd((v) => !v)}
         >
-          {showPwd ? "Hide" : "Show"}
+          {showPwd ? "隐藏" : "显示"}
         </button>
       </div>
       <div className="svg-form-row">
         <label className="svg-checkbox">
           <input type="checkbox" />
-          <span>Remember me</span>
+          <span>记住我</span>
         </label>
-        <a href="#forgot">Forgot?</a>
+        <a href="#forgot">忘记密码？</a>
       </div>
       <button type="button" className="svg-submit" onClick={onSignIn}>
-        Sign in
+        登录
       </button>
       <p className="svg-register">
-        No account? <a href="#register">Create one</a>
+        还没有账号？<a href="#register">立即注册</a>
       </p>
     </form>
   );

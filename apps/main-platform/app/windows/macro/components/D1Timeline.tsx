@@ -14,8 +14,8 @@ interface D1TimelineProps {
 
 export function D1Timeline({ visible }: D1TimelineProps) {
   const [updates, setUpdates] = useState<DatabaseUpdate[]>([]);
-  const scrollRef  = useRef<HTMLDivElement>(null);
-  const trackRef   = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const trackRef = useRef<HTMLDivElement>(null);
   const pollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const animatedRef = useRef(false);
 
@@ -74,7 +74,7 @@ export function D1Timeline({ visible }: D1TimelineProps) {
       <div ref={scrollRef} className="d1tl-scroll">
         <div ref={trackRef} className="d1tl-track">
           {updates.map((u, idx) => {
-            const isNewest  = idx === 0;
+            const isNewest = idx === 0;
             return (
               <div key={u.id} className="d1tl-item">
                 {/* 左侧轴：节点 + 虚线/链条 */}
