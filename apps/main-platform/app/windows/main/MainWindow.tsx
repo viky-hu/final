@@ -19,15 +19,15 @@ interface MainWindowProps {
 export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
-  const [traceMsgId, setTraceMsgId] = useState<string | null>(null);
+  const [traceTarget, setTraceTarget] = useState<{ msgId: string; content: string } | null>(null);
   const [chatMode, setChatMode] = useState<ChatMode>("local");
 
-  const handleOpenTrace = useCallback((msgId: string) => {
-    setTraceMsgId(msgId);
+  const handleOpenTrace = useCallback((msgId: string, content: string) => {
+    setTraceTarget({ msgId, content });
   }, []);
 
   const handleCloseTrace = useCallback(() => {
-    setTraceMsgId(null);
+    setTraceTarget(null);
   }, []);
 
   const menuItems: StaggeredMenuItem[] = [
@@ -94,8 +94,12 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
       />
 
       {/* TraceWindow: z-index 200, full-screen overlay, mounted only when a trace is active */}
-      {traceMsgId && (
-        <TraceWindow msgId={traceMsgId} onClose={handleCloseTrace} />
+      {traceTarget && (
+        <TraceWindow
+          msgId={traceTarget.msgId}
+          answerContent={traceTarget.content}
+          onClose={handleCloseTrace}
+        />
       )}
 
       {/* StaggeredMenu: z-index 10, foreground overlay */}

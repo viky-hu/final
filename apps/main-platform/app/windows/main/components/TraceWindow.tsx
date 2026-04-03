@@ -2,480 +2,189 @@
 
 import {
   useCallback,
-  useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
-  useState,
 } from "react";
 import { gsap } from "gsap";
 import { LINE_DRAW_EASE } from "../../shared/animation";
 
-// ─── SVG canvas dimensions ────────────────────────────────────────────────────
+// ─── SVG canvas dimensions ───────────────────────────────────────────────────
 const TVW = 1440;
 const TVH = 900;
 
-// ─── Vertical line x-positions (shifted left for 150% zoom visual balance) ───
-const VL = 384;   // main left  (was 432)
-const VM = 888;   // aux mid    (was 936)
-const VR = 1152;  // main right (was 1224)
+const C1 = TVW * 0.25;
+const RIGHT_WIDTH = TVW - C1;
+const C2 = C1 + RIGHT_WIDTH / 3;
+const C3 = C1 + RIGHT_WIDTH / 2;
+const RTOP = 190;
+const RBOTTOM = 750;
+const DOUBLE_LINE_GAP = 3;
+const ROW_HEIGHT = (RBOTTOM - RTOP) / 5;
 
-// ─── Line definitions ─────────────────────────────────────────────────────────
-const LINE_DEFS: { id: string; x1: number; y1: number; x2: number; y2: number }[] = [
-  // outer frame boundary lines (new)
-  { id: "tl-H-Bound-T",  x1: 0,   y1: 60,  x2: TVW, y2: 60  },
-  { id: "tl-H-Bound-B",  x1: TVW, y1: 800, x2: 0,   y2: 800 },
-  // main vertical lines — bounded to outer frame
-  { id: "tl-V-Main-L",   x1: VL,  y1: 60,  x2: VL,  y2: 800 },
-  { id: "tl-V-Main-R",   x1: VR,  y1: 60,  x2: VR,  y2: 800 },
-  // inner horizontal lines — full viewport width
-  { id: "tl-H-Main-T",   x1: 0,   y1: 135, x2: TVW, y2: 135 },
-  { id: "tl-H-Main-B",   x1: TVW, y1: 720, x2: 0,   y2: 720 },
-  // auxiliary lines
-  { id: "tl-H-Aux-1",    x1: VL,  y1: 405, x2: VR,  y2: 405 },
-  { id: "tl-V-Aux-1",    x1: VM,  y1: 405, x2: VM,  y2: 720 },
-  // decorative
-  { id: "tl-Deco-1",     x1: 355, y1: 540, x2: 413, y2: 540 },
-  { id: "tl-Cross-1-H",  x1: 870, y1: 405, x2: 906, y2: 405 },
-  { id: "tl-Cross-1-V",  x1: VM,  y1: 387, x2: VM,  y2: 423 },
+interface TraceRow {
+  text: string;
+  similarity: string;
+  file: string;
+}
+
+interface TraceDataset {
+  tag: string;
+  rows: TraceRow[];
+}
+
+interface TraceLineDef {
+  id: string;
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  start: number;
+  duration: number;
+  strokeWidth: number;
+}
+
+const TRACE_LINES: TraceLineDef[] = [
+  { id: "c1", x1: C1, y1: 0, x2: C1, y2: TVH, start: 0, duration: 0.5, strokeWidth: 2.8 },
+  { id: "c2", x1: C2, y1: 0, x2: C2, y2: TVH, start: 0, duration: 0.5, strokeWidth: 1.6 },
+  { id: "c3", x1: C3, y1: 0, x2: C3, y2: TVH, start: 0, duration: 0.5, strokeWidth: 1.6 },
+  { id: "rtop-1", x1: C1, y1: RTOP - DOUBLE_LINE_GAP / 2, x2: TVW, y2: RTOP - DOUBLE_LINE_GAP / 2, start: 0.4, duration: 0.4, strokeWidth: 2 },
+  { id: "rtop-2", x1: C1, y1: RTOP + DOUBLE_LINE_GAP / 2, x2: TVW, y2: RTOP + DOUBLE_LINE_GAP / 2, start: 0.4, duration: 0.4, strokeWidth: 1.4 },
+  { id: "rbottom-1", x1: C1, y1: RBOTTOM - DOUBLE_LINE_GAP / 2, x2: TVW, y2: RBOTTOM - DOUBLE_LINE_GAP / 2, start: 0.4, duration: 0.4, strokeWidth: 2 },
+  { id: "rbottom-2", x1: C1, y1: RBOTTOM + DOUBLE_LINE_GAP / 2, x2: TVW, y2: RBOTTOM + DOUBLE_LINE_GAP / 2, start: 0.4, duration: 0.4, strokeWidth: 1.4 },
+  { id: "r1", x1: C1, y1: RTOP + ROW_HEIGHT * 1, x2: TVW, y2: RTOP + ROW_HEIGHT * 1, start: 0.5, duration: 0.3, strokeWidth: 1.3 },
+  { id: "r2", x1: C1, y1: RTOP + ROW_HEIGHT * 2, x2: TVW, y2: RTOP + ROW_HEIGHT * 2, start: 0.6, duration: 0.3, strokeWidth: 1.3 },
+  { id: "r3", x1: C1, y1: RTOP + ROW_HEIGHT * 3, x2: TVW, y2: RTOP + ROW_HEIGHT * 3, start: 0.7, duration: 0.3, strokeWidth: 1.3 },
+  { id: "r4", x1: C1, y1: RTOP + ROW_HEIGHT * 4, x2: TVW, y2: RTOP + ROW_HEIGHT * 4, start: 0.8, duration: 0.3, strokeWidth: 1.3 },
 ];
 
-// ─── Node dots at key intersections ──────────────────────────────────────────
-const NODE_DOTS: { id: string; cx: number; cy: number }[] = [
-  // outer boundary corners
-  { id: "nd-bt-l", cx: VL,  cy: 60  },
-  { id: "nd-bt-r", cx: VR,  cy: 60  },
-  // inner frame intersections
-  { id: "nd-1",    cx: VL,  cy: 135 },
-  { id: "nd-2",    cx: VR,  cy: 135 },
-  { id: "nd-3",    cx: VL,  cy: 405 },
-  { id: "nd-4",    cx: VM,  cy: 405 },
-  { id: "nd-5",    cx: VR,  cy: 405 },
-  { id: "nd-6",    cx: VM,  cy: 720 },
-  { id: "nd-7",    cx: VR,  cy: 720 },
-  // outer boundary bottom corners
-  { id: "nd-bb-l", cx: VL,  cy: 800 },
-  { id: "nd-bb-r", cx: VR,  cy: 800 },
-];
+const GROUP_1: TraceDataset = {
+  tag: "法学教材定位差异",
+  rows: [
+    { text: "《中国法制史配套测试》定位为核心课程应试训练", similarity: "96%", file: "高校法学核心课程配套测试丛书_法制史卷.pdf" },
+    { text: "目标读者以法学院在校生与备考群体为主", similarity: "93%", file: "法学本科教学指南_课程能力要求.docx" },
+    { text: "题量充足、解答详尽，强调知识点覆盖与答题技巧", similarity: "91%", file: "法制史配套测试题库与解析_2026版.pdf" },
+    { text: "《动产担保权公示及优先顺位规则研究》聚焦制度建构与立法完善", similarity: "88%", file: "动产担保公示与优先顺位规则研究_专著.pdf" },
+    { text: "内容偏法理与实务改革建议，服务研究生与实务研究者", similarity: "84%", file: "动产担保司法实践与立法建议报告.md" },
+  ],
+};
 
-// ─── 5 source regions bounded by drawn lines ──────────────────────────────────
-const REGIONS = [
-  {
-    id: "left",
-    x: 0,   y: 135, w: VL,      h: 585,
-    label: "SOURCE · 01",
-    title: "核心架构设计规范_v4.pdf",
-  },
-  {
-    id: "top-c",
-    x: VL,  y: 135, w: VR - VL, h: 270,
-    label: "SOURCE · 02",
-    title: "性能基准测试报告_2026Q1.pdf",
-  },
-  {
-    id: "btm-cl",
-    x: VL,  y: 405, w: VM - VL, h: 315,
-    label: "SOURCE · 03",
-    title: "数据合规审计年度报告.docx",
-  },
-  {
-    id: "btm-cr",
-    x: VM,  y: 405, w: VR - VM, h: 315,
-    label: "SOURCE · 04",
-    title: "模型微调实验日志.md",
-  },
-  {
-    id: "right",
-    x: VR,  y: 135, w: TVW - VR, h: 585,
-    label: "SOURCE · 05",
-    title: "分布式系统设计文档.pdf",
-  },
-] as const;
+const GROUP_2: TraceDataset = {
+  tag: "故意杀人与侦办阶段区分",
+  rows: [
+    { text: "秭归案中存在明确持刀致死行为，客观后果已完成", similarity: "97%", file: "秭归县茅坪镇九里村警情通报_案情摘要.pdf" },
+    { text: "行为人主观上具有直接故意，符合故意杀人主观要件", similarity: "94%", file: "刑法分则要件对照表_故意杀人条款.docx" },
+    { text: "南通与临沂案目前仅披露抓获信息，关键事实尚待查明", similarity: "90%", file: "跨省案件侦办阶段信息披露规范.md" },
+    { text: "未见确认死亡结果与完整证据链，暂不宜先行定性", similarity: "86%", file: "刑事案件定性流程指引_侦查阶段.pdf" },
+    { text: "警方区分依据为主观状态与客观后果的证据完成度", similarity: "82%", file: "暴力案件法律适用与证据标准研究报告.pdf" },
+  ],
+};
 
-// ─── Phase type ────────────────────────────────────────────────────────────────
-// p1_draw   : scrollTop 0→vh; lines draw as user scrolls p1→p2
-// p2_locked : scrollTop locked at vh; 0.5s auto-reveal plays
-// p3_free   : scrollTop >vh; SVG translates up to simulate being "in" p2
-type Phase = "p1_draw" | "p2_locked" | "p3_free";
+const DEFAULT_DATASET: TraceDataset = {
+  tag: "默认溯源样本",
+  rows: [
+    { text: "检索命中与问题语义最接近的知识块并进行重排", similarity: "92%", file: "knowledge_retrieval_pipeline.md" },
+    { text: "基于向量相似度与关键词共现进行联合评分", similarity: "89%", file: "semantic_ranking_design.pdf" },
+    { text: "输出前执行事实一致性校核与来源追踪绑定", similarity: "86%", file: "answer_grounding_spec.docx" },
+    { text: "展示层按 Top5 证据片段映射文件级来源元数据", similarity: "81%", file: "trace_window_render_schema.json" },
+    { text: "提供可解释链路以支持回答审计与人工复核", similarity: "77%", file: "llm_explainability_manual.pdf" },
+  ],
+};
 
-// ─── Scroll constant: lines complete after exactly 1 viewport height of scroll ─
-const LINE_DRAW_VH = 1;
+function normalize(input: string): string {
+  return input.replace(/\s+/g, "").replace(/[“”"'‘’]/g, "");
+}
 
-// ─── Knowledge graph node/edge data ──────────────────────────────────────────
-const KG_NODES = [
-  { id: "c0", x: 720,  y: 510, r: 46, type: "center" as const, label: "本次回答",   sub: "KNOWLEDGE NODE" },
-  { id: "s1", x: 200,  y: 310, r: 27, type: "source" as const, label: "核心架构",   sub: "" },
-  { id: "s2", x: 590,  y: 225, r: 27, type: "source" as const, label: "性能测试",   sub: "" },
-  { id: "s3", x: 530,  y: 710, r: 27, type: "source" as const, label: "数据合规",   sub: "" },
-  { id: "s4", x: 920,  y: 700, r: 27, type: "source" as const, label: "模型微调",   sub: "" },
-  { id: "s5", x: 1200, y: 340, r: 27, type: "source" as const, label: "分布式系统", sub: "" },
-  { id: "k1", x: 290,  y: 580, r: 17, type: "concept" as const, label: "架构设计",  sub: "" },
-  { id: "k2", x: 860,  y: 245, r: 17, type: "concept" as const, label: "实验数据",  sub: "" },
-  { id: "k3", x: 1065, y: 630, r: 17, type: "concept" as const, label: "系统优化",  sub: "" },
-  { id: "k4", x: 380,  y: 775, r: 17, type: "concept" as const, label: "合规审计",  sub: "" },
-];
+function selectDataset(answerContent: string): TraceDataset {
+  const content = normalize(answerContent);
+  if (
+    content.includes(normalize("中国法制史配套测试")) ||
+    content.includes(normalize("动产担保权公示及优先顺位规则研究"))
+  ) {
+    return GROUP_1;
+  }
 
-const KG_EDGES = [
-  { from: "c0", to: "s1" }, { from: "c0", to: "s2" },
-  { from: "c0", to: "s3" }, { from: "c0", to: "s4" },
-  { from: "c0", to: "s5" },
-  { from: "s1", to: "k1" }, { from: "s2", to: "k2" },
-  { from: "s4", to: "k3" }, { from: "s3", to: "k4" },
-];
+  if (
+    content.includes(normalize("秭归县茅坪镇九里村")) ||
+    content.includes(normalize("江苏南通")) ||
+    content.includes(normalize("山东临沂"))
+  ) {
+    return GROUP_2;
+  }
 
-// ─── Knowledge Graph SVG component ────────────────────────────────────────────
-function KnowledgeGraph() {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const animatedRef  = useRef(false);
+  return DEFAULT_DATASET;
+}
 
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry.isIntersecting || animatedRef.current) return;
-        animatedRef.current = true;
-        observer.disconnect();
-
-        const nodes  = el.querySelectorAll<SVGCircleElement>(".kg-node");
-        const edges  = el.querySelectorAll<SVGLineElement>(".kg-edge");
-        const labels = el.querySelectorAll<SVGTextElement>(".kg-label");
-
-        gsap.set(nodes,  { scale: 0, transformOrigin: "center center", opacity: 0 });
-        edges.forEach((e) => {
-          const len = e.getTotalLength?.() ?? 100;
-          gsap.set(e, { strokeDasharray: len, strokeDashoffset: len, opacity: 0 });
-        });
-        gsap.set(labels, { opacity: 0 });
-
-        const tl = gsap.timeline({ delay: 0.35 });
-        tl.to(nodes,  { scale: 1, opacity: 1, stagger: 0.07, duration: 0.55, ease: "back.out(2)" });
-        tl.to(edges,  { strokeDashoffset: 0, opacity: 0.6, stagger: 0.05, duration: 0.9, ease: LINE_DRAW_EASE }, "-=0.3");
-        tl.to(labels, { opacity: 1, stagger: 0.05, duration: 0.45, ease: "power2.out" }, "-=0.4");
-      },
-      { threshold: 0.2 },
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  const nodeMap = Object.fromEntries(KG_NODES.map((n) => [n.id, n]));
-
-  return (
-    <div ref={containerRef} className="kg-container">
-      <svg
-        viewBox="0 0 1440 900"
-        preserveAspectRatio="xMidYMid meet"
-        className="kg-svg"
-        aria-label="知识图谱"
-      >
-        {/* Edges */}
-        {KG_EDGES.map(({ from, to }) => {
-          const f  = nodeMap[from];
-          const t2 = nodeMap[to];
-          if (!f || !t2) return null;
-          const primary = from === "c0" || to === "c0";
-          return (
-            <line
-              key={`${from}-${to}`}
-              className="kg-edge"
-              x1={f.x}  y1={f.y}
-              x2={t2.x} y2={t2.y}
-              stroke={primary ? "#27FF64" : "rgba(39,255,100,0.45)"}
-              strokeWidth={primary ? 0.9 : 0.55}
-            />
-          );
-        })}
-
-        {/* Nodes */}
-        {KG_NODES.map((n) => (
-          <g key={n.id}>
-            {n.type === "center" ? (
-              <>
-                <circle className="kg-node" cx={n.x} cy={n.y} r={n.r}
-                  fill="rgba(39,255,100,0.1)" stroke="#27FF64" strokeWidth={1.5} />
-                <circle className="kg-node" cx={n.x} cy={n.y} r={n.r * 0.72}
-                  fill="rgba(39,255,100,0.07)" stroke="rgba(39,255,100,0.45)" strokeWidth={0.7} />
-                <text className="kg-label" x={n.x} y={n.y - 4}
-                  textAnchor="middle" fill="#27FF64" fontSize={14}
-                  fontFamily="Michroma, monospace" letterSpacing="0.08em">
-                  {n.label}
-                </text>
-                <text className="kg-label" x={n.x} y={n.y + 15}
-                  textAnchor="middle" fill="rgba(39,255,100,0.5)" fontSize={9}
-                  fontFamily="Michroma, monospace" letterSpacing="0.1em">
-                  {n.sub}
-                </text>
-              </>
-            ) : n.type === "source" ? (
-              <>
-                <circle className="kg-node" cx={n.x} cy={n.y} r={n.r}
-                  fill="rgba(39,255,100,0.07)" stroke="#27FF64" strokeWidth={0.9} />
-                <text className="kg-label" x={n.x} y={n.y + n.r + 15}
-                  textAnchor="middle" fill="rgba(252,248,248,0.75)" fontSize={11}
-                  fontFamily="Michroma, monospace">
-                  {n.label}
-                </text>
-              </>
-            ) : (
-              <>
-                <circle className="kg-node" cx={n.x} cy={n.y} r={n.r}
-                  fill="rgba(39,255,100,0.04)" stroke="rgba(39,255,100,0.35)" strokeWidth={0.6} />
-                <text className="kg-label" x={n.x} y={n.y + n.r + 13}
-                  textAnchor="middle" fill="rgba(252,248,248,0.5)" fontSize={10}
-                  fontFamily="system-ui, -apple-system, sans-serif">
-                  {n.label}
-                </text>
-              </>
-            )}
-          </g>
-        ))}
-      </svg>
-    </div>
-  );
+function ellipsis(input: string, maxChars: number): string {
+  return input.length > maxChars ? `${input.slice(0, maxChars)}…` : input;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 export interface TraceWindowProps {
   msgId: string;
+  answerContent: string;
   onClose: () => void;
 }
 
-// ─── Main component ────────────────────────────────────────────────────────────
-export function TraceWindow({ msgId, onClose }: TraceWindowProps) {
-  const rootRef      = useRef<HTMLDivElement>(null);
-  const scrollerRef  = useRef<HTMLDivElement>(null);
-  const svgLayerRef  = useRef<HTMLDivElement>(null);
-  const svgRef       = useRef<SVGSVGElement>(null);
+const ROW_Y = Array.from({ length: 5 }, (_, idx) => RTOP + ROW_HEIGHT * idx + ROW_HEIGHT / 2 + 4);
 
-  const phaseRef         = useRef<Phase>("p1_draw");
-  const lineDrawTlRef    = useRef<gsap.core.Timeline | null>(null);
-  const revealTlRef      = useRef<gsap.core.Timeline | null>(null);
-  const lockScrollTopRef = useRef(0);
+// ─── Main component ───────────────────────────────────────────────────────────
+export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps) {
+  const rootRef = useRef<HTMLDivElement>(null);
+  const svgRef = useRef<SVGSVGElement>(null);
+  const dataset = useMemo(() => selectDataset(answerContent), [answerContent]);
 
-  // All active cleanup functions — called on unmount or re-cleanup
-  const cleanupFnsRef = useRef<(() => void)[]>([]);
-
-  const [hint, setHint]         = useState("↓ 向下滚动开始绘制线框");
-  const [showHint, setShowHint] = useState(true);
-
-  // ── Entry slide-in ─────────────────────────────────────────────────────────
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
+
     gsap.set(root, { yPercent: 100 });
     const t = gsap.to(root, { yPercent: 0, duration: 0.72, ease: "power3.out" });
-    return () => { t.kill(); };
+    return () => {
+      t.kill();
+    };
   }, []);
 
-  // ── Initialize SVG: set all lines invisible, regions collapsed ─────────────
   useLayoutEffect(() => {
     const svg = svgRef.current;
     if (!svg) return;
 
-    LINE_DEFS.forEach(({ id }) => {
+    TRACE_LINES.forEach(({ id }) => {
       const el = svg.querySelector<SVGLineElement>(`#${id}`);
       if (!el) return;
       const len = el.getTotalLength();
       gsap.set(el, { strokeDasharray: len, strokeDashoffset: len });
     });
 
-    gsap.set(svg.querySelectorAll(".tl-node-dot"), {
-      opacity: 0, scale: 0, transformOrigin: "center center",
-    });
+    gsap.set(svg.querySelectorAll<SVGGElement>(".trace-row-content"), { opacity: 0, y: 10 });
 
-    REGIONS.forEach(({ id }) => {
-      const fill    = svg.querySelector(`#rf-${id}`);
-      const content = svg.querySelector(`#rc-${id}`);
-      const scan    = svg.querySelector(`#rs-${id}`);
-      if (fill)    gsap.set(fill,    { attr: { height: 0 } });
-      if (content) gsap.set(content, { opacity: 0 });
-      if (scan)    gsap.set(scan,    { opacity: 0 });
-    });
-
-    // Build line draw timeline — paused, driven by scroll progress
-    // Sequence: outer frame first → main verticals → inner horizontals → aux → deco
     const tl = gsap.timeline({ paused: true });
-    const q  = (id: string) => svg.querySelector<SVGLineElement>(`#${id}`);
-
-    tl.to(q("tl-H-Bound-T"),  { strokeDashoffset: 0, duration: 4, ease: LINE_DRAW_EASE }, 0);
-    tl.to(q("tl-H-Bound-B"),  { strokeDashoffset: 0, duration: 4, ease: LINE_DRAW_EASE }, "-=2");
-    tl.to(q("tl-V-Main-L"),   { strokeDashoffset: 0, duration: 5, ease: LINE_DRAW_EASE }, "-=2");
-    tl.to(q("tl-V-Main-R"),   { strokeDashoffset: 0, duration: 5, ease: LINE_DRAW_EASE }, "-=3");
-    tl.to(q("tl-H-Main-T"),   { strokeDashoffset: 0, duration: 5, ease: LINE_DRAW_EASE }, "-=2");
-    tl.to(q("tl-H-Main-B"),   { strokeDashoffset: 0, duration: 5, ease: LINE_DRAW_EASE }, "-=3");
-    tl.to(q("tl-H-Aux-1"),    { strokeDashoffset: 0, duration: 4, ease: LINE_DRAW_EASE }, "-=1");
-    tl.to(q("tl-V-Aux-1"),    { strokeDashoffset: 0, duration: 4, ease: LINE_DRAW_EASE }, "-=2");
-    tl.to(q("tl-Deco-1"),     { strokeDashoffset: 0, duration: 2, ease: LINE_DRAW_EASE });
-    tl.to(q("tl-Cross-1-H"),  { strokeDashoffset: 0, duration: 2, ease: LINE_DRAW_EASE }, "-=2");
-    tl.to(q("tl-Cross-1-V"),  { strokeDashoffset: 0, duration: 2, ease: LINE_DRAW_EASE }, "-=2");
-    tl.to(svg.querySelectorAll(".tl-node-dot"), {
-      opacity: 1, scale: 1.5, yoyo: true, repeat: 1, duration: 1, stagger: 0.1,
+    TRACE_LINES.forEach(({ id, start, duration }) => {
+      const line = svg.querySelector<SVGLineElement>(`#${id}`);
+      if (!line) return;
+      tl.to(line, { strokeDashoffset: 0, duration, ease: LINE_DRAW_EASE }, start);
     });
 
-    lineDrawTlRef.current = tl;
-    return () => { tl.kill(); };
-  }, []);
-
-  // ── All phase event-listener logic ─────────────────────────────────────────
-  useEffect(() => {
-    const scroller = scrollerRef.current;
-    if (!scroller) return;
-
-    // ── Phase 3 (p3_free): SVG translates up with the canvas ──────────────
-    const startFreeScroll = () => {
-      phaseRef.current = "p3_free";
-      setShowHint(false);
-
-      const svgLayer = svgLayerRef.current;
-      if (!svgLayer) return;
-
-      const lockTop = lockScrollTopRef.current;
-
-      // At this moment scrollTop === lockTop, so y=0 — no flash on unlock
-      gsap.set(svgLayer, { y: 0 });
-
-      const handleFreeScroll = () => {
-        const delta = scroller.scrollTop - lockTop;
-        gsap.set(svgLayer, { y: -delta });
-      };
-
-      scroller.addEventListener("scroll", handleFreeScroll, { passive: true });
-      cleanupFnsRef.current.push(() =>
-        scroller.removeEventListener("scroll", handleFreeScroll)
-      );
-    };
-
-    // ── Phase 2 (p2_locked): hard-lock scroll, auto-play 0.5s reveal ─────
-    const startPanelReveal = () => {
-      const svg = svgRef.current;
-      if (!svg) return;
-
-      phaseRef.current = "p2_locked";
-      lockScrollTopRef.current = scroller.scrollTop;
-      setHint("线框已完成，正在显现溯源文件…");
-
-      // ── Hard scroll lock: block all input sources ────────────────────────
-      const preventWheel = (e: WheelEvent) => { e.preventDefault(); };
-      const preventTouch = (e: TouchEvent) => { e.preventDefault(); };
-      const preventKeys  = (e: KeyboardEvent) => {
-        if (["ArrowDown", "ArrowUp", "PageDown", "PageUp", " "].includes(e.key)) {
-          e.preventDefault();
-        }
-      };
-      // Clamp scrollTop every frame in case scrollbar is dragged
-      const clampScroll = () => {
-        scroller.scrollTop = lockScrollTopRef.current;
-      };
-
-      scroller.addEventListener("wheel",     preventWheel, { passive: false });
-      scroller.addEventListener("touchmove", preventTouch, { passive: false });
-      window.addEventListener("keydown",     preventKeys);
-      scroller.addEventListener("scroll",    clampScroll);
-
-      const unlock = () => {
-        scroller.removeEventListener("wheel",     preventWheel);
-        scroller.removeEventListener("touchmove", preventTouch);
-        window.removeEventListener("keydown",     preventKeys);
-        scroller.removeEventListener("scroll",    clampScroll);
-      };
-      // Register for unmount cleanup too
-      cleanupFnsRef.current.push(unlock);
-
-      // ── 0.5s auto-play reveal timeline ───────────────────────────────────
-      const revealTl = gsap.timeline({
-        onComplete: () => {
-          unlock();
-          // Remove this unlock from cleanup list (already called)
-          cleanupFnsRef.current = cleanupFnsRef.current.filter(fn => fn !== unlock);
-          startFreeScroll();
-        },
-      });
-
-      // Stage 0: node dots flash bright (0–0.15s)
-      revealTl.to(svg.querySelectorAll(".tl-node-dot"), {
-        opacity: 1, scale: 1.8, duration: 0.08, stagger: 0.015, ease: "back.out(3)",
-      }, 0);
-      revealTl.to(svg.querySelectorAll(".tl-node-dot"), {
-        scale: 1, duration: 0.1, stagger: 0.015, ease: "power2.out",
-      }, 0.09);
-
-      // Stages 1-3: per-region — fill wipe, scan sweep, text float
-      // Stagger 5 panels across 0.04–0.48s total
-      REGIONS.forEach(({ id, y, h }, i) => {
-        const fill    = svg.querySelector(`#rf-${id}`);
-        const content = svg.querySelector(`#rc-${id}`);
-        const scan    = svg.querySelector(`#rs-${id}`);
-        const at      = 0.04 + i * 0.05;
-
-        if (fill) {
-          revealTl.fromTo(
-            fill,
-            { attr: { height: 0, fill: "rgba(39,255,100,0.13)" } },
-            { attr: { height: h, fill: "rgba(39,255,100,0.07)" }, duration: 0.18, ease: "power3.out" },
-            at,
-          );
-        }
-
-        if (scan) {
-          revealTl.fromTo(
-            scan,
-            { attr: { y }, opacity: 0.85 },
-            { attr: { y: y + h }, opacity: 0, duration: 0.18, ease: "power1.in" },
-            at,
-          );
-        }
-
-        if (content) {
-          revealTl.fromTo(
-            content,
-            { opacity: 0, y: 10 },
-            { opacity: 1, y: 0, duration: 0.14, ease: "power3.out" },
-            at + 0.14,
-          );
-        }
-      });
-
-      revealTlRef.current = revealTl;
-    };
-
-    // ── Phase 1 (p1_draw): scroll drives line-drawing timeline ────────────
-    const handleLineScroll = () => {
-      if (phaseRef.current !== "p1_draw") return;
-      const lineDrawEnd = window.innerHeight * LINE_DRAW_VH;
-      const progress    = Math.min(scroller.scrollTop / lineDrawEnd, 1);
-      lineDrawTlRef.current?.progress(progress);
-
-      if (progress >= 1) {
-        scroller.removeEventListener("scroll", handleLineScroll);
-        startPanelReveal();
-      }
-    };
-
-    scroller.addEventListener("scroll", handleLineScroll, { passive: true });
-    cleanupFnsRef.current.push(() =>
-      scroller.removeEventListener("scroll", handleLineScroll)
+    tl.to(
+      svg.querySelectorAll<SVGGElement>(".trace-row-content"),
+      { opacity: 1, y: 0, duration: 0.28, stagger: 0.08, ease: "power2.out" },
+      0.94,
     );
 
-    return () => {
-      cleanupFnsRef.current.forEach(fn => fn());
-      cleanupFnsRef.current = [];
-    };
-  }, []); // stable — all mutable state accessed via refs
+    tl.play(0);
 
-  // ── Timeline cleanup on unmount ────────────────────────────────────────────
-  useEffect(() => {
     return () => {
-      lineDrawTlRef.current?.kill();
-      revealTlRef.current?.kill();
+      tl.kill();
     };
   }, []);
 
-  // ── Close ──────────────────────────────────────────────────────────────────
   const handleClose = useCallback(() => {
     const root = rootRef.current;
-    if (!root) { onClose(); return; }
+    if (!root) {
+      onClose();
+      return;
+    }
+
     gsap.to(root, {
       yPercent: 100, duration: 0.5, ease: "power3.in", onComplete: onClose,
     });
@@ -483,176 +192,110 @@ export function TraceWindow({ msgId, onClose }: TraceWindowProps) {
 
   return (
     <div ref={rootRef} className="trace-window-root" aria-label="知识溯源窗口">
-      {/* ── Dark background ── */}
       <div className="trace-window-bg" aria-hidden="true" />
 
-      {/* ── SVG frame layer ──────────────────────────────────────────────────
-           Always viewport-fixed (absolute in fixed root).
-           In p3_free phase, GSAP applies translateY(-(scrollTop-lockTop))
-           so the SVG appears to "scroll up with p2" as user moves into p3.
-           At the unlock moment scrollTop===lockTop so translateY=0 — no flash. */}
-      <div ref={svgLayerRef} className="trace-svg-layer" aria-hidden="true">
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${TVW} ${TVH}`}
-          preserveAspectRatio="xMidYMid slice"
-          className="trace-frame-svg"
-        >
-          <defs>
-            {/* Clip paths: one per region */}
-            {REGIONS.map(({ id, x, y, w, h }) => (
-              <clipPath key={id} id={`clip-${id}`}>
-                <rect x={x} y={y} width={w} height={h} />
-              </clipPath>
-            ))}
-            {/* Scan-line glow filter */}
-            <filter id="tl-scan-glow" x="-5%" y="-200%" width="110%" height="500%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-
-          {/* Region fill rects — wipe from top (height: 0 → h via GSAP) */}
-          {REGIONS.map(({ id, x, y, w }) => (
-            <rect
-              key={id}
-              id={`rf-${id}`}
-              x={x} y={y} width={w} height={0}
-              fill="rgba(39,255,100,0.07)"
-            />
-          ))}
-
-          {/* Scan sweep rects — bright bar that sweeps down during reveal */}
-          {REGIONS.map(({ id, x, y, w }) => (
-            <rect
-              key={id}
-              id={`rs-${id}`}
-              x={x} y={y} width={w} height={4}
-              fill="rgba(39,255,100,0.92)"
-              opacity={0}
-              filter="url(#tl-scan-glow)"
-            />
-          ))}
-
-          {/* Region content — clipped strictly inside the region bounds */}
-          {REGIONS.map(({ id, x, y, w, h, label, title }) => {
-            const cx  = x + w / 2;
-            const cy  = y + h / 2;
-            const tfs = Math.max(9, Math.min(14, w / 20));
-            const lfs = Math.max(7, Math.min(10, w / 30));
-            return (
-              <g key={id} id={`rc-${id}`} clipPath={`url(#clip-${id})`}>
-                <text
-                  x={cx} y={cy - tfs - 12}
-                  textAnchor="middle"
-                  fill="rgba(39,255,100,0.6)"
-                  fontSize={lfs}
-                  fontFamily="Michroma, monospace"
-                  letterSpacing="0.14em"
-                >
-                  {label}
-                </text>
-                <line
-                  x1={cx - 22} y1={cy - 4}
-                  x2={cx + 22} y2={cy - 4}
-                  stroke="rgba(39,255,100,0.28)"
-                  strokeWidth={0.5}
-                />
-                <text
-                  x={cx} y={cy + tfs + 4}
-                  textAnchor="middle"
-                  fill="rgba(252,248,248,0.88)"
-                  fontSize={tfs}
-                  fontFamily="system-ui, -apple-system, sans-serif"
-                >
-                  {title}
-                </text>
-              </g>
-            );
-          })}
-
-          {/* Lines — rendered above fills and content */}
-          {LINE_DEFS.map(({ id, x1, y1, x2, y2 }) => (
-            <line
-              key={id}
-              id={id}
-              x1={x1} y1={y1} x2={x2} y2={y2}
-              stroke="#27FF64"
-              strokeWidth={1.5}
-              strokeLinecap="square"
-              shapeRendering="crispEdges"
-            />
-          ))}
-
-          {/* Node dots at intersections */}
-          {NODE_DOTS.map(({ id, cx, cy }) => (
-            <circle
-              key={id}
-              id={id}
-              className="tl-node-dot"
-              cx={cx} cy={cy} r={4}
-              fill="#27FF64"
-            />
-          ))}
-        </svg>
-      </div>
-
-      {/* ── Long canvas scroll container ──────────────────────────────────────
-           Strictly 3 screens: p1=100vh | p2=100vh | p3=100vh = 300vh total.
-           Line drawing completes when scrollTop reaches 1×viewport height
-           (i.e., exactly when p2 fills the screen). */}
-      <div ref={scrollerRef} className="trace-scroller">
+      <div className="trace-scroller">
         <div className="trace-canvas">
 
-          {/* Section 1 — Hero header (100vh, p1) */}
-          <section className="trace-hero">
-            <div className="trace-hero-glow"   aria-hidden="true" />
-            <div className="trace-hero-scan"   aria-hidden="true" />
-            <div className="trace-hero-grid"   aria-hidden="true" />
-            <div className="trace-hero-inner">
-              <p className="trace-header-eyebrow">KNOWLEDGE TRACE</p>
-              <h1 className="trace-header-title">知识溯源</h1>
-              <p className="trace-header-intro">
-                基于向量数据库的语义检索，追溯本次回答的五条原始知识来源。
-              </p>
-              <p className="trace-header-msgid">
-                源自回答&nbsp;<code>{msgId.slice(-8)}</code>
-              </p>
+          <section className="trace-page trace-page--main">
+            <div className="trace-page-layout">
+              <aside className="trace-intro-panel">
+                <p className="trace-intro-eyebrow">KNOWLEDGE TRACE</p>
+                <h1 className="trace-intro-title">知识溯源</h1>
+                <p className="trace-intro-body">
+                  基于向量数据库的语义检索，追溯本次回答的五条原始知识来源，并展示语义相关度与文件出处。
+                </p>
+                <p className="trace-intro-body">
+                  左侧提供溯源说明，右侧以线框绘制 Top5 结果，支持按回答内容匹配预设问答场景。
+                </p>
+                <p className="trace-meta">回答ID：{msgId.slice(-8)}</p>
+                <p className="trace-meta">场景标签：{dataset.tag}</p>
+              </aside>
+
+              <div className="trace-board-shell">
+                <svg
+                  ref={svgRef}
+                  viewBox={`0 0 ${TVW} ${TVH}`}
+                  preserveAspectRatio="xMidYMid meet"
+                  className="trace-frame-svg"
+                  aria-label="知识溯源Top5"
+                >
+                  <text
+                    className="trace-col-head"
+                    x={C1 + 16}
+                    y={RTOP - 28}
+                    textAnchor="start"
+                  >
+                    语义相关文本（Top5）
+                  </text>
+                  <text
+                    className="trace-col-head"
+                    x={(C2 + C3) / 2}
+                    y={RTOP - 28}
+                    textAnchor="middle"
+                  >
+                    相似度
+                  </text>
+                  <text
+                    className="trace-col-head"
+                    x={C3 + 16}
+                    y={RTOP - 28}
+                    textAnchor="start"
+                  >
+                    来源文件
+                  </text>
+
+                  {TRACE_LINES.map(({ id, x1, y1, x2, y2, strokeWidth }) => (
+                    <line
+                      key={id}
+                      id={id}
+                      className="trace-line"
+                      x1={x1}
+                      y1={y1}
+                      x2={x2}
+                      y2={y2}
+                      strokeWidth={strokeWidth}
+                    />
+                  ))}
+
+                  {dataset.rows.map((row, idx) => (
+                    <g className="trace-row-content" key={`trace-row-${idx}`}>
+                      <text
+                        className="trace-row-text"
+                        x={C1 + 16}
+                        y={ROW_Y[idx]}
+                        textAnchor="start"
+                      >
+                        {ellipsis(row.text, 32)}
+                      </text>
+                      <text
+                        className="trace-row-score"
+                        x={(C2 + C3) / 2}
+                        y={ROW_Y[idx]}
+                        textAnchor="middle"
+                      >
+                        {row.similarity}
+                      </text>
+                      <text
+                        className="trace-row-file"
+                        x={C3 + 16}
+                        y={ROW_Y[idx]}
+                        textAnchor="start"
+                      >
+                        {ellipsis(row.file, 26)}
+                      </text>
+                    </g>
+                  ))}
+                </svg>
+              </div>
             </div>
           </section>
 
-          {/* Section 2 — SVG reveal zone (100vh, p2)
-               Empty scroll buffer; the SVG layer renders above this section.
-               When scrollTop = 100vh this section fills the viewport exactly,
-               which is when lines finish drawing and reveal auto-plays. */}
-          <div className="trace-stamp-zone" aria-hidden="true" />
-
-          {/* Section 3 — Knowledge graph (100vh, p3) */}
-          <section className="trace-graph-zone">
-            <div className="trace-graph-header">
-              <p className="trace-graph-eyebrow">KNOWLEDGE GRAPH</p>
-              <h2 className="trace-graph-title">知识图谱</h2>
-              <p className="trace-graph-subtitle">
-                溯源文件关键节点与本次回答的关联映射
-              </p>
-            </div>
-            <KnowledgeGraph />
-          </section>
+          <section className="trace-page trace-page--blank" aria-label="知识图谱占位页" />
 
         </div>
       </div>
 
-      {/* ── Scroll hint HUD ── */}
-      {showHint && (
-        <div className="trace-hint-hud" aria-live="polite">
-          <span className="trace-hint-text">{hint}</span>
-        </div>
-      )}
-
-      {/* ── Close button ── */}
       <button
         className="trace-close-btn"
         onClick={handleClose}

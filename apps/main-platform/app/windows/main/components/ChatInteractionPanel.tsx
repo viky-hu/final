@@ -19,7 +19,7 @@ interface BotBubbleProps {
   msgId: string;
   content: string;
   showTrace: boolean;
-  onTrace: (msgId: string) => void;
+  onTrace: (msgId: string, content: string) => void;
 }
 
 function BotBubble({ msgId, content, showTrace, onTrace }: BotBubbleProps) {
@@ -82,8 +82,8 @@ function BotBubble({ msgId, content, showTrace, onTrace }: BotBubbleProps) {
           role="button"
           tabIndex={0}
           aria-label="查看回答溯源"
-          onClick={() => onTrace(msgId)}
-          onKeyDown={(e) => e.key === "Enter" && onTrace(msgId)}
+          onClick={() => onTrace(msgId, content)}
+          onKeyDown={(e) => e.key === "Enter" && onTrace(msgId, content)}
         >
           溯源
         </div>
@@ -105,12 +105,96 @@ interface Message {
 // 模型配置状态机
 type MCPhase = "closed" | "opening" | "opened" | "fading_out" | "closing_canvas";
 type MCProvider = "OpenAI" | "Ollama" | "Local";
+type MCGroupId = "local_query" | "judge" | "embedding" | "rerank";
 
 const MC_MODEL_OPTIONS: Record<MCProvider, string[]> = {
   OpenAI: ["gpt", "qwen", "deepseek"],
   Ollama: ["llama", "deepseek", "gemma", "qwen"],
   Local: ["Auto", "llama", "gemma", "qwen"],
 };
+
+interface MCGroupState {
+  provider: MCProvider;
+  model: string;
+  baseUrl: string;
+  apiKey: string;
+  modelPath: string;
+  localUrl: string;
+  connectError: string;
+  connectSuccess: boolean;
+  isConnecting: boolean;
+  isConfigured: boolean;
+}
+
+type MCGroupStateMap = Record<MCGroupId, MCGroupState>;
+
+const MC_GROUP_DEFS: ReadonlyArray<{ id: MCGroupId; title: string }> = [
+  { id: "local_query", title: "本地查询模型" },
+  { id: "judge", title: "法官模型" },
+  { id: "embedding", title: "嵌入模型" },
+  { id: "rerank", title: "重排模型" },
+];
+
+function createDefaultMCGroupState(): MCGroupState {
+  return {
+    provider: "OpenAI",
+    model: MC_MODEL_OPTIONS.OpenAI[0],
+    baseUrl: "",
+    apiKey: "",
+    modelPath: "",
+    localUrl: "",
+    connectError: "",
+    connectSuccess: false,
+    isConnecting: false,
+    isConfigured: false,
+  };
+}
+
+function createDefaultMCGroupStateMap(): MCGroupStateMap {
+  return {
+    local_query: createDefaultMCGroupState(),
+    judge: createDefaultMCGroupState(),
+    embedding: createDefaultMCGroupState(),
+    rerank: createDefaultMCGroupState(),
+  };
+}
+
+function validateMCGroup(group: MCGroupState): string | null {
+  if (group.provider !== "Local") {
+    if (!group.baseUrl.trim()) return "接口地址不能为空";
+    if (!group.apiKey.trim()) return "API Key 不能为空";
+    try { new URL(group.baseUrl); } catch {
+      return "接口地址格式不正确，请输入完整 URL";
+    }
+    return null;
+  }
+
+  if (!group.modelPath.trim()) return "请指定模型路径";
+  if (group.localUrl.trim()) {
+    try { new URL(group.localUrl); } catch {
+      return "服务端口格式不正确，请输入完整 URL";
+    }
+  }
+  return null;
+}
+
+function buildMCPayload(group: MCGroupState) {
+  if (group.provider !== "Local") {
+    return {
+      provider: group.provider,
+      model: group.model,
+      baseUrl: group.baseUrl,
+      apiKey: group.apiKey,
+    };
+  }
+
+  return {
+    provider: group.provider,
+    model: group.model,
+    modelPath: group.modelPath,
+    localUrl: group.localUrl || "http://localhost:8000/v1",
+  };
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BOT_REPLY = "这是模拟回答，后续将接入实际代码。";
@@ -152,7 +236,7 @@ export interface ChatInteractionPanelProps {
   canvasReady?: boolean;
   mode?: Mode;
   onModeChange?: (mode: Mode) => void;
-  onOpenTrace?: (msgId: string) => void;
+  onOpenTrace?: (msgId: string, content: string) => void;
 }
 
 export function ChatInteractionPanel({
@@ -168,22 +252,18 @@ export function ChatInteractionPanel({
   const [inputValue, setInputValue] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [showSemicircle, setShowSemicircle] = useState(true);
+  const [mcToast, setMCToast] = useState("");
 
   // ── Model config state ──────────────────────────────────────────────────────
   const [mcPhase, setMCPhase] = useState<MCPhase>("closed");
-  const [mcProvider, setMCProvider] = useState<MCProvider>("OpenAI");
-  const [mcModel, setMCModel] = useState("gpt");
-  const [mcBaseUrl, setMCBaseUrl] = useState("");
-  const [mcApiKey, setMCApiKey] = useState("");
-  const [mcModelPath, setMCModelPath] = useState("");
-  const [mcLocalUrl, setMCLocalUrl] = useState("");
-  const [mcConnectError, setMCConnectError] = useState("");
-  const [mcConnectSuccess, setMCConnectSuccess] = useState(false);
-  const [mcIsConnecting, setMCIsConnecting] = useState(false);
+  const [mcGroups, setMCGroups] = useState<MCGroupStateMap>(() => createDefaultMCGroupStateMap());
+  const [mcSaveSummary, setMCSaveSummary] = useState("");
+  const [mcSaveSummaryTone, setMCSaveSummaryTone] = useState<"" | "success" | "warning">("");
 
   // Derived
   const mcMounted = mcPhase !== "closed";
   const mcCanvasOpen = mcPhase === "opening" || mcPhase === "opened" || mcPhase === "fading_out";
+  const mcAnyConnecting = MC_GROUP_DEFS.some(({ id }) => mcGroups[id].isConnecting);
 
   // ── Chat refs ───────────────────────────────────────────────────────────────
   const listRef = useRef<HTMLDivElement>(null);
@@ -203,13 +283,17 @@ export function ChatInteractionPanel({
 
   // ── Model config refs ───────────────────────────────────────────────────────
   const mcPanelLayerRef = useRef<HTMLDivElement>(null);
+  const mcPanelRef = useRef<HTMLDivElement>(null);
   const mcHeaderRef = useRef<HTMLDivElement>(null);
-  const mcProviderRef = useRef<HTMLDivElement>(null);
-  const mcModelRef = useRef<HTMLDivElement>(null);
   const mcFieldsRef = useRef<HTMLDivElement>(null);
   const mcFooterRef = useRef<HTMLDivElement>(null);
   const mcRevealTlRef = useRef<gsap.core.Timeline | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRefs = useRef<Record<MCGroupId, HTMLInputElement | null>>({
+    local_query: null,
+    judge: null,
+    embedding: null,
+    rerank: null,
+  });
 
   // ─── Chat: FLIP helper ─────────────────────────────────────────────────────
   const captureFlip = useCallback(() => {
@@ -366,10 +450,63 @@ export function ChatInteractionPanel({
     return () => { tl.kill(); revealTlRef.current = null; };
   }, [canvasReady]);
 
+  useEffect(() => {
+    if (!mcToast) return;
+    const timer = setTimeout(() => setMCToast(""), 2200);
+    return () => clearTimeout(timer);
+  }, [mcToast]);
+
+  const pushValidationReply = useCallback((question: string, validationMessage: string) => {
+    const now = Date.now();
+    const userId = `msg-${now}-user`;
+    const botId = `msg-${now + 1}-bot`;
+
+    captureFlip();
+    pendingEntryIdsRef.current.add(userId);
+    pendingEntryIdsRef.current.add(botId);
+    setInputValue("");
+    setMessages((prev) => [
+      ...prev,
+      { id: userId, role: "user", content: question },
+      { id: botId, role: "bot", content: validationMessage },
+    ]);
+  }, [captureFlip]);
+
+  const getRetrieveValidationMessage = useCallback((currentMode: Mode): string | null => {
+    if (!mcGroups.local_query.isConfigured) {
+      return "未配置本地查询模型，无法进行本地检索";
+    }
+
+    const missingEmbedding = !mcGroups.embedding.isConfigured;
+    const missingRerank = !mcGroups.rerank.isConfigured;
+
+    if (missingEmbedding && missingRerank) {
+      return "未配置嵌入和重排模型，无法生成回复";
+    }
+    if (missingRerank) {
+      return "未配置重排模型，无法生成回复";
+    }
+    if (missingEmbedding) {
+      return "未配置嵌入模型，无法生成回复";
+    }
+
+    if (currentMode === "global" && !mcGroups.judge.isConfigured) {
+      return "未配置法官模型，无法进行全局检索";
+    }
+
+    return null;
+  }, [mcGroups]);
+
   // ─── Chat: send message ────────────────────────────────────────────────────
   const handleSend = useCallback(() => {
     const text = inputValue.trim();
     if (!text || isSendingRef.current) return;
+
+    const validationMessage = getRetrieveValidationMessage(mode);
+    if (validationMessage) {
+      pushValidationReply(text, validationMessage);
+      return;
+    }
 
     const replyText = resolveMockReply(text);
 
@@ -405,7 +542,7 @@ export function ChatInteractionPanel({
     }, 550);
 
     return () => clearTimeout(typingTimer);
-  }, [inputValue, captureFlip]);
+  }, [inputValue, captureFlip, getRetrieveValidationMessage, mode, pushValidationReply]);
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputValue(e.target.value);
@@ -418,23 +555,56 @@ export function ChatInteractionPanel({
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }
   };
 
-  // ─── Model config: provider → model reset ─────────────────────────────────
-  useEffect(() => {
-    setMCModel(MC_MODEL_OPTIONS[mcProvider][0]);
-    setMCConnectError("");
-    setMCConnectSuccess(false);
-  }, [mcProvider]);
+  const updateMCGroup = useCallback((groupId: MCGroupId, patch: Partial<MCGroupState>) => {
+    setMCGroups((prev) => ({
+      ...prev,
+      [groupId]: {
+        ...prev[groupId],
+        ...patch,
+      },
+    }));
+  }, []);
+
+  const handleMCProviderChange = useCallback((groupId: MCGroupId, provider: MCProvider) => {
+    updateMCGroup(groupId, {
+      provider,
+      model: MC_MODEL_OPTIONS[provider][0],
+      connectError: "",
+      connectSuccess: false,
+      isConfigured: false,
+    });
+    setMCSaveSummary("");
+    setMCSaveSummaryTone("");
+  }, [updateMCGroup]);
+
+  const handleMCFieldDraftChange = useCallback((groupId: MCGroupId, patch: Partial<MCGroupState>) => {
+    updateMCGroup(groupId, {
+      ...patch,
+      connectError: "",
+      connectSuccess: false,
+      isConfigured: false,
+    });
+    setMCSaveSummary("");
+    setMCSaveSummaryTone("");
+  }, [updateMCGroup]);
 
   // ─── Model config: hide form sections on mount ────────────────────────────
   useLayoutEffect(() => {
     if (!mcMounted) return;
     const targets = [
       mcHeaderRef.current,
-      mcProviderRef.current,
-      mcModelRef.current,
       mcFieldsRef.current,
       mcFooterRef.current,
     ].filter((el): el is HTMLDivElement => el !== null);
+    const panel = mcPanelRef.current;
+
+    if (panel) {
+      gsap.set(panel, {
+        "--mc-scrollbar-thumb-alpha": 0,
+        "--mc-scrollbar-track-alpha": 0,
+      });
+    }
+
     if (targets.length > 0) {
       gsap.set(targets, { visibility: "hidden", opacity: 0, y: 20 });
     }
@@ -447,16 +617,28 @@ export function ChatInteractionPanel({
 
     const targets = [
       mcHeaderRef.current,
-      mcProviderRef.current,
-      mcModelRef.current,
       mcFieldsRef.current,
       mcFooterRef.current,
     ].filter((el): el is HTMLDivElement => el !== null);
+    const panel = mcPanelRef.current;
     if (targets.length === 0) return;
 
     mcRevealTlRef.current?.kill();
     const tl = gsap.timeline();
     mcRevealTlRef.current = tl;
+
+    if (panel) {
+      gsap.set(panel, {
+        "--mc-scrollbar-thumb-alpha": 0,
+        "--mc-scrollbar-track-alpha": 0,
+      });
+      tl.to(panel, {
+        "--mc-scrollbar-thumb-alpha": 0.92,
+        "--mc-scrollbar-track-alpha": 0.22,
+        duration: 0.36,
+        ease: "power2.out",
+      }, 0.12);
+    }
 
     targets.forEach((el, i) => {
       gsap.set(el, { visibility: "visible" });
@@ -476,16 +658,24 @@ export function ChatInteractionPanel({
     const targets = [
       mcFooterRef.current,
       mcFieldsRef.current,
-      mcModelRef.current,
-      mcProviderRef.current,
       mcHeaderRef.current,
     ].filter((el): el is HTMLDivElement => el !== null);
+    const panel = mcPanelRef.current;
 
     mcRevealTlRef.current?.kill();
     const tl = gsap.timeline({
       onComplete: () => setMCPhase("closing_canvas"),
     });
     mcRevealTlRef.current = tl;
+
+    if (panel) {
+      tl.to(panel, {
+        "--mc-scrollbar-thumb-alpha": 0,
+        "--mc-scrollbar-track-alpha": 0,
+        duration: 0.2,
+        ease: "power2.in",
+      }, 0);
+    }
 
     targets.forEach((el, i) => {
       tl.to(el,
@@ -500,8 +690,8 @@ export function ChatInteractionPanel({
   // ─── Model config: open / close handlers ──────────────────────────────────
   const handleMCOpen = useCallback(() => {
     if (mcPhase !== "closed") return;
-    setMCConnectError("");
-    setMCConnectSuccess(false);
+    setMCSaveSummary("");
+    setMCSaveSummaryTone("");
     setMCPhase("opening");
   }, [mcPhase]);
 
@@ -509,67 +699,124 @@ export function ChatInteractionPanel({
     if (mcPhase === "opened") setMCPhase("fading_out");
   }, [mcPhase]);
 
+  const handleModeSwitch = useCallback((checked: boolean) => {
+    if (!checked) {
+      onModeChange?.("local");
+      return;
+    }
+    if (!mcGroups.judge.isConfigured) {
+      setMCToast("未配置法官模型，无法进行全局检索");
+      onModeChange?.("local");
+      return;
+    }
+    onModeChange?.("global");
+  }, [mcGroups.judge.isConfigured, onModeChange]);
+
   // ─── Model config: connect ─────────────────────────────────────────────────
   const handleMCConnect = useCallback(async () => {
-    // Front-end validation
-    if (mcProvider !== "Local") {
-      if (!mcBaseUrl.trim()) { setMCConnectError("接口地址不能为空"); return; }
-      if (!mcApiKey.trim()) { setMCConnectError("API Key 不能为空"); return; }
-      try { new URL(mcBaseUrl); } catch {
-        setMCConnectError("接口地址格式不正确，请输入完整 URL");
-        return;
+    const snapshot = mcGroups;
+    let successCount = 0;
+    let failedCount = 0;
+
+    setMCSaveSummary("");
+    setMCSaveSummaryTone("");
+
+    for (const { id } of MC_GROUP_DEFS) {
+      const group = snapshot[id];
+      const validationError = validateMCGroup(group);
+
+      if (validationError) {
+        failedCount += 1;
+        updateMCGroup(id, {
+          isConnecting: false,
+          connectError: validationError,
+          connectSuccess: false,
+          isConfigured: false,
+        });
+        continue;
       }
-    } else {
-      if (!mcModelPath.trim()) { setMCConnectError("请指定模型路径"); return; }
-    }
 
-    setMCConnectError("");
-    setMCConnectSuccess(false);
-    setMCIsConnecting(true);
-
-    try {
-      const payload =
-        mcProvider !== "Local"
-          ? { provider: mcProvider, model: mcModel, baseUrl: mcBaseUrl, apiKey: mcApiKey }
-          : {
-            provider: mcProvider, model: mcModel, modelPath: mcModelPath,
-            localUrl: mcLocalUrl || "http://localhost:8000/v1"
-          };
-
-      const res = await fetch("/api/model-config/connect", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+      updateMCGroup(id, {
+        isConnecting: true,
+        connectError: "",
+        connectSuccess: false,
       });
-      const data = await res.json() as { error?: string };
 
-      if (!res.ok) {
-        setMCConnectError(data.error ?? "连接失败，请检查 API Key 和网络设置");
-      } else {
-        setMCConnectSuccess(true);
+      try {
+        const res = await fetch("/api/model-config/connect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildMCPayload(group)),
+        });
+        const data = await res.json() as { error?: string };
+
+        if (!res.ok) {
+          failedCount += 1;
+          updateMCGroup(id, {
+            isConnecting: false,
+            connectError: data.error ?? "连接失败，请检查 API Key 和网络设置",
+            connectSuccess: false,
+            isConfigured: false,
+          });
+        } else {
+          successCount += 1;
+          updateMCGroup(id, {
+            isConnecting: false,
+            connectError: "",
+            connectSuccess: true,
+            isConfigured: true,
+          });
+        }
+      } catch {
+        failedCount += 1;
+        updateMCGroup(id, {
+          isConnecting: false,
+          connectError: "连接失败，请检查 API Key 和网络设置",
+          connectSuccess: false,
+          isConfigured: false,
+        });
       }
-    } catch {
-      setMCConnectError("连接失败，请检查 API Key 和网络设置");
-    } finally {
-      setMCIsConnecting(false);
     }
-  }, [mcProvider, mcModel, mcBaseUrl, mcApiKey, mcModelPath, mcLocalUrl]);
 
-  // ─── Model config: file browse ─────────────────────────────────────────────
-  const handleMCBrowse = useCallback(() => {
-    fileInputRef.current?.click();
+    if (successCount === MC_GROUP_DEFS.length) {
+      setMCSaveSummary("全部模型连接成功");
+      setMCSaveSummaryTone("success");
+      return;
+    }
+
+    if (successCount > 0 && failedCount > 0) {
+      setMCSaveSummary("部分模型连接成功，请检查未通过项");
+      setMCSaveSummaryTone("warning");
+      return;
+    }
+
+    if (failedCount > 0) {
+      setMCSaveSummary("连接未完成，请检查配置项");
+      setMCSaveSummaryTone("warning");
+    }
+  }, [mcGroups, updateMCGroup]);
+
+  const handleMCBrowse = useCallback((groupId: MCGroupId) => {
+    fileInputRefs.current[groupId]?.click();
   }, []);
 
-  const handleMCFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMCFileSelect = useCallback((groupId: MCGroupId, e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) setMCModelPath(file.name);
-  }, []);
+    if (!file) return;
+    handleMCFieldDraftChange(groupId, { modelPath: file.name });
+  }, [handleMCFieldDraftChange]);
 
   // ──────────────────────────────────────────────────────────────────────────
   // Render
   // ──────────────────────────────────────────────────────────────────────────
   return (
     <div className="chat-interaction-layer" data-menu-open={menuOpen} data-mode={mode}>
+
+      {mcToast && (
+        <div className="chat-toast" role="status" aria-live="polite">
+          {mcToast}
+        </div>
+      )}
 
       {/* ── Model Config Overlay ─────────────────────────────────────────── */}
       {mcMounted && (
@@ -586,7 +833,7 @@ export function ChatInteractionPanel({
 
           {/* Form panel layer — 跟随菜单同步左移（照搬 panelRef 逻辑） */}
           <div ref={mcPanelLayerRef} className="mc-panel-layer">
-            <div className="mc-panel">
+            <div ref={mcPanelRef} className="mc-panel">
 
               {/* Header */}
               <div ref={mcHeaderRef} className="mc-panel-header">
@@ -604,143 +851,159 @@ export function ChatInteractionPanel({
                 </button>
               </div>
 
-              {/* Provider selector */}
-              <div ref={mcProviderRef} className="mc-provider-row">
-                {(["OpenAI", "Ollama", "Local"] as MCProvider[]).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    className={`mc-provider-item${mcProvider === p ? " mc-provider-item--active" : ""}`}
-                    onClick={() => setMCProvider(p)}
-                  >
-                    {p}
-                  </button>
-                ))}
-              </div>
+              <div ref={mcFieldsRef} className="mc-groups">
+                {MC_GROUP_DEFS.map(({ id, title }) => {
+                  const group = mcGroups[id];
+                  const baseId = `mc-${id}`;
 
-              {/* Model selector */}
-              <div ref={mcModelRef} className="mc-model-row">
-                <span className="mc-model-label">模型</span>
-                <div className="mc-model-options">
-                  {MC_MODEL_OPTIONS[mcProvider].map((m, i, arr) => (
-                    <span key={m} className="mc-model-slot">
-                      <button
-                        type="button"
-                        className={`mc-model-item${mcModel === m ? " mc-model-item--active" : ""}`}
-                        onClick={() => setMCModel(m)}
-                      >
-                        {m}
-                      </button>
-                      {i < arr.length - 1 && (
-                        <span className="mc-model-divider" aria-hidden="true">/</span>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              </div>
+                  return (
+                    <section key={id} className="mc-group">
+                      <h3 className="mc-group-title">{title}</h3>
 
-              {/* Fields */}
-              <div ref={mcFieldsRef} className="mc-fields">
-                {mcProvider !== "Local" ? (
-                  <>
-                    <div className="mc-field">
-                      <label className="mc-field-label" htmlFor="mc-base-url">
-                        接口地址 (Base URL)
-                      </label>
-                      <input
-                        id="mc-base-url"
-                        className="mc-field-input"
-                        type="url"
-                        value={mcBaseUrl}
-                        onChange={(e) => { setMCBaseUrl(e.target.value); setMCConnectError(""); }}
-                        placeholder="https://api.openai.com/v1"
-                        autoComplete="off"
-                      />
-                    </div>
-                    <div className="mc-field">
-                      <label className="mc-field-label" htmlFor="mc-api-key">
-                        API Key
-                      </label>
-                      <input
-                        id="mc-api-key"
-                        className="mc-field-input"
-                        type="password"
-                        value={mcApiKey}
-                        onChange={(e) => { setMCApiKey(e.target.value); setMCConnectError(""); }}
-                        placeholder="sk-…"
-                        autoComplete="new-password"
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="mc-field">
-                      <label className="mc-field-label" htmlFor="mc-model-path">
-                        模型路径 (Model Path)
-                      </label>
-                      <div className="mc-field-path-row">
-                        <input
-                          id="mc-model-path"
-                          className="mc-field-input"
-                          type="text"
-                          value={mcModelPath}
-                          onChange={(e) => { setMCModelPath(e.target.value); setMCConnectError(""); }}
-                          placeholder="/path/to/model.gguf"
-                          autoComplete="off"
-                        />
-                        <button
-                          type="button"
-                          className="mc-browse-btn"
-                          onClick={handleMCBrowse}
-                        >
-                          浏览
-                        </button>
+                      <div className="mc-provider-row">
+                        {(["OpenAI", "Ollama", "Local"] as MCProvider[]).map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            className={`mc-provider-item${group.provider === p ? " mc-provider-item--active" : ""}`}
+                            onClick={() => handleMCProviderChange(id, p)}
+                          >
+                            {p}
+                          </button>
+                        ))}
                       </div>
-                      <span className="mc-field-hint">
-                        请选择本地模型文件 (.gguf, .bin) 或项目环境路径
-                      </span>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept=".gguf,.bin"
-                        style={{ display: "none" }}
-                        onChange={handleMCFileSelect}
-                      />
-                    </div>
-                    <div className="mc-field">
-                      <label className="mc-field-label" htmlFor="mc-local-url">
-                        服务端口 (Localhost URL)
-                      </label>
-                      <input
-                        id="mc-local-url"
-                        className="mc-field-input"
-                        type="url"
-                        value={mcLocalUrl}
-                        onChange={(e) => { setMCLocalUrl(e.target.value); setMCConnectError(""); }}
-                        placeholder="http://localhost:8000/v1"
-                        autoComplete="off"
-                      />
-                    </div>
-                  </>
-                )}
+
+                      <div className="mc-model-row">
+                        <span className="mc-model-label">模型</span>
+                        <div className="mc-model-options">
+                          {MC_MODEL_OPTIONS[group.provider].map((m, i, arr) => (
+                            <span key={`${id}-${m}`} className="mc-model-slot">
+                              <button
+                                type="button"
+                                className={`mc-model-item${group.model === m ? " mc-model-item--active" : ""}`}
+                                onClick={() => handleMCFieldDraftChange(id, { model: m })}
+                              >
+                                {m}
+                              </button>
+                              {i < arr.length - 1 && (
+                                <span className="mc-model-divider" aria-hidden="true">/</span>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="mc-fields">
+                        {group.provider !== "Local" ? (
+                          <>
+                            <div className="mc-field">
+                              <label className="mc-field-label" htmlFor={`${baseId}-base-url`}>
+                                接口地址 (Base URL)
+                              </label>
+                              <input
+                                id={`${baseId}-base-url`}
+                                className="mc-field-input"
+                                type="url"
+                                value={group.baseUrl}
+                                onChange={(e) => handleMCFieldDraftChange(id, { baseUrl: e.target.value })}
+                                placeholder="https://api.openai.com/v1"
+                                autoComplete="off"
+                              />
+                            </div>
+                            <div className="mc-field">
+                              <label className="mc-field-label" htmlFor={`${baseId}-api-key`}>
+                                API Key
+                              </label>
+                              <input
+                                id={`${baseId}-api-key`}
+                                className="mc-field-input"
+                                type="password"
+                                value={group.apiKey}
+                                onChange={(e) => handleMCFieldDraftChange(id, { apiKey: e.target.value })}
+                                placeholder="sk-…"
+                                autoComplete="new-password"
+                              />
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="mc-field">
+                              <label className="mc-field-label" htmlFor={`${baseId}-model-path`}>
+                                模型路径 (Model Path)
+                              </label>
+                              <div className="mc-field-path-row">
+                                <input
+                                  id={`${baseId}-model-path`}
+                                  className="mc-field-input"
+                                  type="text"
+                                  value={group.modelPath}
+                                  onChange={(e) => handleMCFieldDraftChange(id, { modelPath: e.target.value })}
+                                  placeholder="/path/to/model.gguf"
+                                  autoComplete="off"
+                                />
+                                <button
+                                  type="button"
+                                  className="mc-browse-btn"
+                                  onClick={() => handleMCBrowse(id)}
+                                >
+                                  浏览
+                                </button>
+                              </div>
+                              <span className="mc-field-hint">
+                                请选择本地模型文件 (.gguf, .bin) 或项目环境路径
+                              </span>
+                              <input
+                                ref={(el) => { fileInputRefs.current[id] = el; }}
+                                type="file"
+                                accept=".gguf,.bin"
+                                style={{ display: "none" }}
+                                onChange={(e) => handleMCFileSelect(id, e)}
+                              />
+                            </div>
+                            <div className="mc-field">
+                              <label className="mc-field-label" htmlFor={`${baseId}-local-url`}>
+                                服务端口 (Localhost URL)
+                              </label>
+                              <input
+                                id={`${baseId}-local-url`}
+                                className="mc-field-input"
+                                type="url"
+                                value={group.localUrl}
+                                onChange={(e) => handleMCFieldDraftChange(id, { localUrl: e.target.value })}
+                                placeholder="http://localhost:8000/v1"
+                                autoComplete="off"
+                              />
+                            </div>
+                          </>
+                        )}
+                      </div>
+
+                      {group.connectError && (
+                        <p className="mc-group-error" role="alert">{group.connectError}</p>
+                      )}
+                      {group.connectSuccess && !group.connectError && (
+                        <p className="mc-group-success">连接成功</p>
+                      )}
+                    </section>
+                  );
+                })}
               </div>
 
               {/* Footer */}
               <div ref={mcFooterRef} className="mc-footer">
-                {mcConnectError && (
-                  <p className="mc-connect-error" role="alert">{mcConnectError}</p>
-                )}
-                {mcConnectSuccess && !mcConnectError && (
-                  <p className="mc-connect-success">连接成功（模拟）</p>
+                {mcSaveSummary && (
+                  <p className={`mc-save-summary${mcSaveSummaryTone ? ` mc-save-summary--${mcSaveSummaryTone}` : ""}`}>
+                    {mcSaveSummary}
+                  </p>
                 )}
                 <button
                   type="button"
                   className="mc-save-btn"
                   onClick={handleMCConnect}
-                  disabled={mcIsConnecting}
-                  aria-busy={mcIsConnecting}
+                  disabled={mcAnyConnecting}
+                  aria-busy={mcAnyConnecting}
                 >
-                  {mcIsConnecting ? "连接中…" : "保存并连接"}
+                  {mcAnyConnecting ? "连接中…" : "保存并连接"}
                 </button>
               </div>
 
@@ -760,7 +1023,7 @@ export function ChatInteractionPanel({
                 id="mode-switch"
                 type="checkbox"
                 checked={mode === "global"}
-                onChange={(e) => onModeChange?.(e.target.checked ? "global" : "local")}
+                onChange={(e) => handleModeSwitch(e.target.checked)}
               />
               <span>本地</span>
               <span>全局</span>
