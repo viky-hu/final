@@ -1,6 +1,7 @@
 /* ========== Window 3 · 交互对话页 ========== */
 
 .main-window-page {
+  --w3-font-family: "DingTalk JinBuTi", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   position: relative;
   width: 100vw;
   min-width: 100vw;
@@ -8,6 +9,14 @@
   min-height: 100dvh;
   overflow: hidden;
   background: #F5F5F5;
+  font-family: var(--w3-font-family);
+}
+
+.main-window-page,
+.main-window-page *,
+.main-window-page *::before,
+.main-window-page *::after {
+  font-family: var(--w3-font-family) !important;
 }
 
 /* DotGrid 全屏背景层 */

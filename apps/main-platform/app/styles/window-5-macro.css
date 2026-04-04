@@ -1,6 +1,7 @@
 /* ========== Window 5 · 宏观平台 ========== */
 
 .macro-window-page {
+  --w5-font-family: "DingTalk JinBuTi", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   position: relative;
   width: 100vw;
   min-width: 100vw;
@@ -8,6 +9,14 @@
   min-height: 100dvh;
   overflow: hidden;
   background: #ffffff;
+  font-family: var(--w5-font-family);
+}
+
+.macro-window-page,
+.macro-window-page *,
+.macro-window-page *::before,
+.macro-window-page *::after {
+  font-family: var(--w5-font-family) !important;
 }
 
 /* SVG 画布 — 全屏 */

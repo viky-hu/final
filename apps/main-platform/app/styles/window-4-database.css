@@ -2,18 +2,26 @@
    Window 4 · 数据库聚类管理界面（Newsprint Design System）
    设计原则：0px border-radius · 硬边框 · 高对比黑白 · 编辑部排版
    背景: #F9F9F7  前景/边框: #111111  Muted: #E5E5E0  Accent: #CC0000
-   字体: Noto Sans SC (中文) · Inter (英文/UI) · JetBrains Mono (数字/代码)
+   字体: DingTalk JinBuTi（窗口4全域统一）
    ═══════════════════════════════════════════════════════════════════ */
 
 /* ── 根容器 ── */
 .db-window {
+  --db-font-family: 'DingTalk JinBuTi', 'PingFang SC', 'Microsoft YaHei', system-ui, sans-serif;
   position: relative;
   width: 100vw;
   height: 100dvh;
   background: #F9F9F7;
   color: #111111;
-  font-family: 'Michroma', 'DingTalk JinBuTi', 'Inter', 'Helvetica Neue', system-ui, sans-serif;
+  font-family: var(--db-font-family);
   overflow: hidden;
+}
+
+.db-window,
+.db-window *,
+.db-window *::before,
+.db-window *::after {
+  font-family: var(--db-font-family) !important;
 }
 
 /* ── Ticker 滚动条 ── */

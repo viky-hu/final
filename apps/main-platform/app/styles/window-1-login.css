@@ -1,12 +1,21 @@
 /* ========== Window 1 · SVG Login Page ========== */
 
 .login-svg-page {
+  --w1-font-family: "DingTalk JinBuTi", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   position: relative;
   isolation: isolate;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
   background: #ffffff;
+  font-family: var(--w1-font-family);
+}
+
+.login-svg-page,
+.login-svg-page *,
+.login-svg-page *::before,
+.login-svg-page *::after {
+  font-family: var(--w1-font-family) !important;
 }
 
 .login-beams-layer {

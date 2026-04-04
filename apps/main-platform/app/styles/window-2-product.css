@@ -1,10 +1,19 @@
 /* ========== Window 2: LightRAG Chat ========== */
 
 .chat-window-page {
+  --w2-font-family: "DingTalk JinBuTi", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   width: 100vw;
   height: 100vh;
   overflow: hidden;
   background: #1e1919;
+  font-family: var(--w2-font-family);
+}
+
+.chat-window-page,
+.chat-window-page *,
+.chat-window-page *::before,
+.chat-window-page *::after {
+  font-family: var(--w2-font-family) !important;
 }
 
 .chat-window-canvas {
@@ -228,10 +237,19 @@
  * 通过 GSAP 驱动 .product-pager-track 的 yPercent 整屏切换。
  */
 .product-pager-stage {
+  --w2-font-family: "DingTalk JinBuTi", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
   width: 100vw;
   height: 100dvh;
   overflow: hidden;
   position: relative;
+  font-family: var(--w2-font-family);
+}
+
+.product-pager-stage,
+.product-pager-stage *,
+.product-pager-stage *::before,
+.product-pager-stage *::after {
+  font-family: var(--w2-font-family) !important;
 }
 
 .product-pager-track {
