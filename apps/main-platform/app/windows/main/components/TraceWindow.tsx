@@ -6,10 +6,13 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
 } from "react";
 import { gsap } from "gsap";
+import { FileSearch } from "lucide-react";
 import { LINE_DRAW_EASE } from "../../shared/animation";
 import { DotGrid } from "./DotGrid";
+import { FilePreviewModal } from "../../database/components/FilePreviewModal";
 
 // ─── SVG canvas dimensions ───────────────────────────────────────────────────
 const TVW = 1440;
@@ -25,7 +28,7 @@ const ROW_HEIGHT = (RBOTTOM - RTOP) / 5;
 const CELL_X_PADDING = 14;
 const CELL_Y_PADDING = 10;
 const INTRO_X = 30;
-const INTRO_Y = TVH / 3;
+const INTRO_Y = TVH * 0.29;
 const INTRO_WIDTH = C1 - 60;
 const INTRO_HEIGHT = TVH - 130;
 
@@ -49,6 +52,11 @@ interface TraceLineDef {
   start: number;
   duration: number;
   strokeWidth: number;
+}
+
+interface TracePreviewTarget {
+  file: File;
+  name: string;
 }
 
 const TRACE_LINES: TraceLineDef[] = [
@@ -182,6 +190,20 @@ function selectDataset(answerContent: string): TraceDataset {
   return DEFAULT_DATASET;
 }
 
+function buildTracePreviewFile(row: TraceRow, rowIndex: number): File {
+  const content = [
+    `来源文件：${row.fileName}`,
+    `所属聚类：${row.clusterName}`,
+    "",
+    "语义相关文本：",
+    row.text,
+  ].join("\n");
+
+  return new File([content], `trace-preview-${rowIndex + 1}.txt`, {
+    type: "text/plain;charset=utf-8",
+  });
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 export interface TraceWindowProps {
   msgId: string;
@@ -193,8 +215,78 @@ export interface TraceWindowProps {
 export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const graphPageRef = useRef<HTMLElement>(null);
+  const scrollTweenRef = useRef<gsap.core.Tween | null>(null);
+  const hoverDashTweenRef = useRef<gsap.core.Tween | null>(null);
+  const rowTransitionTlRef = useRef<gsap.core.Timeline | null>(null);
+  const hoveredRowRef = useRef<number | null>(null);
+  const e1FocusRectsRef = useRef<Array<SVGRectElement | null>>([]);
+  const e1GlowRectsRef = useRef<Array<SVGRectElement | null>>([]);
+  const e2FillRectsRef = useRef<Array<SVGRectElement | null>>([]);
+  const e2BorderRectsRef = useRef<Array<SVGRectElement | null>>([]);
+  const fileBoxRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const [hoveredRow, setHoveredRow] = useState<number | null>(null);
+  const [previewTarget, setPreviewTarget] = useState<TracePreviewTarget | null>(null);
   const isClosingRef = useRef(false);
   const dataset = useMemo(() => selectDataset(answerContent), [answerContent]);
+
+  const updateHoveredRow = useCallback((nextRow: number | null) => {
+    if (hoveredRowRef.current === nextRow) return;
+    hoveredRowRef.current = nextRow;
+    setHoveredRow(nextRow);
+  }, []);
+
+  const applyRowVisualState = useCallback((activeRow: number | null) => {
+    rowTransitionTlRef.current?.kill();
+    hoverDashTweenRef.current?.kill();
+    hoverDashTweenRef.current = null;
+
+    const tl = gsap.timeline({ defaults: { duration: 0.2, ease: "power2.out" } });
+
+    for (let idx = 0; idx < dataset.rows.length; idx += 1) {
+      const e1Focus = e1FocusRectsRef.current[idx];
+      const e1Glow = e1GlowRectsRef.current[idx];
+      const e2Fill = e2FillRectsRef.current[idx];
+      const e2Border = e2BorderRectsRef.current[idx];
+      const fileBox = fileBoxRefs.current[idx];
+
+      const overlays = [e1Focus, e1Glow, e2Fill, e2Border].filter(
+        (el): el is SVGRectElement => el !== null,
+      );
+
+      const isActive = activeRow === idx;
+
+      if (e1Focus) {
+        gsap.set(e1Focus, { strokeDasharray: "15 10", strokeDashoffset: 0 });
+      }
+
+      gsap.killTweensOf(overlays);
+      if (fileBox) gsap.killTweensOf(fileBox);
+
+      if (overlays.length > 0) {
+        tl.to(overlays, { opacity: isActive ? 1 : 0, overwrite: "auto" }, 0);
+      }
+
+      if (fileBox) {
+        tl.to(fileBox, { color: isActive ? "#ffffff" : "#000000", overwrite: "auto" }, 0);
+      }
+    }
+
+    rowTransitionTlRef.current = tl;
+
+    if (activeRow !== null) {
+      const activeFocus = e1FocusRectsRef.current[activeRow];
+      if (activeFocus) {
+        hoverDashTweenRef.current = gsap.to(activeFocus, {
+          strokeDashoffset: -50,
+          duration: 1.05,
+          ease: "none",
+          repeat: -1,
+        });
+      }
+    }
+  }, [dataset.rows.length]);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -217,6 +309,14 @@ export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps)
       const len = el.getTotalLength();
       gsap.set(el, { strokeDasharray: len, strokeDashoffset: len });
     });
+
+    gsap.set(
+      svg.querySelectorAll<SVGRectElement>(
+        ".trace-e1-hover-stroke, .trace-e1-hover-glow, .trace-e2-hover-fill, .trace-e2-hover-border",
+      ),
+      { opacity: 0 },
+    );
+    gsap.set(svg.querySelectorAll<HTMLDivElement>(".trace-row-box--file"), { color: "#000000" });
 
     gsap.set(svg.querySelectorAll<SVGGElement>(".trace-row-content"), { opacity: 0, y: 10 });
 
@@ -243,6 +343,7 @@ export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps)
   const handleClose = useCallback(() => {
     if (isClosingRef.current) return;
     isClosingRef.current = true;
+    scrollTweenRef.current?.kill();
 
     const root = rootRef.current;
     if (!root) {
@@ -255,9 +356,74 @@ export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps)
     });
   }, [onClose]);
 
+  const handleOpenKnowledgeGraph = useCallback(() => {
+    const scroller = scrollerRef.current;
+    const graphPage = graphPageRef.current;
+    if (!scroller || !graphPage) return;
+
+    scrollTweenRef.current?.kill();
+    scrollTweenRef.current = gsap.to(scroller, {
+      scrollTop: graphPage.offsetTop,
+      duration: 0.62,
+      ease: "power2.out",
+    });
+  }, []);
+
+  const handleOpenPreview = useCallback((row: TraceRow, rowIndex: number) => {
+    setPreviewTarget({
+      file: buildTracePreviewFile(row, rowIndex),
+      name: row.fileName,
+    });
+  }, []);
+
+  const handleOpenPreviewFromSelectedRow = useCallback((row: TraceRow, rowIndex: number) => {
+    if (hoveredRowRef.current !== rowIndex) return;
+    handleOpenPreview(row, rowIndex);
+  }, [handleOpenPreview]);
+
+  const handleClosePreview = useCallback(() => {
+    setPreviewTarget(null);
+  }, []);
+
+  const handleSvgPointerMove = useCallback((event: React.PointerEvent<SVGSVGElement>) => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    const rect = svg.getBoundingClientRect();
+    if (!rect.width || !rect.height) return;
+
+    const localX = ((event.clientX - rect.left) / rect.width) * TVW;
+    const localY = ((event.clientY - rect.top) / rect.height) * TVH;
+
+    const inRows = localX >= C1 && localX <= TVW && localY >= RTOP && localY <= RBOTTOM;
+    if (!inRows) {
+      updateHoveredRow(null);
+      return;
+    }
+
+    const idx = Math.max(0, Math.min(4, Math.floor((localY - RTOP) / ROW_HEIGHT)));
+    updateHoveredRow(idx);
+  }, [updateHoveredRow]);
+
+  useEffect(() => {
+    return () => {
+      scrollTweenRef.current?.kill();
+      hoverDashTweenRef.current?.kill();
+      rowTransitionTlRef.current?.kill();
+    };
+  }, []);
+
+  useEffect(() => {
+    applyRowVisualState(hoveredRow);
+  }, [applyRowVisualState, hoveredRow]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
+        if (previewTarget) {
+          setPreviewTarget(null);
+          return;
+        }
         handleClose();
       }
     };
@@ -266,7 +432,7 @@ export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps)
     return () => {
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [handleClose]);
+  }, [handleClose, previewTarget]);
 
   return (
     <div ref={rootRef} className="trace-window-root" aria-label="知识溯源窗口" data-msg-id={msgId}>
@@ -288,7 +454,7 @@ export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps)
         </div>
       </div>
 
-      <div className="trace-scroller">
+      <div ref={scrollerRef} className="trace-scroller">
         <div className="trace-canvas">
 
           <section className="trace-page trace-page--main">
@@ -298,7 +464,19 @@ export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps)
               preserveAspectRatio="none"
               className="trace-frame-svg"
               aria-label="知识溯源"
+              onPointerMove={handleSvgPointerMove}
+              onPointerLeave={() => updateHoveredRow(null)}
             >
+              <defs>
+                <filter id="trace-e1-glow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="2.8" result="traceGlowBlur" />
+                  <feMerge>
+                    <feMergeNode in="traceGlowBlur" />
+                    <feMergeNode in="SourceGraphic" />
+                  </feMerge>
+                </filter>
+              </defs>
+
               <foreignObject
                 className="trace-intro-fo"
                 x={INTRO_X}
@@ -311,6 +489,23 @@ export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps)
                   <p className="trace-intro-box-body">查看相关文本</p>
                   <p className="trace-intro-box-body">或预览文件</p>
                   <p className="trace-intro-box-body">了解词条出处</p>
+                  <div className="trace-intro-graph-btn-wrap">
+                    <button
+                      type="button"
+                      className="animated-button trace-graph-btn"
+                      onClick={handleOpenKnowledgeGraph}
+                      aria-label="打开知识图谱并跳转到第二页"
+                    >
+                      <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                      </svg>
+                      <span className="text">打开知识图谱</span>
+                      <span className="circle" />
+                      <svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </foreignObject>
 
@@ -344,40 +539,127 @@ export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps)
                 />
               ))}
 
-              {dataset.rows.map((row, idx) => (
-                <g className="trace-row-content" key={`trace-row-${idx}`}>
-                  <foreignObject
-                    className="trace-row-fo"
-                    x={C1 + CELL_X_PADDING}
-                    y={RTOP + ROW_HEIGHT * idx + CELL_Y_PADDING}
-                    width={C3 - C1 - CELL_X_PADDING * 2}
-                    height={ROW_HEIGHT - CELL_Y_PADDING * 2}
+              {dataset.rows.map((row, idx) => {
+                const rowY = RTOP + ROW_HEIGHT * idx;
+                return (
+                  <g
+                    className="trace-row-content"
+                    key={`trace-row-${idx}`}
+                    onPointerEnter={() => updateHoveredRow(idx)}
+                    onClick={() => handleOpenPreviewFromSelectedRow(row, idx)}
                   >
-                    <div className="trace-row-box trace-row-box--text">
-                      <span className="trace-row-box-content trace-row-box-content--text">{row.text}</span>
-                    </div>
-                  </foreignObject>
-                  <foreignObject
-                    className="trace-row-fo"
-                    x={C3 + CELL_X_PADDING}
-                    y={RTOP + ROW_HEIGHT * idx + CELL_Y_PADDING}
-                    width={TVW - C3 - CELL_X_PADDING * 2}
-                    height={ROW_HEIGHT - CELL_Y_PADDING * 2}
-                  >
-                    <div className="trace-row-box trace-row-box--file">
-                      <span className="trace-row-file-cluster">{row.clusterName}</span>
-                      <span className="trace-row-file-name">{row.fileName}</span>
-                    </div>
-                  </foreignObject>
-                </g>
-              ))}
+                    <rect
+                      className="trace-row-hit"
+                      x={C1}
+                      y={rowY}
+                      width={TVW - C1}
+                      height={ROW_HEIGHT}
+                    />
+
+                    <rect
+                      ref={(el) => {
+                        e2FillRectsRef.current[idx] = el;
+                      }}
+                      className="trace-e2-hover-fill"
+                      x={C3 + 1}
+                      y={rowY + 1}
+                      width={TVW - C3 - 2}
+                      height={ROW_HEIGHT - 2}
+                    />
+
+                    <rect
+                      ref={(el) => {
+                        e2BorderRectsRef.current[idx] = el;
+                      }}
+                      className="trace-e2-hover-border"
+                      x={C3 + 1}
+                      y={rowY + 1}
+                      width={TVW - C3 - 2}
+                      height={ROW_HEIGHT - 2}
+                    />
+
+                    <rect
+                      ref={(el) => {
+                        e1GlowRectsRef.current[idx] = el;
+                      }}
+                      className="trace-e1-hover-glow"
+                      x={C1 + 1}
+                      y={rowY + 1}
+                      width={C3 - C1 - 2}
+                      height={ROW_HEIGHT - 2}
+                    />
+
+                    <rect
+                      ref={(el) => {
+                        e1FocusRectsRef.current[idx] = el;
+                      }}
+                      className="trace-e1-hover-stroke"
+                      x={C1 + 1}
+                      y={rowY + 1}
+                      width={C3 - C1 - 2}
+                      height={ROW_HEIGHT - 2}
+                    />
+
+                    <foreignObject
+                      className="trace-row-fo"
+                      x={C1 + CELL_X_PADDING}
+                      y={rowY + CELL_Y_PADDING}
+                      width={C3 - C1 - CELL_X_PADDING * 2}
+                      height={ROW_HEIGHT - CELL_Y_PADDING * 2}
+                    >
+                      <div className="trace-row-box trace-row-box--text">
+                        <span className="trace-row-box-content trace-row-box-content--text">{row.text}</span>
+                      </div>
+                    </foreignObject>
+                    <foreignObject
+                      className="trace-row-fo"
+                      x={C3 + CELL_X_PADDING}
+                      y={rowY + CELL_Y_PADDING}
+                      width={TVW - C3 - CELL_X_PADDING * 2}
+                      height={ROW_HEIGHT - CELL_Y_PADDING * 2}
+                    >
+                      <div
+                        ref={(el) => {
+                          fileBoxRefs.current[idx] = el;
+                        }}
+                        className="trace-row-box trace-row-box--file"
+                      >
+                        <div className="trace-row-file-main">
+                          <span className="trace-row-file-cluster">{row.clusterName}</span>
+                          <span className="trace-row-file-name">{row.fileName}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="trace-row-preview-btn"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            handleOpenPreviewFromSelectedRow(row, idx);
+                          }}
+                          aria-label={`打开来源文件预览：${row.fileName}`}
+                        >
+                          <FileSearch size={18} strokeWidth={1.9} className="trace-row-preview-icon" />
+                          <span className="trace-row-preview-label">预览文件</span>
+                        </button>
+                      </div>
+                    </foreignObject>
+                  </g>
+                );
+              })}
             </svg>
           </section>
 
-          <section className="trace-page trace-page--blank" aria-label="知识图谱占位页" />
+          <section ref={graphPageRef} className="trace-page trace-page--blank" aria-label="知识图谱占位页" />
 
         </div>
       </div>
+
+      {previewTarget && (
+        <FilePreviewModal
+          file={previewTarget.file}
+          name={previewTarget.name}
+          onClose={handleClosePreview}
+        />
+      )}
     </div>
   );
 }

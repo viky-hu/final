@@ -1118,12 +1118,57 @@
 .trace-row-box--file {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: space-between;
   align-items: flex-start;
-  gap: 6px;
+  gap: 8px;
   font-size: 15px;
   color: #000000;
   text-align: left;
+}
+
+.trace-row-file-main {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.trace-row-preview-btn {
+  margin-top: auto;
+  align-self: flex-end;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  padding: 0 2px;
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
+  font-size: 16px;
+  line-height: 1.1;
+  letter-spacing: 0.015em;
+  opacity: 0.96;
+  transition: opacity 0.18s ease;
+}
+
+.trace-row-preview-btn:hover {
+  opacity: 1;
+}
+
+.trace-row-preview-btn:focus-visible {
+  outline: 1px solid currentColor;
+  outline-offset: 2px;
+}
+
+.trace-row-preview-icon {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+}
+
+.trace-row-preview-label {
+  white-space: nowrap;
 }
 
 .trace-row-box-content {
@@ -1182,6 +1227,39 @@
   letter-spacing: 0.06em;
 }
 
+.trace-row-hit {
+  fill: transparent;
+  pointer-events: all;
+}
+
+.trace-e1-hover-stroke {
+  fill: none;
+  stroke: #0047FF;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+
+.trace-e1-hover-glow {
+  fill: none;
+  stroke: rgba(0, 71, 255, 0.92);
+  stroke-width: 2.2;
+  filter: url(#trace-e1-glow);
+  pointer-events: none;
+}
+
+.trace-e2-hover-fill {
+  fill: #001BB7;
+  pointer-events: none;
+}
+
+.trace-e2-hover-border {
+  fill: none;
+  stroke: #001BB7;
+  stroke-width: 2;
+  pointer-events: none;
+}
+
 .trace-intro-fo {
   overflow: hidden;
 }
@@ -1200,6 +1278,7 @@
   font-size: 40px;
   line-height: 1.08;
   letter-spacing: 0.06em;
+  margin-left: 20px; 
   color: #261CC1;
 }
 
@@ -1208,7 +1287,43 @@
   font-size: 40px;
   line-height: 1.42;
   letter-spacing: 0.015em;
+  margin-left: 20px; 
   color: #261CC1;
+}
+
+.trace-intro-graph-btn-wrap {
+  margin-top: 50px;
+}
+
+.trace-intro-graph-btn-wrap {
+  margin-top: 50px;
+}
+
+.trace-graph-btn {
+  min-width: 240px; 
+  min-height: 56px; 
+  justify-content: center;
+  margin-left: 20px; 
+  padding: 12px 24px; 
+}
+
+.trace-graph-btn .text {
+  transform: translateX(-2px);
+  letter-spacing: 0.04em;
+  font-size: 18px; 
+}
+
+.trace-graph-btn:hover .text {
+  transform: translateX(8px);
+}
+
+.trace-graph-btn .text {
+  transform: translateX(-2px);
+  letter-spacing: 0.04em;
+}
+
+.trace-graph-btn:hover .text {
+  transform: translateX(8px);
 }
 
 @media (max-width: 1024px) {
@@ -1230,6 +1345,14 @@
 
   .trace-intro-box-body {
     font-size: 24px;
+  }
+
+  .trace-intro-graph-btn-wrap {
+    margin-top: 26px;
+  }
+
+  .trace-graph-btn {
+    min-width: 174px;
   }
 }
 
