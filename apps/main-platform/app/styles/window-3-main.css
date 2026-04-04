@@ -1007,6 +1007,11 @@
   z-index: 0;
 }
 
+.trace-window-dotgrid {
+  position: absolute;
+  inset: 0;
+}
+
 .trace-frame-svg {
   width: 100%;
   height: 100%;
@@ -1046,81 +1051,36 @@
 }
 
 .trace-page--main {
-  display: flex;
-  align-items: stretch;
-  padding: 8.5vh 2.5vw 8vh;
+  padding: 0;
 }
 
 .trace-page--blank {
   background: #ffffff;
 }
 
-.trace-page-layout {
-  width: 100%;
-  display: grid;
-  grid-template-columns: 1fr 3fr;
-  gap: 1.2vw;
-  align-items: stretch;
-}
-
-.trace-intro-panel {
-  border: 1px solid rgba(0, 71, 255, 0.36);
-  border-radius: 3px;
-  padding: clamp(1rem, 1.5vw, 1.4rem);
-  background: linear-gradient(180deg, rgba(0, 71, 255, 0.045) 0%, rgba(0, 71, 255, 0.01) 100%);
-  color: #0047ff;
-}
-
-.trace-intro-eyebrow {
-  margin: 0 0 0.9rem;
+.trace-svg-intro-title {
   font-family: "DingTalk JinBuTi", "Michroma", sans-serif;
-  font-size: clamp(0.56rem, 0.74vw, 0.68rem);
-  letter-spacing: 0.28em;
-  color: rgba(0, 71, 255, 0.7);
-}
-
-.trace-intro-title {
-  margin: 0 0 1.1rem;
-  font-family: "DingTalk JinBuTi", "Michroma", sans-serif;
-  font-weight: 400;
-  font-size: clamp(2rem, 3.8vw, 3rem);
-  line-height: 1.12;
+  font-size: 64px;
   letter-spacing: 0.08em;
-  color: #0047ff;
+  fill: #191970;
 }
 
-.trace-intro-body {
-  margin: 0 0 0.92rem;
+.trace-svg-intro-body {
   font-family: "DingTalk JinBuTi", system-ui, sans-serif;
-  font-size: clamp(0.86rem, 1.05vw, 0.96rem);
-  line-height: 1.7;
-  color: rgba(0, 71, 255, 0.86);
-}
-
-.trace-meta {
-  margin: 0.35rem 0 0;
-  font-family: "DingTalk JinBuTi", "Michroma", sans-serif;
-  font-size: clamp(0.72rem, 0.88vw, 0.8rem);
-  letter-spacing: 0.08em;
-  color: rgba(0, 71, 255, 0.68);
-}
-
-.trace-board-shell {
-  border: 1px solid rgba(0, 71, 255, 0.36);
-  border-radius: 3px;
-  background: #ffffff;
-  overflow: hidden;
+  font-size: 31px;
+  letter-spacing: 0.02em;
+  fill: #000000;
 }
 
 .trace-col-head {
   font-family: "DingTalk JinBuTi", "Michroma", sans-serif;
   font-size: 21px;
   letter-spacing: 0.06em;
-  fill: rgba(0, 71, 255, 0.92);
+  fill: #000000;
 }
 
 .trace-line {
-  stroke: rgba(0, 71, 255, 0.86);
+  stroke: #001BB7;
   stroke-linecap: square;
   shape-rendering: geometricPrecision;
 }
@@ -1132,72 +1092,144 @@
   dominant-baseline: middle;
 }
 
+.trace-row-fo {
+  overflow: hidden;
+}
+
+.trace-row-box {
+  width: 100%;
+  height: 100%;
+  padding: 0 8px;
+  color: #000000;
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.trace-row-box--text {
+  font-size: 16px;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.trace-row-box--file {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 15px;
+  color: #000000;
+  text-align: left;
+}
+
+.trace-row-box-content {
+  width: 100%;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  text-overflow: ellipsis;
+  word-break: break-word;
+  line-height: 1.32;
+  letter-spacing: 0.02em;
+}
+
+.trace-row-box-content--text {
+  -webkit-line-clamp: 5;
+}
+
+.trace-row-box-content--file {
+  -webkit-line-clamp: 3;
+  letter-spacing: 0.04em;
+}
+
+.trace-row-file-cluster,
+.trace-row-file-name {
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.trace-row-file-cluster {
+  font-size: 16px;
+  letter-spacing: 0.035em;
+}
+
+.trace-row-file-name {
+  font-size: 14px;
+  letter-spacing: 0.015em;
+}
+
 .trace-row-text {
   font-size: 20px;
   letter-spacing: 0.02em;
-  fill: rgba(0, 71, 255, 0.86);
+  fill: #191970;
 }
 
 .trace-row-score {
   font-size: 22px;
-  fill: #0047ff;
+  fill: #191970;
   font-weight: 600;
 }
 
 .trace-row-file {
   font-size: 19px;
-  fill: rgba(0, 71, 255, 0.8);
+  fill: #191970;
   letter-spacing: 0.06em;
 }
 
-.trace-close-btn {
-  position: absolute;
-  top: 2.2vh;
-  right: 2.5vw;
-  z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.54em 1.06em;
-  background: rgba(255, 255, 255, 0.92);
-  border: 1px solid rgba(0, 71, 255, 0.4);
-  border-radius: 2px;
-  color: rgba(0, 71, 255, 0.85);
-  font-size: 0.75rem;
+.trace-intro-fo {
+  overflow: hidden;
+}
+
+.trace-intro-box {
+  width: 100%;
+  height: 100%;
+  color: #191970;
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
+  overflow: hidden;
+}
+
+.trace-intro-box-title {
+  margin: 0 0 16px;
   font-family: "DingTalk JinBuTi", "Michroma", sans-serif;
-  letter-spacing: 0.1em;
-  cursor: pointer;
-  pointer-events: auto;
-  transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+  font-size: 40px;
+  line-height: 1.08;
+  letter-spacing: 0.06em;
+  color: #261CC1;
 }
 
-.trace-close-btn:hover {
-  border-color: rgba(0, 71, 255, 0.72);
-  color: #0047ff;
-  box-shadow: 0 0 16px rgba(0, 71, 255, 0.16);
-}
-
-.trace-close-icon {
-  font-size: 0.9rem;
-  line-height: 1;
-}
-
-.trace-close-text {
-  letter-spacing: 0.12em;
+.trace-intro-box-body {
+  margin: 0 0 12px;
+  font-size: 40px;
+  line-height: 1.42;
+  letter-spacing: 0.015em;
+  color: #261CC1;
 }
 
 @media (max-width: 1024px) {
   .trace-page--main {
-    padding: 7.6vh 2.4vw 7.2vh;
+    padding: 0;
   }
 
-  .trace-page-layout {
-    grid-template-columns: 1fr;
-    gap: 1rem;
+  .trace-svg-intro-title {
+    font-size: 58px;
   }
 
-  .trace-intro-title {
-    font-size: clamp(1.75rem, 6.2vw, 2.4rem);
+  .trace-svg-intro-body {
+    font-size: 28px;
+  }
+
+  .trace-intro-box-title {
+    font-size: 40px;
+  }
+
+  .trace-intro-box-body {
+    font-size: 24px;
   }
 }
 
