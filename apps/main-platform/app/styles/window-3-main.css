@@ -1284,8 +1284,8 @@
 .trace-intro-box-title {
   margin: 0 0 16px;
   font-family: "DingTalk JinBuTi", "Michroma", sans-serif;
-  font-size: 40px;
-  line-height: 1.08;
+  font-size: 56px;
+  line-height: 2.00;
   letter-spacing: 0.06em;
   margin-left: 20px; 
   color: #261CC1;
@@ -1301,11 +1301,7 @@
 }
 
 .trace-intro-graph-btn-wrap {
-  margin-top: 50px;
-}
-
-.trace-intro-graph-btn-wrap {
-  margin-top: 50px;
+  margin-top: 200px;
 }
 
 .trace-graph-btn {
@@ -1326,15 +1322,6 @@
   transform: translateX(8px);
 }
 
-.trace-graph-btn .text {
-  transform: translateX(-2px);
-  letter-spacing: 0.04em;
-}
-
-.trace-graph-btn:hover .text {
-  transform: translateX(8px);
-}
-
 @media (max-width: 1024px) {
   .trace-page--main {
     padding: 0;
@@ -1349,7 +1336,7 @@
   }
 
   .trace-intro-box-title {
-    font-size: 40px;
+    font-size: 46px;
   }
 
   .trace-intro-box-body {

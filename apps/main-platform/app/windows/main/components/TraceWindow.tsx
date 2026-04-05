@@ -190,13 +190,96 @@ function selectDataset(answerContent: string): TraceDataset {
   return DEFAULT_DATASET;
 }
 
+function pickRandomItems<T>(items: T[], count: number): T[] {
+  const pool = [...items];
+  for (let idx = pool.length - 1; idx > 0; idx -= 1) {
+    const swapIdx = Math.floor(Math.random() * (idx + 1));
+    [pool[idx], pool[swapIdx]] = [pool[swapIdx], pool[idx]];
+  }
+  return pool.slice(0, Math.max(0, Math.min(count, pool.length)));
+}
+
 function buildTracePreviewFile(row: TraceRow, rowIndex: number): File {
-  const content = [
+  const indent = "　　";
+  const intro = [
     `来源文件：${row.fileName}`,
     `所属聚类：${row.clusterName}`,
+    `溯源编号：TRACE-${String(rowIndex + 1).padStart(2, "0")}`,
     "",
     "语义相关文本：",
     row.text,
+    "",
+    "正文：",
+  ];
+
+  const openingPool = [
+    `${indent}围绕“${row.fileName}”的记录主线可以看到，文本描述与证据链呈现出明显的阶段性推进关系。`,
+    `${indent}从“${row.clusterName}”聚类的上下文看，该文件重点补充了事件细部与关键节点之间的逻辑连接。`,
+    `${indent}将语义文本与来源片段逐条对照后，可以确认主要叙述方向保持一致，仅在表达层面存在轻微差异。`,
+    `${indent}该条目在事实呈现上采用了先结论后展开的结构，阅读时需结合时间线与实体关系同步理解。`,
+  ];
+
+  const detailPool = [
+    "在首轮整理中，系统优先提取可量化信息，再将人物、地点、行为三类实体交叉映射，减少叙述歧义。",
+    "就同类文档而言，本文件在细节密度上明显更高，尤其是对上下游事件触发条件的描述更完整。",
+    "通过句级比对可以发现，原文中多处因果连接词与时间副词共同构成了强约束的推断路径。",
+    "针对容易误读的段落，采用反向复核方式回看源句，确认结论并非由单一语句孤立支撑。",
+    "若从资料来源构成观察，该文本同时包含陈述性材料与说明性材料，二者互为补充。",
+    "相较于摘要性材料，本文件提供了更多过程描述，可帮助读者理解事实如何逐步成立。",
+    "在关联比对阶段，多个关键词在邻近语境重复出现，说明该主题并非偶发提及而是核心议题。",
+    "该文档在论述中保留了不少边界条件，这些条件对后续解释范围与结论强度有直接影响。",
+  ];
+
+  const closingPool = [
+    `${indent}综合以上信息，本文件可作为该主题的重要支撑材料，适合与同聚类文档并行阅读以提高判断稳定性。`,
+    `${indent}从证据连续性与叙事完整度看，当前文本具备较高参考价值，建议在复核阶段保留为核心来源之一。`,
+    `${indent}若后续需要扩展检索范围，可优先沿当前关键词链条向相邻语料延伸，以获得更完整的背景信息。`,
+    `${indent}整体来看，该来源在事实核验、语义一致性与上下文衔接三方面表现均衡，适合作为基础样本。`,
+  ];
+
+  const paragraphCount = 12 + Math.floor(Math.random() * 4);
+  const baseBody = Array.from({ length: paragraphCount }, () => {
+    const opening = openingPool[Math.floor(Math.random() * openingPool.length)];
+    const detailA = detailPool[Math.floor(Math.random() * detailPool.length)];
+    const detailB = detailPool[Math.floor(Math.random() * detailPool.length)];
+    return `${opening}${detailA}${detailB}`;
+  }).join("\n\n");
+
+  let body = baseBody;
+  while (body.length < 1900) {
+    const opening = openingPool[Math.floor(Math.random() * openingPool.length)];
+    const detail = detailPool[Math.floor(Math.random() * detailPool.length)];
+    body += `\n\n${opening}${detail}`;
+  }
+
+  const relatedFilePool = [
+    "政策执行纪要-季度汇编.pdf",
+    "访谈记录-文本整理版.docx",
+    "事件节点时间轴-校核稿.xlsx",
+    "联合研判纪要-内部稿.doc",
+    "区域样本抽取说明-v3.txt",
+    "工作流日志导出-完整版.csv",
+    "现场记录影像清单-补充版.md",
+    "跨部门会商纪要-终稿.pdf",
+    "证据条目索引-修订表.xlsx",
+    "案例要点提炼-对照稿.docx",
+    "语义片段标注记录-v2.json",
+    "溯源链路说明-附注.txt",
+  ];
+  const relatedFiles = pickRandomItems(relatedFilePool, 7)
+    .map((name) => `${indent}${name}`)
+    .join("\n");
+
+  const closing = closingPool[Math.floor(Math.random() * closingPool.length)];
+
+  const content = [
+    ...intro,
+    body,
+    "",
+    "关联来源：",
+    relatedFiles,
+    "",
+    closing,
   ].join("\n");
 
   return new File([content], `trace-preview-${rowIndex + 1}.txt`, {
@@ -485,16 +568,12 @@ export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps)
                 height={INTRO_HEIGHT}
               >
                 <div className="trace-intro-box">
-                  <h1 className="trace-intro-box-title">你可以在此</h1>
-                  <p className="trace-intro-box-body">查看相关文本</p>
-                  <p className="trace-intro-box-body">或预览文件</p>
-                  <p className="trace-intro-box-body">了解词条出处</p>
+                  <h1 className="trace-intro-box-title">知识溯源</h1>
                   <div className="trace-intro-graph-btn-wrap">
                     <button
                       type="button"
                       className="animated-button trace-graph-btn"
                       onClick={handleOpenKnowledgeGraph}
-                      aria-label="打开知识图谱并跳转到第二页"
                     >
                       <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg">
                         <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
