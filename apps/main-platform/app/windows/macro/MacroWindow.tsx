@@ -9,6 +9,7 @@ import { D5WordCloud } from "./components/D5WordCloud";
 import { gsap } from "gsap";
 import { StaggeredMenu } from "../main/components/StaggeredMenu";
 import type { StaggeredMenuItem } from "../main/components/StaggeredMenu";
+import { GlobalTopNav } from "../shared/GlobalTopNav";
 import { LINE_DRAW_EASE } from "../shared/animation";
 import {
   VW,
@@ -29,6 +30,7 @@ const Y_MID = VH / 2;             // 450  – p3 / p4
 const MENU_SHIFT_PX = 0.15 * VW; // 216
 const DEFAULT_INITIAL_NODE_ID = "node-center-red";
 const INITIAL_AUTO_SELECT_DELAY_MS = 980;
+const ENABLE_LEGACY_MENU = false;
 
 interface MacroWindowProps {
   onBack?: () => void;
@@ -45,12 +47,13 @@ export function MacroWindow({
 }: MacroWindowProps) {
   const svgRef = useRef<SVGSVGElement>(null);
   const modulesRef = useRef<HTMLDivElement>(null);
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [legacyMenuOpen, setLegacyMenuOpen] = useState(false);
   const [d1Visible, setD1Visible] = useState(false);
   const [activeSectorId, setActiveSectorId] = useState(DEFAULT_ACTIVE_SECTOR_ID);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
     defaultSelectedNodeId ?? null,
   );
+  const isMenuOpen = ENABLE_LEGACY_MENU ? legacyMenuOpen : false;
   const autoSelectedRef = useRef(false);
 
   const handleSectorChange = useCallback((sectorId: string) => {
@@ -236,97 +239,109 @@ export function MacroWindow({
 
   return (
     <div className="macro-window-page">
+      <GlobalTopNav
+        currentWindow="macro"
+        onNavigateToMain={onNavigateToMain}
+        onNavigateToDatabase={onOpenDatabase}
+        onNavigateToMacro={undefined}
+        onLogout={onBack}
+      />
 
-      {/* ── SVG 画布层 ──────────────────────────────────────── */}
-      <svg
-        ref={svgRef}
-        viewBox={`0 0 ${VW} ${VH}`}
-        preserveAspectRatio="xMidYMid slice"
-        className="macro-svg-canvas"
-        aria-hidden="true"
-      >
-        {/* 四块白色填充区域 — 渲染在线条之下 */}
-        {/* d1: 左上 (0,0) → (X_LEFT, Y_MID) */}
-        <rect id="macro-d1" x={0} y={0} width={X_LEFT} height={Y_MID} fill="#F5F5F5" fillOpacity={0} />
-        {/* d2: 左下 (0, Y_MID) → (X_LEFT, VH) */}
-        <rect id="macro-d2" x={0} y={Y_MID} width={X_LEFT} height={VH - Y_MID} fill="#F5F5F5" fillOpacity={0} />
-        {/* d4: 右上 (X_RIGHT, 0) → (VW, Y_MID) */}
-        <rect id="macro-d4" x={X_RIGHT} y={0} width={VW - X_RIGHT} height={Y_MID} fill="#F5F5F5" fillOpacity={0} />
-        {/* d5: 右下 (X_RIGHT, Y_MID) → (VW, VH) */}
-        <rect id="macro-d5" x={X_RIGHT} y={Y_MID} width={VW - X_RIGHT} height={VH - Y_MID} fill="#F5F5F5" fillOpacity={0} />
+      <div className="macro-window-content-shell">
 
-        {/* p1: 左边界竖线，从上→下 */}
-        <line
-          id="macro-p1"
-          x1={X_LEFT} y1={0}
-          x2={X_LEFT} y2={VH}
-          stroke={MACRO_LINE_INITIAL}
-          strokeWidth={MACRO_STROKE_WIDTH}
-        />
-        {/* p2: 右边界竖线，从下→上 (path direction reversed via strokeDashoffset) */}
-        <line
-          id="macro-p2"
-          x1={X_RIGHT} y1={VH}
-          x2={X_RIGHT} y2={0}
-          stroke={MACRO_LINE_INITIAL}
-          strokeWidth={MACRO_STROKE_WIDTH}
-        />
-        {/* p3: 左区中轴横线，从 p1 向左 */}
-        <line
-          id="macro-p3"
-          x1={X_LEFT}  y1={Y_MID}
-          x2={0}       y2={Y_MID}
-          stroke={MACRO_LINE_INITIAL}
-          strokeWidth={MACRO_STROKE_WIDTH}
-        />
-        {/* p4: 右区中轴横线，从 p2 向右 */}
-        <line
-          id="macro-p4"
-          x1={X_RIGHT} y1={Y_MID}
-          x2={VW}      y2={Y_MID}
-          stroke={MACRO_LINE_INITIAL}
-          strokeWidth={MACRO_STROKE_WIDTH}
-        />
-      </svg>
+        {/* ── SVG 画布层 ──────────────────────────────────────── */}
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${VW} ${VH}`}
+          preserveAspectRatio="xMidYMid slice"
+          className="macro-svg-canvas"
+          aria-hidden="true"
+        >
+          {/* 四块白色填充区域 — 渲染在线条之下 */}
+          {/* d1: 左上 (0,0) → (X_LEFT, Y_MID) */}
+          <rect id="macro-d1" x={0} y={0} width={X_LEFT} height={Y_MID} fill="#F5F5F5" fillOpacity={0} />
+          {/* d2: 左下 (0, Y_MID) → (X_LEFT, VH) */}
+          <rect id="macro-d2" x={0} y={Y_MID} width={X_LEFT} height={VH - Y_MID} fill="#F5F5F5" fillOpacity={0} />
+          {/* d4: 右上 (X_RIGHT, 0) → (VW, Y_MID) */}
+          <rect id="macro-d4" x={X_RIGHT} y={0} width={VW - X_RIGHT} height={Y_MID} fill="#F5F5F5" fillOpacity={0} />
+          {/* d5: 右下 (X_RIGHT, Y_MID) → (VW, VH) */}
+          <rect id="macro-d5" x={X_RIGHT} y={Y_MID} width={VW - X_RIGHT} height={VH - Y_MID} fill="#F5F5F5" fillOpacity={0} />
 
-      {/* ── 功能模块层（1.2s 后淡入） ────────────────────────── */}
-      <div ref={modulesRef} className="macro-modules-layer">
-        {/* d1 区 — 左上 */}
-        <section className="macro-zone macro-zone--d1">
-          <D1Timeline visible={d1Visible} />
-        </section>
-        {/* d2 区 — 左下 */}
-        <section className="macro-zone macro-zone--d2">
-          <D2Visualization visible={d1Visible} />
-        </section>
-        {/* d3 区 — 中间大片（暗色） */}
-        <section className="macro-zone macro-zone--d3" style={{ padding: 0, overflow: 'hidden' }}>
-          <D3SandboxThreeMvp visible={d1Visible} activeSectorId={activeSectorId} selectedNodeId={selectedNodeId} onSectorChange={handleSectorChange} onNodeSelect={handleNodeSelect} />
-        </section>
-        {/* d4 区 — 右上 */}
-        <section className="macro-zone macro-zone--d4">
-          <D4Visualization visible={d1Visible} />
-        </section>
-        {/* d5 区 — 右下 */}
-        <section className="macro-zone macro-zone--d5">
-          <D5WordCloud visible={d1Visible} activeSectorId={activeSectorId} selectedNodeId={selectedNodeId} />
-        </section>
-      </div>
+          {/* p1: 左边界竖线，从上→下 */}
+          <line
+            id="macro-p1"
+            x1={X_LEFT} y1={0}
+            x2={X_LEFT} y2={VH}
+            stroke={MACRO_LINE_INITIAL}
+            strokeWidth={MACRO_STROKE_WIDTH}
+          />
+          {/* p2: 右边界竖线，从下→上 (path direction reversed via strokeDashoffset) */}
+          <line
+            id="macro-p2"
+            x1={X_RIGHT} y1={VH}
+            x2={X_RIGHT} y2={0}
+            stroke={MACRO_LINE_INITIAL}
+            strokeWidth={MACRO_STROKE_WIDTH}
+          />
+          {/* p3: 左区中轴横线，从 p1 向左 */}
+          <line
+            id="macro-p3"
+            x1={X_LEFT}  y1={Y_MID}
+            x2={0}       y2={Y_MID}
+            stroke={MACRO_LINE_INITIAL}
+            strokeWidth={MACRO_STROKE_WIDTH}
+          />
+          {/* p4: 右区中轴横线，从 p2 向右 */}
+          <line
+            id="macro-p4"
+            x1={X_RIGHT} y1={Y_MID}
+            x2={VW}      y2={Y_MID}
+            stroke={MACRO_LINE_INITIAL}
+            strokeWidth={MACRO_STROKE_WIDTH}
+          />
+        </svg>
 
-      {/* ── 菜单层（始终最上层） ─────────────────────────────── */}
-      <div className="macro-menu-layer sm-scope">
-        <StaggeredMenu
-          position="right"
-          items={menuItems}
-          displayItemNumbering={true}
-          menuButtonColor="#111111"
-          openMenuButtonColor="#111111"
-          changeMenuColorOnOpen={false}
-          colors={["#D8B4FE", "#A855F7"]}
-          accentColor="#A855F7"
-          onMenuOpen={() => setIsMenuOpen(true)}
-          onMenuClose={() => setIsMenuOpen(false)}
-        />
+        {/* ── 功能模块层（1.2s 后淡入） ────────────────────────── */}
+        <div ref={modulesRef} className="macro-modules-layer">
+          {/* d1 区 — 左上 */}
+          <section className="macro-zone macro-zone--d1">
+            <D1Timeline visible={d1Visible} />
+          </section>
+          {/* d2 区 — 左下 */}
+          <section className="macro-zone macro-zone--d2">
+            <D2Visualization visible={d1Visible} />
+          </section>
+          {/* d3 区 — 中间大片（暗色） */}
+          <section className="macro-zone macro-zone--d3" style={{ padding: 0, overflow: 'hidden' }}>
+            <D3SandboxThreeMvp visible={d1Visible} activeSectorId={activeSectorId} selectedNodeId={selectedNodeId} onSectorChange={handleSectorChange} onNodeSelect={handleNodeSelect} />
+          </section>
+          {/* d4 区 — 右上 */}
+          <section className="macro-zone macro-zone--d4">
+            <D4Visualization visible={d1Visible} />
+          </section>
+          {/* d5 区 — 右下 */}
+          <section className="macro-zone macro-zone--d5">
+            <D5WordCloud visible={d1Visible} activeSectorId={activeSectorId} selectedNodeId={selectedNodeId} />
+          </section>
+        </div>
+
+        {/* Temporary disablement: keep legacy menu code for future restoration */}
+        {ENABLE_LEGACY_MENU && (
+          <div className="macro-menu-layer sm-scope">
+            <StaggeredMenu
+              position="right"
+              items={menuItems}
+              displayItemNumbering={true}
+              menuButtonColor="#111111"
+              openMenuButtonColor="#111111"
+              changeMenuColorOnOpen={false}
+              colors={["#D8B4FE", "#A855F7"]}
+              accentColor="#A855F7"
+              onMenuOpen={() => setLegacyMenuOpen(true)}
+              onMenuClose={() => setLegacyMenuOpen(false)}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

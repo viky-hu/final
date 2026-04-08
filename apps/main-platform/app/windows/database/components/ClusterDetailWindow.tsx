@@ -246,24 +246,6 @@ export function ClusterDetailWindow({ cluster, onBack }: ClusterDetailWindowProp
   return (
     <div ref={rootRef} className="db-cluster-detail">
 
-      {/* ── Ticker ── */}
-      <div className="db-ticker" aria-hidden="true">
-        <div className="db-ticker-track">
-          <span>聚类详情&nbsp;//</span>
-          <span>&nbsp;{cluster.name}&nbsp;//</span>
-          <span>&nbsp;创建于 {cluster.createdAt}&nbsp;//</span>
-          <span>&nbsp;已有文件 {cluster.fileCount + files.length}&nbsp;//</span>
-          <span>&nbsp;CLUSTER DETAIL VIEW&nbsp;//</span>
-          <span>&nbsp;FILE MANAGEMENT&nbsp;//</span>
-          <span>聚类详情&nbsp;//</span>
-          <span>&nbsp;{cluster.name}&nbsp;//</span>
-          <span>&nbsp;创建于 {cluster.createdAt}&nbsp;//</span>
-          <span>&nbsp;已有文件 {cluster.fileCount + files.length}&nbsp;//</span>
-          <span>&nbsp;CLUSTER DETAIL VIEW&nbsp;//</span>
-          <span>&nbsp;FILE MANAGEMENT&nbsp;//</span>
-        </div>
-      </div>
-
       {/* ── Detail header ── */}
       <header className="db-cluster-detail-header">
 

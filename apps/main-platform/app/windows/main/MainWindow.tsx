@@ -6,9 +6,11 @@ import { StaggeredMenu } from "./components/StaggeredMenu";
 import { ChatCanvasLines } from "./components/ChatCanvasLines";
 import { ChatInteractionPanel } from "./components/ChatInteractionPanel";
 import { TraceWindow } from "./components/TraceWindow";
+import { GlobalTopNav } from "../shared/GlobalTopNav";
 import type { StaggeredMenuItem } from "./components/StaggeredMenu";
 
 type ChatMode = "local" | "global";
+const ENABLE_LEGACY_MENU = false;
 
 interface MainWindowProps {
   onBack?: () => void;
@@ -17,10 +19,11 @@ interface MainWindowProps {
 }
 
 export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowProps) {
-  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [legacyMenuOpen, setLegacyMenuOpen] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
   const [traceTarget, setTraceTarget] = useState<{ msgId: string; content: string } | null>(null);
   const [chatMode, setChatMode] = useState<ChatMode>("local");
+  const isMenuOpen = ENABLE_LEGACY_MENU ? legacyMenuOpen : false;
 
   const handleOpenTrace = useCallback((msgId: string, content: string) => {
     setTraceTarget({ msgId, content });
@@ -58,64 +61,76 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
 
   return (
     <div className="main-window-page">
-      {/* DotGrid: z-index 0, full-screen background */}
-      <div className="main-window-dotgrid-bg">
-        <DotGrid
-          dotSize={2}
-          gap={12}
-          baseColor="#6b6b6b"
-          activeColor="#0047FF"
-          proximity={150}
-          speedTrigger={100}
-          shockRadius={250}
-          shockStrength={5}
-          maxSpeed={5000}
-          resistance={750}
-          returnDuration={1.5}
-        />
-      </div>
-
-      {/* ChatCanvasLines: z-index 5, SVG canvas layer between dotgrid and menu */}
-      <div className="main-window-canvas-layer">
-        <ChatCanvasLines
-          menuOpen={isMenuOpen}
-          mode={chatMode}
-          onComplete={() => setCanvasReady(true)}
-        />
-      </div>
-
-      {/* ChatInteractionPanel: z-index 6, interactive chat layer above canvas, pointer-events on children only */}
-      <ChatInteractionPanel
-        menuOpen={isMenuOpen}
-        canvasReady={canvasReady}
-        mode={chatMode}
-        onModeChange={setChatMode}
-        onOpenTrace={handleOpenTrace}
+      <GlobalTopNav
+        currentWindow="main"
+        onNavigateToMain={undefined}
+        onNavigateToDatabase={onOpenDatabase}
+        onNavigateToMacro={onOpenMacro}
+        onLogout={onBack}
       />
 
-      {/* TraceWindow: z-index 200, full-screen overlay, mounted only when a trace is active */}
-      {traceTarget && (
-        <TraceWindow
-          msgId={traceTarget.msgId}
-          answerContent={traceTarget.content}
-          onClose={handleCloseTrace}
-        />
-      )}
+      <div className="main-window-content-shell">
+        {/* DotGrid: z-index 0, full-screen background */}
+        <div className="main-window-dotgrid-bg">
+          <DotGrid
+            dotSize={2}
+            gap={12}
+            baseColor="#6b6b6b"
+            activeColor="#0047FF"
+            proximity={150}
+            speedTrigger={100}
+            shockRadius={250}
+            shockStrength={5}
+            maxSpeed={5000}
+            resistance={750}
+            returnDuration={1.5}
+          />
+        </div>
 
-      {/* StaggeredMenu: z-index 10, foreground overlay */}
-      <div className="main-window-menu-layer">
-        <StaggeredMenu
-          position="right"
-          items={menuItems}
-          displayItemNumbering={true}
-          menuButtonColor="#111111"
-          openMenuButtonColor="#111111"
-          changeMenuColorOnOpen={true}
-          colors={["#7A96FF", "#0047FF"]}
-          accentColor="#0047FF"
-          onMenuOpen={() => setIsMenuOpen(true)}
-          onMenuClose={() => setIsMenuOpen(false)}
+        {/* ChatCanvasLines: z-index 5, SVG canvas layer between dotgrid and menu */}
+        <div className="main-window-canvas-layer">
+          <ChatCanvasLines
+            menuOpen={isMenuOpen}
+            mode={chatMode}
+            onComplete={() => setCanvasReady(true)}
+          />
+        </div>
+
+        {/* ChatInteractionPanel: z-index 6, interactive chat layer above canvas, pointer-events on children only */}
+        <ChatInteractionPanel
+          menuOpen={isMenuOpen}
+          canvasReady={canvasReady}
+          mode={chatMode}
+          onModeChange={setChatMode}
+          onOpenTrace={handleOpenTrace}
         />
+
+        {/* TraceWindow: z-index 200, full-screen overlay, mounted only when a trace is active */}
+        {traceTarget && (
+          <TraceWindow
+            msgId={traceTarget.msgId}
+            answerContent={traceTarget.content}
+            onClose={handleCloseTrace}
+          />
+        )}
+
+        {/* Temporary disablement: keep legacy menu code for future restoration */}
+        {ENABLE_LEGACY_MENU && (
+          <div className="main-window-menu-layer">
+            <StaggeredMenu
+              position="right"
+              items={menuItems}
+              displayItemNumbering={true}
+              menuButtonColor="#111111"
+              openMenuButtonColor="#111111"
+              changeMenuColorOnOpen={true}
+              colors={["#7A96FF", "#0047FF"]}
+              accentColor="#0047FF"
+              onMenuOpen={() => setLegacyMenuOpen(true)}
+              onMenuClose={() => setLegacyMenuOpen(false)}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -13,6 +13,7 @@ import { FileSearch } from "lucide-react";
 import { LINE_DRAW_EASE } from "../../shared/animation";
 import { DotGrid } from "./DotGrid";
 import { FilePreviewModal } from "../../database/components/FilePreviewModal";
+import { TraceKnowledgeGraph } from "./TraceKnowledgeGraph";
 
 // ─── SVG canvas dimensions ───────────────────────────────────────────────────
 const TVW = 1440;
@@ -168,6 +169,12 @@ const DEFAULT_DATASET: TraceDataset = {
 
 function normalize(input: string): string {
   return input.replace(/\s+/g, "").replace(/[“”"'‘’]/g, "");
+}
+
+function ensureTrailingEllipsis(text: string): string {
+  const trimmed = text.trimEnd();
+  if (/……$/.test(trimmed)) return trimmed;
+  return `${trimmed}……`;
 }
 
 function selectDataset(answerContent: string): TraceDataset {
@@ -687,7 +694,9 @@ export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps)
                       height={ROW_HEIGHT - CELL_Y_PADDING * 2}
                     >
                       <div className="trace-row-box trace-row-box--text">
-                        <span className="trace-row-box-content trace-row-box-content--text">{row.text}</span>
+                        <span className="trace-row-box-content trace-row-box-content--text">
+                          {ensureTrailingEllipsis(row.text)}
+                        </span>
                       </div>
                     </foreignObject>
                     <foreignObject
@@ -727,7 +736,9 @@ export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps)
             </svg>
           </section>
 
-          <section ref={graphPageRef} className="trace-page trace-page--blank" aria-label="知识图谱占位页" />
+          <section ref={graphPageRef} className="trace-page trace-page--graph" aria-label="知识图谱页面">
+            <TraceKnowledgeGraph />
+          </section>
 
         </div>
       </div>

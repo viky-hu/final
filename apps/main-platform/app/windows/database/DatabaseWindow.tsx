@@ -11,10 +11,13 @@ import { gsap } from "gsap";
 import { FolderOpen, Database } from "lucide-react";
 import { StaggeredMenu } from "../main/components/StaggeredMenu";
 import type { StaggeredMenuItem } from "../main/components/StaggeredMenu";
-import type { Cluster, Metrics } from "@/app/lib/database-store";
+import { GlobalTopNav } from "../shared/GlobalTopNav";
+import type { Cluster } from "@/app/lib/database-store";
 import { LINE_DRAW_EASE } from "../shared/animation";
 import { DB_V_LINE_X_RATIO, DB_LINE_COLOR, DB_LINE_STROKE_W } from "../shared/coords";
 import { ClusterDetailWindow } from "./components/ClusterDetailWindow";
+
+const ENABLE_LEGACY_MENU = false;
 
 interface DatabaseWindowProps {
   onBack: () => void;
@@ -24,11 +27,6 @@ interface DatabaseWindowProps {
 
 export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: DatabaseWindowProps) {
   const [clusters, setClusters] = useState<Cluster[]>([]);
-  const [metrics, setMetrics] = useState<Metrics>({
-    clusterCount: 0,
-    totalFiles: 0,
-    lastAddedDate: null,
-  });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newClusterName, setNewClusterName] = useState("");
   const [inputError, setInputError] = useState("");
@@ -59,17 +57,10 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
   // ── Data fetching ──────────────────────────────────────────────────────────
   const fetchData = useCallback(async () => {
     try {
-      const [clustersRes, metricsRes] = await Promise.all([
-        fetch("/api/database/clusters"),
-        fetch("/api/database/metrics"),
-      ]);
+      const clustersRes = await fetch("/api/database/clusters");
       if (clustersRes.ok) {
         const data = await clustersRes.json() as { clusters: Cluster[] };
         setClusters(data.clusters);
-      }
-      if (metricsRes.ok) {
-        const data = await metricsRes.json() as Metrics;
-        setMetrics(data);
       }
     } catch {
       // Network error — keep previous state
@@ -262,25 +253,15 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
 
   return (
     <div ref={rootRef} className="db-window">
+      <GlobalTopNav
+        currentWindow="database"
+        onNavigateToMain={onNavigateToMain}
+        onNavigateToDatabase={undefined}
+        onNavigateToMacro={onOpenMacro}
+        onLogout={onBack}
+      />
 
-      {/* ── Ticker bar ────────────────────────────────────────────────── */}
-      <div className="db-ticker" aria-hidden="true">
-        <div className="db-ticker-track">
-          <span>数据源管理系统&nbsp;//</span>
-          <span>&nbsp;CLUSTER ENGINE&nbsp;//</span>
-          <span>&nbsp;已有聚类 {metrics.clusterCount}&nbsp;//</span>
-          <span>&nbsp;总文件 {metrics.totalFiles}&nbsp;//</span>
-          <span>&nbsp;数据结构化 · 安全存储&nbsp;//</span>
-          <span>&nbsp;DATA GOVERNANCE READY&nbsp;//</span>
-          {/* Duplicate for seamless loop */}
-          <span>数据源管理系统&nbsp;//</span>
-          <span>&nbsp;CLUSTER ENGINE&nbsp;//</span>
-          <span>&nbsp;已有聚类 {metrics.clusterCount}&nbsp;//</span>
-          <span>&nbsp;总文件 {metrics.totalFiles}&nbsp;//</span>
-          <span>&nbsp;数据结构化 · 安全存储&nbsp;//</span>
-          <span>&nbsp;DATA GOVERNANCE READY&nbsp;//</span>
-        </div>
-      </div>
+      <div className="db-window-content-shell">
 
       {/* ── Main vertical divider line (full screen height, GSAP drawn) ── */}
       <svg
@@ -289,10 +270,10 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
         aria-hidden="true"
         style={{
           position: "fixed",
-          top: 0,
+          top: "var(--global-top-nav-height)",
           left: `${DB_V_LINE_X_RATIO * 100}vw`,
           width: "2px",
-          height: "100dvh",
+          height: "calc(100dvh - var(--global-top-nav-height))",
           pointerEvents: "none",
           zIndex: 15,
           overflow: "visible",
@@ -439,17 +420,20 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
       </div>
 
       {/* ── Menu layer (always on top) ────────────────────────────────── */}
-      <div className="db-menu-layer sm-scope">
-        <StaggeredMenu
-          position="right"
-          items={menuItems}
-          displayItemNumbering={true}
-          menuButtonColor="#111111"
-          openMenuButtonColor="#111111"
-          changeMenuColorOnOpen={false}
-          colors={["#F5E8E0", "#8B1A1A"]}
-          accentColor="#CC0000"
-        />
+      {ENABLE_LEGACY_MENU && (
+        <div className="db-menu-layer sm-scope">
+          <StaggeredMenu
+            position="right"
+            items={menuItems}
+            displayItemNumbering={true}
+            menuButtonColor="#111111"
+            openMenuButtonColor="#111111"
+            changeMenuColorOnOpen={false}
+            colors={["#F5E8E0", "#8B1A1A"]}
+            accentColor="#CC0000"
+          />
+        </div>
+      )}
       </div>
 
       {/* ── Cluster Detail Overlay ────────────────────────────────────── */}

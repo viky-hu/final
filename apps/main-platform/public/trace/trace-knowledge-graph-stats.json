@@ -1,0 +1,26 @@
+{
+  "source": {
+    "nodeCount": 3106,
+    "edgeCount": 2838,
+    "graphBytes": 2779429
+  },
+  "output": {
+    "nodeCount": 186,
+    "edgeCount": 192,
+    "graphBytes": 110924,
+    "nodeRatio": 0.0599,
+    "sizeRatio": 0.0399
+  },
+  "constraints": {
+    "targetRatio": 0.06,
+    "minCenterTrees": 5,
+    "actualCenterTrees": 5,
+    "centerRoots": [
+      "法律出版社",
+      "中国法制出版社",
+      "中国人民公安大学出版社",
+      "王某",
+      "清华大学出版社"
+    ]
+  }
+}

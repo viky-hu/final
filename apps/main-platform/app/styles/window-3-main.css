@@ -12,6 +12,14 @@
   font-family: var(--w3-font-family);
 }
 
+.main-window-content-shell {
+  position: relative;
+  width: 100%;
+  height: calc(100dvh - var(--global-top-nav-height));
+  margin-top: var(--global-top-nav-height);
+  overflow: hidden;
+}
+
 .main-window-page,
 .main-window-page *,
 .main-window-page *::before,
@@ -24,7 +32,7 @@
   position: absolute;
   inset: 0;
   z-index: 0;
-  min-height: 100dvh;
+  min-height: 100%;
 }
 
 /*
@@ -36,7 +44,7 @@
   inset: 0;
   z-index: 5;
   pointer-events: none;
-  min-height: 100dvh;
+  min-height: 100%;
 }
 
 .main-window-canvas-svg {
@@ -84,7 +92,7 @@
   position: absolute;
   inset: 0;
   z-index: 10;
-  min-height: 100dvh;
+  min-height: 100%;
   pointer-events: none;
 }
 
@@ -1067,6 +1075,137 @@
   background: #ffffff;
 }
 
+.trace-page--graph {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  padding: 32px;
+  background:
+    radial-gradient(circle at 24% 18%, rgba(0, 71, 255, 0.08) 0%, rgba(0, 71, 255, 0) 45%),
+    radial-gradient(circle at 82% 78%, rgba(38, 28, 193, 0.1) 0%, rgba(38, 28, 193, 0) 46%),
+    #ffffff;
+}
+
+.trace-graph-shell {
+  width: min(1280px, calc(100vw - 80px));
+  height: calc(100vh - 64px);
+  border: 1.5px solid rgba(0, 27, 183, 0.24);
+  background: rgba(255, 255, 255, 0.84);
+  backdrop-filter: blur(2px);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  box-shadow: 0 18px 56px rgba(0, 27, 183, 0.14);
+}
+
+.trace-graph-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid rgba(0, 27, 183, 0.2);
+}
+
+.trace-graph-title-group {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trace-graph-title {
+  margin: 0;
+  font-family: "DingTalk JinBuTi", "Michroma", sans-serif;
+  font-size: 24px;
+  color: #161d4f;
+  letter-spacing: 0.05em;
+}
+
+.trace-graph-summary {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: rgba(6, 16, 58, 0.74);
+}
+
+.trace-graph-reset-btn {
+  border: 1px solid rgba(0, 71, 255, 0.45);
+  background: rgba(0, 71, 255, 0.06);
+  color: #0b2aa8;
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.trace-graph-reset-btn:hover:not(:disabled) {
+  background: rgba(0, 71, 255, 0.15);
+}
+
+.trace-graph-reset-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.trace-graph-stage-wrap {
+  position: relative;
+  min-height: 0;
+}
+
+.trace-graph-stage {
+  width: 100%;
+  height: 100%;
+}
+
+.trace-graph-mask {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.68);
+  color: #1f2b6b;
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
+  letter-spacing: 0.04em;
+}
+
+.trace-graph-mask--error {
+  color: #b42318;
+  background: rgba(255, 245, 245, 0.9);
+}
+
+.trace-graph-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 18px 14px;
+  border-top: 1px solid rgba(0, 27, 183, 0.2);
+  background: rgba(242, 246, 255, 0.68);
+}
+
+.trace-graph-center-roots {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  letter-spacing: 0.015em;
+  color: #14204d;
+  white-space: normal;
+  word-break: break-word;
+}
+
+.trace-graph-selected {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  letter-spacing: 0.015em;
+  color: #14204d;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .trace-svg-intro-title {
   font-family: "DingTalk JinBuTi", "Michroma", sans-serif;
   font-size: 64px;
@@ -1325,6 +1464,25 @@
 @media (max-width: 1024px) {
   .trace-page--main {
     padding: 0;
+  }
+
+  .trace-page--graph {
+    padding: 10px;
+  }
+
+  .trace-graph-shell {
+    width: calc(100vw - 20px);
+    height: calc(100vh - 20px);
+  }
+
+  .trace-graph-title {
+    font-size: 20px;
+  }
+
+  .trace-graph-summary,
+  .trace-graph-center-roots,
+  .trace-graph-selected {
+    font-size: 12px;
   }
 
   .trace-svg-intro-title {
@@ -1888,20 +2046,43 @@
 
 .chat-toast {
   position: absolute;
-  top: max(18px, 2.4vh);
+  top: max(68px, 7.4vh);
   left: 50%;
   transform: translateX(-50%);
   z-index: 30;
-  padding: 0.5rem 0.9rem;
-  border: 1px solid rgba(0, 71, 255, 0.3);
-  background: rgba(255, 255, 255, 0.92);
-  color: #1e1919;
-  font-size: 0.78rem;
-  letter-spacing: 0.04em;
+  color: #0047FF;
+  font-size: 0.82rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  line-height: 1.2;
   font-family: "DingTalk JinBuTi", system-ui, sans-serif;
-  border-radius: 2px;
-  box-shadow: 0 8px 24px rgba(0, 71, 255, 0.12);
+  text-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.82),
+    0 3px 14px rgba(255, 255, 255, 0.68);
+  white-space: nowrap;
+  opacity: 0;
+  will-change: opacity, transform;
+  animation: chat-toast-fade 2.2s ease-in-out forwards;
   pointer-events: none;
+}
+
+@keyframes chat-toast-fade {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -6px);
+  }
+  14% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  82% {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -4px);
+  }
 }
 
 .mc-groups {

@@ -19,6 +19,14 @@
   font-family: var(--w5-font-family) !important;
 }
 
+.macro-window-content-shell {
+  position: relative;
+  width: 100%;
+  height: calc(100dvh - var(--global-top-nav-height));
+  margin-top: var(--global-top-nav-height);
+  overflow: hidden;
+}
+
 /* SVG 画布 — 全屏 */
 .macro-svg-canvas {
   position: absolute;
@@ -351,7 +359,7 @@
   position: absolute;
   inset: 0;
   z-index: 10;
-  min-height: 100dvh;
+  min-height: 100%;
   pointer-events: none;
 }
 

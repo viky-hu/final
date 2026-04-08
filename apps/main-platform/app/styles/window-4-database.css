@@ -24,40 +24,12 @@
   font-family: var(--db-font-family) !important;
 }
 
-/* ── Ticker 滚动条 ── */
-.db-ticker {
+.db-window-content-shell {
   position: relative;
-  z-index: 50;
   width: 100%;
-  background: #111111;
-  color: #F9F9F7;
+  height: calc(100dvh - var(--global-top-nav-height));
+  margin-top: var(--global-top-nav-height);
   overflow: hidden;
-  height: 36px;
-  display: flex;
-  align-items: center;
-  border-bottom: 2px solid #111111;
-  flex-shrink: 0;
-}
-
-.db-ticker-track {
-  display: flex;
-  gap: 0;
-  white-space: nowrap;
-  animation: dbTickerScroll 28s linear infinite;
-  font-family: 'JetBrains Mono', 'Courier New', monospace;
-  font-size: 0.68rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.db-ticker-track span {
-  padding: 0 1.5rem;
-  border-right: 1px solid rgba(249, 249, 247, 0.2);
-}
-
-@keyframes dbTickerScroll {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
 }
 
 /* ─────────────────────────────────────────────
@@ -68,7 +40,7 @@
 .db-page {
   display: flex;
   width: 100%;
-  height: calc(100dvh - 36px);
+  height: 100%;
   overflow: hidden;
 }
 
@@ -360,14 +332,17 @@
 /* ── Menu layer ── */
 .db-menu-layer {
   position: fixed;
-  inset: 0;
+  top: var(--global-top-nav-height);
+  left: 0;
+  right: 0;
+  bottom: 0;
   z-index: 100;
   pointer-events: none;
 }
 
-/* Push menu header below ticker bar (36px) to avoid overlap */
+/* Keep menu top spacing aligned with header after ticker removal */
 .db-menu-layer .staggered-menu-header {
-  padding-top: calc(36px + 1.2rem);
+  padding-top: 1.2rem;
 }
 
 /* Override menu toggle text color for light background */
@@ -570,7 +545,7 @@
   gap: 0;
 }
 
-/* Back button — appears at top-left above ticker offset */
+/* Back button */
 .db-cluster-detail-back {
   display: inline-flex;
   align-items: center;
