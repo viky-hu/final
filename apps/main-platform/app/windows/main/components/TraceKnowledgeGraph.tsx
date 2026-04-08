@@ -117,12 +117,10 @@ function loadVisScript(): Promise<void> {
 export function TraceKnowledgeGraph() {
   const containerRef = useRef<HTMLDivElement>(null);
   const networkRef = useRef<VisNetworkInstance | null>(null);
-  const nodeMapRef = useRef<Map<string, TraceGraphNode>>(new Map());
 
   const [status, setStatus] = useState<GraphStatus>("loading");
   const [errorText, setErrorText] = useState<string>("");
   const [meta, setMeta] = useState<TraceGraphMeta | null>(null);
-  const [selectedNode, setSelectedNode] = useState<TraceGraphNode | null>(null);
 
   const summaryText = "可放大图谱查看详细内容";
 
@@ -158,7 +156,6 @@ export function TraceKnowledgeGraph() {
       try {
         setStatus("loading");
         setErrorText("");
-        setSelectedNode(null);
 
         ensureVisStylesheet();
         await loadVisScript();
@@ -180,11 +177,6 @@ export function TraceKnowledgeGraph() {
         if (!vis?.Network) {
           throw new Error("vis-network 初始化失败");
         }
-
-        const nodesById = new Map<string, TraceGraphNode>(
-          payload.nodes.map((node) => [String(node.id), node]),
-        );
-        nodeMapRef.current = nodesById;
 
         const options: Record<string, unknown> = {
           autoResize: true,
@@ -265,17 +257,6 @@ export function TraceKnowledgeGraph() {
           });
         });
 
-        network.on("selectNode", (params) => {
-          const nodeId = params.nodes[0];
-          if (!nodeId) return;
-          const node = nodeMapRef.current.get(String(nodeId)) ?? null;
-          setSelectedNode(node);
-        });
-
-        network.on("deselectNode", () => {
-          setSelectedNode(null);
-        });
-
         setMeta(payload.meta);
         setStatus("ready");
       } catch (error) {
@@ -332,11 +313,6 @@ export function TraceKnowledgeGraph() {
         <p className="trace-graph-center-roots">{bottomNodeCountText}</p>
         <p className="trace-graph-center-roots">{bottomEdgeCountText}</p>
         <p className="trace-graph-center-roots">{bottomKeywordsText}</p>
-        <p className="trace-graph-selected">
-          {selectedNode
-            ? `当前节点：${selectedNode.label} ｜ ${selectedNode.title}`
-            : "提示：可拖拽、缩放并点击节点查看关联描述"}
-        </p>
       </footer>
     </div>
   );
