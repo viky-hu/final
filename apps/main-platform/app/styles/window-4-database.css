@@ -91,7 +91,7 @@
   margin: 0;
   font-family: 'Michroma', 'DingTalk JinBuTi', 'ZCOOL XiaoWei', serif;
   font-size: clamp(1.8rem, 3.2vw, 3.8rem);
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.22;
   letter-spacing: 0.02em;
   color: #111111;
@@ -146,7 +146,7 @@
   border-radius: 0;
   font-family: 'DingTalk JinBuTi', 'Inter', sans-serif;
   font-size: 0.85rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.14em;
   cursor: pointer;
   transition: background 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s;
@@ -201,7 +201,7 @@
   margin: 0;
   font-family: 'DingTalk JinBuTi', 'Inter', sans-serif;
   font-size: clamp(1.2rem, 2.2vw, 1.8rem);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: #111111;
 }
@@ -304,7 +304,7 @@
 .db-cluster-name {
   font-family: 'DingTalk JinBuTi', 'Inter', sans-serif;
   font-size: clamp(0.9rem, 1.4vw, 1.1rem);
-  font-weight: 700;
+  font-weight: 600;
   color: #111111;
   letter-spacing: 0em;
   min-width: 0;
@@ -395,7 +395,7 @@
   margin: 0;
   font-family: 'DingTalk JinBuTi', 'Inter', sans-serif;
   font-size: 1.8rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: #111111;
 }
@@ -467,7 +467,7 @@
   border-radius: 0;
   font-family: 'DingTalk JinBuTi', 'Inter', sans-serif;
   font-size: 0.8rem;
-  font-weight: 500;
+  font-weight: 400;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
@@ -493,7 +493,7 @@
   border-radius: 0;
   font-family: 'DingTalk JinBuTi', 'Inter', sans-serif;
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   cursor: pointer;
@@ -556,7 +556,7 @@
   border-radius: 0;
   font-family: 'Inter', 'Helvetica Neue', sans-serif;
   font-size: 0.68rem;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: rgba(17, 17, 17, 0.5);
@@ -644,7 +644,7 @@
   border-radius: 0;
   font-family: 'Inter', 'Helvetica Neue', sans-serif;
   font-size: 0.78rem;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   cursor: pointer;
@@ -715,7 +715,7 @@
 
 .db-type-bubble-label {
   font-size: 0.82rem;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.04em;
   color: #111111;
 }
@@ -785,7 +785,7 @@
 .db-file-name {
   font-family: 'Playfair Display', 'Times New Roman', serif;
   font-size: clamp(0.88rem, 1.4vw, 1.1rem);
-  font-weight: 700;
+  font-weight: 600;
   color: #111111;
   letter-spacing: -0.01em;
   min-width: 0;
@@ -864,7 +864,7 @@
   margin: 0;
   font-family: 'Playfair Display', 'Times New Roman', serif;
   font-size: clamp(1.1rem, 2vw, 1.5rem);
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.01em;
   color: #111111;
   word-break: break-all;
@@ -998,7 +998,7 @@
   margin: 0;
   font-family: 'Playfair Display', serif;
   font-size: 1.05rem;
-  font-weight: 700;
+  font-weight: 600;
   color: #111111;
   text-align: center;
 }
@@ -1073,7 +1073,7 @@
   border-radius: 0;
   font-family: 'Inter', 'Helvetica Neue', sans-serif;
   font-size: 0.8rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   cursor: pointer;

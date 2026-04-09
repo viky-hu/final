@@ -59,7 +59,7 @@
 
 .global-top-nav__brand {
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0.04em;
   line-height: 1;
   white-space: nowrap;
@@ -97,7 +97,7 @@
   color: #111111;
   font-family: inherit;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 500;
   letter-spacing: 0.03em;
   line-height: 1;
   cursor: pointer;
@@ -105,7 +105,7 @@
 }
 
 .global-top-nav__nav-item.is-active {
-  font-weight: 700;
+  font-weight: 500;
 }
 
 .global-top-nav__nav-item--macro.is-active {
@@ -160,7 +160,7 @@
   color: #111111;
   font-family: inherit;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   letter-spacing: 0.03em;
   cursor: pointer;
   padding: 0 0 0 12px;

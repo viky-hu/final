@@ -174,7 +174,7 @@
   font-size: clamp(0.6rem, 0.85vw, 0.82rem);
   letter-spacing: 0.12em;
   color: #1e1919;
-  font-weight: 600;
+  font-weight: 400;
   flex: 1;
 }
 
@@ -450,7 +450,7 @@
 .d3viz-header .d1tl-header-title {
   font-family: "DingTalk JinBuTi", system-ui, sans-serif;
   font-size: clamp(0.6rem, 0.85vw, 0.82rem);
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.12em;
   color: #1e1919;
 }
@@ -675,7 +675,7 @@
 /* D3 顶栏强化: 白底黑字 */
 .d3viz-header.d1tl-header .d1tl-header-title {
   color: #111111;
-  font-weight: 700;
+  font-weight: 400;
 }
 
 /* ========== SVG Flat Map-Pin Layer ========== */
@@ -735,14 +735,14 @@
 .d5cloud-header .d1tl-header-title {
   font-family: "DingTalk JinBuTi", system-ui, sans-serif;
   font-size: clamp(0.6rem, 0.85vw, 0.82rem);
-  font-weight: 600;
+  font-weight: 400;
   letter-spacing: 0.12em;
   color: #1e1919;
 }
 
 .d5cloud-dot::after {
-  background: #f97316;
-  box-shadow: 0 0 8px 3px rgba(249, 115, 22, 0.45);
+  background: #9ab7cb;
+  box-shadow: 0 0 8px 3px rgba(154, 183, 203, 0.36);
 }
 
 .d5cloud-canvas-wrap {
@@ -750,7 +750,8 @@
   flex: 1;
   min-height: 0;
   width: 100%;
-  padding: 10px;
+  padding: 0;
+  overflow: hidden;
 }
 
 .d5cloud-svg {
@@ -769,11 +770,11 @@
   opacity: 0;
   visibility: hidden;
   font-family: "DingTalk JinBuTi", system-ui, sans-serif;
-  letter-spacing: 0.03em;
-  font-weight: 500;
+  letter-spacing: 0.02em;
+  font-weight: 400;
   paint-order: stroke fill;
-  stroke: rgba(255, 255, 255, 0.42);
-  stroke-width: 0.75px;
+  stroke: rgba(255, 255, 255, 0.52);
+  stroke-width: 0.45px;
   user-select: none;
 }
 
@@ -809,7 +810,7 @@
   font-family: "DingTalk JinBuTi", system-ui, sans-serif;
   font-size: clamp(0.55rem, 0.7vw, 0.66rem);
   letter-spacing: 0.06em;
-  font-weight: 600;
+  font-weight: 400;
   position: relative;
   z-index: 1;
   transition: color 0.22s ease, transform 0.22s cubic-bezier(0.34,1.56,0.64,1);
@@ -969,7 +970,7 @@
   font-family: inherit;
   font-size: clamp(0.55rem, 0.7vw, 0.66rem);
   letter-spacing: 0.06em;
-  font-weight: 600;
+  font-weight: 400;
   position: relative;
   z-index: 1;
   transition: color 0.22s ease, transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);

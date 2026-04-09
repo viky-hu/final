@@ -5,12 +5,14 @@ import "./styles/window-3-main.css";
 import "./styles/window-4-database.css";
 import "./styles/window-5-macro.css";
 import "./styles/global-top-nav.css";
+import "./styles/global-watermark.css";
 import "cn-fontsource-ding-talk-jin-bu-ti-regular/font.css";
 import "@fontsource/zcool-xiaowei";
 import "@fontsource/noto-sans-sc";
 import "@fontsource/michroma";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import { WatermarkProvider } from "./components/watermark/WatermarkProvider";
 
 export const metadata: Metadata = {
   title: "Main Platform",
@@ -24,7 +26,9 @@ type RootLayoutProps = {
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="zh-CN">
-      <body>{children}</body>
+      <body>
+        <WatermarkProvider>{children}</WatermarkProvider>
+      </body>
     </html>
   );
 }

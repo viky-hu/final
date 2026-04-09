@@ -251,6 +251,8 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
     { label: "交互对话",     ariaLabel: "交互对话",     link: "#", onClick: onNavigateToMain },
   ];
 
+  const totalFileCount = clusters.reduce((sum, cluster) => sum + cluster.fileCount, 0);
+
   return (
     <div ref={rootRef} className="db-window">
       <GlobalTopNav
@@ -330,7 +332,10 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
             className="db-headline"
             style={{ visibility: "hidden", opacity: 0, transform: "translateY(24px)" }}
           >
-            你可以在此<br />新增数据库聚类<br />或向聚类中<br />添加文件
+            您已经贡献了<br />
+            {clusters.length}篇数据库聚类<br />
+            {totalFileCount}篇文献<br />
+            感谢您的共享
           </h1>
 
           {/* Marker for the horizontal line's vertical position */}
@@ -342,8 +347,8 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
             aria-hidden="true"
             style={{ visibility: "hidden", opacity: 0 }}
           >
-            <p className="db-decor-label">高效、结构化、安全的数据聚类引擎</p>
-            <p className="db-decor-label">数据治理 · 向量检索 · 语义索引</p>
+            <p className="db-decor-label">您可在此新增数据库聚类</p>
+            <p className="db-decor-label">进入聚类可上传新文件</p>
           </div>
 
           <div
