@@ -50,18 +50,28 @@ export function updatePanelLayout(
   c: Coords,
 ) {
   const pad = 16;
+  const introRightPad = 8;
+  const introTopPad = 25;
   const x = c.x1 + pad;
-  const y = c.y1 + pad;
-  const width = Math.max(10, c.x2 - c.x1 - pad * 2);
+  const introY = c.y1 + introTopPad;
+  const loginY = c.y1 + pad;
+  const introWidth = Math.max(10, c.x2 - c.x1 - pad - introRightPad);
+  const loginWidth = Math.max(10, c.x2 - c.x1 - pad * 2);
   const height = Math.max(10, c.y2 - c.y1 - pad * 2);
 
-  [introPanel, loginPanel].forEach((panel) => {
-    if (!panel) return;
-    panel.setAttribute("x", String(x));
-    panel.setAttribute("y", String(y));
-    panel.setAttribute("width", String(width));
-    panel.setAttribute("height", String(height));
-  });
+  if (introPanel) {
+    introPanel.setAttribute("x", String(x));
+    introPanel.setAttribute("y", String(introY));
+    introPanel.setAttribute("width", String(introWidth));
+    introPanel.setAttribute("height", String(height));
+  }
+
+  if (loginPanel) {
+    loginPanel.setAttribute("x", String(x));
+    loginPanel.setAttribute("y", String(loginY));
+    loginPanel.setAttribute("width", String(loginWidth));
+    loginPanel.setAttribute("height", String(height));
+  }
 }
 
 export function updateLogoPosition(group: SVGGElement | null, c: Coords) {

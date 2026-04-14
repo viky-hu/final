@@ -1206,19 +1206,34 @@
 /* ── ID 区 (左) ── */
 .d3-info-id-col {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  flex-direction: row;
+  align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 0;
   padding: 0 16px;
-  min-width: 144px;
+  min-width: 178px;
   flex-shrink: 0;
   border-right: 1px solid rgba(30, 25, 25, 0.08);
 }
 
+.d3-info-node-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-width: 0;
+}
+
+.d3-info-node-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  min-width: 0;
+}
+
 .d3-info-cursor-thumb {
-  width: 18px;
-  height: 22px;
+  width: 20px;
+  height: 24px;
   flex-shrink: 0;
   overflow: visible;
   display: block;
@@ -1226,11 +1241,11 @@
 
 .d3-info-node-name {
   font-family: "DingTalk JinBuTi", system-ui, sans-serif;
-  font-size: clamp(0.72rem, 0.98vw, 0.88rem);
+  font-size: clamp(0.98rem, 1.26vw, 1.2rem);
   font-weight: 700;
   letter-spacing: 0.06em;
   color: #1e1919;
-  line-height: 1.2;
+  line-height: 1.12;
 }
 
 .d3-info-node-name--red {
@@ -1239,8 +1254,8 @@
 
 .d3-info-node-code {
   font-family: "Michroma", "DingTalk JinBuTi", system-ui, sans-serif;
-  font-size: clamp(0.5rem, 0.66vw, 0.6rem);
-  letter-spacing: 0.14em;
+  font-size: clamp(0.52rem, 0.68vw, 0.62rem);
+  letter-spacing: 0.13em;
   color: rgba(30, 25, 25, 0.4);
   text-transform: uppercase;
 }

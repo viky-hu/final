@@ -1644,7 +1644,7 @@
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 4.4vh 0 3vh;
+  padding: max(18px, 2.6vh) 0 max(14px, 2vh);
   overflow: hidden;
 }
 
@@ -1654,7 +1654,7 @@
   pointer-events: auto;
   width: min(540px, 44vw);
   padding: 1.4rem 1.8rem 1.6rem;
-  max-height: calc(100dvh - 7.4vh);
+  max-height: 100%;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, var(--mc-scrollbar-thumb-alpha)) rgba(255, 255, 255, var(--mc-scrollbar-track-alpha));
@@ -2040,7 +2040,7 @@
   }
 
   .mc-panel-layer {
-    padding: 3.2vh 0 2.4vh;
+    padding: max(12px, 2vh) 0 max(10px, 1.8vh);
   }
 }
 

@@ -90,12 +90,10 @@ const NODE_SPACING_SCALE = 2.2;
 
 const PLATE_NODES: Record<PlateId, NodeConfig[]> = {
   "plate-1": [
-    { id: "n-jincheng",  name: "锦程大厦", isRed: false, offsetX: -22 },
-    { id: "n-simstreet", name: "模拟街区", isRed: false, offsetX: 22 },
+    { id: "n-simstreet", name: "模拟街区", isRed: false, offsetX: 0 },
   ],
   "plate-2": [
-    { id: "n-admin",     name: "行政楼",   isRed: false, offsetX: -18 },
-    { id: "n-registrar", name: "教务处",   isRed: false, offsetX: 18 },
+    { id: "n-registrar", name: "教务处",   isRed: false, offsetX: 0 },
   ],
   "plate-3": [
     { id: "n-gym",       name: "警体馆",   isRed: false, offsetX: 0 },
@@ -105,20 +103,16 @@ const PLATE_NODES: Record<PlateId, NodeConfig[]> = {
     { id: "node-center-red", name: "安保处", isRed: true,  offsetX: 24 },
   ],
   "plate-5": [
-    { id: "n-teaching", name: "教学楼", isRed: false, offsetX: -26 },
-    { id: "n-library",  name: "图书馆", isRed: false, offsetX: 0 },
-    { id: "n-newteach", name: "现教楼", isRed: false, offsetX: 26 },
+    { id: "n-library",  name: "图书馆", isRed: false, offsetX: -18 },
+    { id: "n-newteach", name: "现教楼", isRed: false, offsetX: 18 },
   ],
 };
 
 const NODE_MOCK: Record<string, MockNodeData> = {
-  "n-jincheng":  { v1: "82",     l1: "活跃度%", v2: "11",    l2: "连接数", v3: "1,204", l3: "记录总数", code: "BLK-01", lastSeen: "03:14" },
   "n-simstreet": { v1: "67",     l1: "活跃度%", v2: "8",     l2: "连接数", v3: "847",   l3: "记录总数", code: "BLK-02", lastSeen: "07:22" },
-  "n-admin":     { v1: "74",     l1: "活跃度%", v2: "12",    l2: "连接数", v3: "2,011", l3: "记录总数", code: "ADM-01", lastSeen: "02:05" },
   "n-registrar": { v1: "59",     l1: "活跃度%", v2: "6",     l2: "连接数", v3: "992",   l3: "记录总数", code: "ADM-02", lastSeen: "09:40" },
   "n-gym":       { v1: "44",     l1: "活跃度%", v2: "5",     l2: "连接数", v3: "438",   l3: "记录总数", code: "PHY-01", lastSeen: "13:58" },
   "n-laoshan":   { v1: "78",     l1: "活跃度%", v2: "9",     l2: "连接数", v3: "1,562", l3: "记录总数", code: "LSY-01", lastSeen: "04:33" },
-  "n-teaching":  { v1: "91",     l1: "活跃度%", v2: "15",    l2: "连接数", v3: "3,408", l3: "记录总数", code: "EDU-01", lastSeen: "01:08" },
   "n-library":   { v1: "55",     l1: "活跃度%", v2: "7",     l2: "连接数", v3: "1,093", l3: "记录总数", code: "LIB-01", lastSeen: "10:27" },
   "n-newteach":  { v1: "63",     l1: "活跃度%", v2: "10",    l2: "连接数", v3: "1,781", l3: "记录总数", code: "EDU-02", lastSeen: "06:15" },
 };
@@ -846,6 +840,9 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
   const registerVisual = useCallback((id: string, value: PlateVisualRef | null) => {
     if (value) {
       visualRefs.current[id] = value;
+      const isSelected = selectedPlateIdRef.current === id;
+      value.group.scale.z = isSelected ? SELECTED_DEPTH_SCALE : 1;
+      value.pulse.value = isSelected ? 1 : 0;
       return;
     }
     delete visualRefs.current[id];
@@ -976,34 +973,40 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
           {activeNode && (
             <>
               <div className="d3-info-id-col">
-                <svg
-                  className="d3-info-cursor-thumb"
-                  viewBox={activeNode.isRed ? "155 165 490 643" : "643 165 490 643"}
-                  fill="none"
-                  xmlns="http://www.w3.org/2000/svg"
-                >
-                  <defs>
-                    <linearGradient id={activeNode.isRed ? "tgr" : "tgb"} x1="50%" y1="0%" x2="50%" y2="100%">
-                      <stop offset="0%" stopColor={activeNode.isRed ? "#f87171" : "#93c5fd"} />
-                      <stop offset="100%" stopColor={activeNode.isRed ? "#dc2626" : "#3b82f6"} />
-                    </linearGradient>
-                  </defs>
-                  <path
-                    d={activeNode.isRed ? CURSOR_LEFT_PATH : CURSOR_RIGHT_PATH}
-                    fill={activeNode.isRed ? "url(#tgr)" : "url(#tgb)"}
-                    stroke="white"
-                    strokeWidth="9"
-                    strokeLinejoin="round"
-                  />
-                  <circle cx={activeNode.isRed ? 397 : 887} cy={457} r="56" fill="white" fillOpacity="0.78" />
-                  <circle cx={activeNode.isRed ? 397 : 887} cy={457} r="28" fill={activeNode.isRed ? "#dc2626" : "#3b82f6"} />
-                </svg>
-                <span className={`d3-info-node-name${activeNode.isRed ? " d3-info-node-name--red" : ""}`}>
-                  {activeNode.name}
-                </span>
-                <span className={`d3-info-node-code${activeNode.isRed ? " d3-info-node-code--red" : ""}`}>
-                  {activeNode.isRed ? "CORE-RED · S-AUTH" : `NODE · ${activeMock?.code ?? ""}`}
-                </span>
+                <div className="d3-info-node-head">
+                  <svg
+                    className="d3-info-cursor-thumb"
+                    viewBox={activeNode.isRed ? "155 165 490 643" : "643 165 490 643"}
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <defs>
+                      <linearGradient id={activeNode.isRed ? "tgr" : "tgb"} x1="50%" y1="0%" x2="50%" y2="100%">
+                        <stop offset="0%" stopColor={activeNode.isRed ? "#f87171" : "#93c5fd"} />
+                        <stop offset="100%" stopColor={activeNode.isRed ? "#dc2626" : "#3b82f6"} />
+                      </linearGradient>
+                    </defs>
+                    <path
+                      d={activeNode.isRed ? CURSOR_LEFT_PATH : CURSOR_RIGHT_PATH}
+                      fill={activeNode.isRed ? "url(#tgr)" : "url(#tgb)"}
+                      stroke="white"
+                      strokeWidth="9"
+                      strokeLinejoin="round"
+                    />
+                    <circle cx={activeNode.isRed ? 397 : 887} cy={457} r="56" fill="white" fillOpacity="0.78" />
+                    <circle cx={activeNode.isRed ? 397 : 887} cy={457} r="28" fill={activeNode.isRed ? "#dc2626" : "#3b82f6"} />
+                  </svg>
+                  <div className="d3-info-node-text">
+                    <span className={`d3-info-node-name${activeNode.isRed ? " d3-info-node-name--red" : ""}`}>
+                      {activeNode.name}
+                    </span>
+                    {!activeNode.isRed && (
+                      <span className="d3-info-node-code">
+                        {`NODE · ${activeMock?.code ?? ""}`}
+                      </span>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <div className="d3-info-metrics">
@@ -1048,10 +1051,7 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
                 <span
                   className={`d3-info-badge ${activeNode.isRed ? "d3-info-badge--restricted" : "d3-info-badge--online"}`}
                 >
-                  {activeNode.isRed ? "高权限" : "在线"}
-                </span>
-                <span className="d3-info-lastseen">
-                  {activeNode.isRed ? "ONLINE" : `+${activeMock?.lastSeen ?? "--"} 前`}
+                  {activeNode.isRed ? "高权限" : "普通权限"}
                 </span>
               </div>
             </>

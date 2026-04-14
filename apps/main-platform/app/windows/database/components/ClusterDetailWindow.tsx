@@ -200,6 +200,25 @@ export function ClusterDetailWindow({ cluster, onBack }: ClusterDetailWindowProp
     return () => document.removeEventListener("mousedown", handler);
   }, [showBubble]);
 
+  // Escape behavior: close bubble/modal first, then back to list
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.repeat || e.defaultPrevented) return;
+      if (showBubble) {
+        setShowBubble(false);
+        return;
+      }
+      if (selectedFile) {
+        setSelectedFile(null);
+        return;
+      }
+      handleBack();
+    };
+
+    window.addEventListener("keydown", handleEsc);
+    return () => window.removeEventListener("keydown", handleEsc);
+  }, [handleBack, selectedFile, showBubble]);
+
   // ── Handle file selection from any hidden input ────────────────────────────
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const list = e.target.files;
@@ -256,7 +275,7 @@ export function ClusterDetailWindow({ cluster, onBack }: ClusterDetailWindowProp
           type="button"
           aria-label="返回聚类列表"
         >
-          <ArrowLeft size={15} strokeWidth={2} />
+          <ArrowLeft size={19} strokeWidth={2} />
           <span>返回列表</span>
         </button>
 

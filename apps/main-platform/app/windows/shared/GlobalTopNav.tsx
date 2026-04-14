@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 type WindowKey = "macro" | "database" | "main";
 type ProfileTab = "avatar" | "profile" | "account";
@@ -46,6 +46,8 @@ export function GlobalTopNav({
   const [enable2FA, setEnable2FA] = useState(true);
   const [allowEmailNotice, setAllowEmailNotice] = useState(true);
   const [saveHint, setSaveHint] = useState("");
+  const [switchingNavKey, setSwitchingNavKey] = useState<WindowKey | null>(null);
+  const switchingTimerRef = useRef<number | null>(null);
 
   const activeHint = useMemo(() => {
     if (!saveHint) return "";
@@ -77,6 +79,14 @@ export function GlobalTopNav({
     setLogoutOpen(false);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (switchingTimerRef.current !== null) {
+        window.clearTimeout(switchingTimerRef.current);
+      }
+    };
+  }, []);
+
   return (
     <>
       <header className="global-top-nav" role="banner" aria-label="全局顶部导航栏">
@@ -91,8 +101,17 @@ export function GlobalTopNav({
             <div key={item.key} className="global-top-nav__nav-item-wrap">
               <button
                 type="button"
-                className={`global-top-nav__nav-item global-top-nav__nav-item--${item.key}${currentWindow === item.key ? " is-active" : ""}`}
-                onClick={() => handleWindowNavigate(item.key)}
+                className={`global-top-nav__nav-item global-top-nav__nav-item--${item.key}${currentWindow === item.key ? " is-active" : ""}${switchingNavKey === item.key ? " is-switching" : ""}`}
+                onClick={() => {
+                  setSwitchingNavKey(item.key);
+                  if (switchingTimerRef.current !== null) {
+                    window.clearTimeout(switchingTimerRef.current);
+                  }
+                  switchingTimerRef.current = window.setTimeout(() => {
+                    setSwitchingNavKey((prev) => (prev === item.key ? null : prev));
+                  }, 240);
+                  handleWindowNavigate(item.key);
+                }}
                 aria-current={currentWindow === item.key ? "page" : undefined}
               >
                 {item.label}

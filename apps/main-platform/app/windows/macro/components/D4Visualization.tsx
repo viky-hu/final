@@ -28,9 +28,11 @@ interface DataPoint {
 export function D4Visualization({ visible }: D4VisualizationProps) {
   const [period, setPeriod] = useState<Period>("最近");
   const [animKey, setAnimKey] = useState(0);
+  const [chartSize, setChartSize] = useState({ width: 0, height: 0 });
   const rootRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
   const selectorRef = useRef<HTMLDivElement>(null);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const pathRef = useRef<SVGPathElement>(null);
   const areaRef = useRef<SVGPathElement>(null);
@@ -38,6 +40,51 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
   const labelsRef = useRef<SVGGElement>(null);
 
   const [hasAnimatedFirstTime, setHasAnimatedFirstTime] = useState(false);
+
+  useEffect(() => {
+    if (!visible) return;
+
+    const container = chartContainerRef.current;
+    if (!container) return;
+
+    let rafId: number | null = null;
+
+    const syncSize = () => {
+      const rawWidth = Math.round(container.clientWidth);
+      const rawHeight = Math.round(container.clientHeight);
+      if (rawWidth <= 0 || rawHeight <= 0) {
+        return;
+      }
+
+      const nextWidth = Math.max(320, rawWidth);
+      const nextHeight = Math.max(220, rawHeight);
+      setChartSize((prev) => {
+        if (prev.width === nextWidth && prev.height === nextHeight) {
+          return prev;
+        }
+        return { width: nextWidth, height: nextHeight };
+      });
+    };
+
+    const scheduleSync = () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      rafId = requestAnimationFrame(syncSize);
+    };
+
+    syncSize();
+
+    const observer = new ResizeObserver(scheduleSync);
+    observer.observe(container);
+
+    return () => {
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+      }
+      observer.disconnect();
+    };
+  }, [visible]);
 
   // 1. 根据当前选择的时间段生成模拟数据
   const data: DataPoint[] = useMemo(() => {
@@ -78,13 +125,24 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
     return points;
   }, [period]);
 
-  // 2. 坐标计算 (终极大幅调大尺寸)
-  const width = 800; 
-  const height = 500;
-  const padding = { top: 30, right: 80, bottom: 65, left: 80 }; // 维持右侧 clearance
+  // 2. 坐标计算（根据容器实时自适应）
+  const width = chartSize.width;
+  const height = chartSize.height;
+  const hasMeasuredSize = width > 0 && height > 0;
+  const padding = useMemo(() => {
+    const horizontal = Math.round(Math.max(28, Math.min(56, width * 0.1)));
+    const top = Math.round(Math.max(18, Math.min(34, height * 0.1)));
+    const bottom = Math.round(Math.max(40, Math.min(68, height * 0.17)));
+    const right = Math.round(Math.max(26, Math.min(54, width * 0.09)));
+    return { top, right, bottom, left: horizontal };
+  }, [width, height]);
 
-  const chartW = width - padding.left - padding.right;
-  const chartH = height - padding.top - padding.bottom;
+  const chartW = Math.max(1, width - padding.left - padding.right);
+  const chartH = Math.max(1, height - padding.top - padding.bottom);
+  const axisFontSize = Math.max(11, Math.min(14, Math.round(Math.min(width, height) * 0.03)));
+  const lineStrokeWidth = Math.max(2.6, Math.min(4, width * 0.0048));
+  const pointRadius = Math.max(4.6, Math.min(6.5, width * 0.008));
+  const pointStrokeWidth = Math.max(2.2, Math.min(3.5, width * 0.0043));
 
   const getX = (i: number) => padding.left + (i / (data.length - 1)) * chartW;
   const getY = (v: number) => padding.top + chartH - (v / 100) * chartH;
@@ -107,12 +165,12 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
         d += ` C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`;
     }
     return d;
-  }, [data]);
+  }, [data, chartW, chartH, padding.left, padding.top]);
 
   const areaPath = useMemo(() => {
     if (!curvePath) return "";
     return `${curvePath} L ${getX(data.length - 1)} ${getBaseY()} L ${getX(0)} ${getBaseY()} Z`;
-  }, [curvePath, data]);
+  }, [curvePath, data, chartW, padding.left, padding.top, chartH]);
 
   const currentConfig = PERIOD_CONFIGS[period];
 
@@ -134,8 +192,22 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
 
     // 标题与选择器淡入 (仅首次)
     if (isFirstTime) {
-      if (headerRef.current) tl.to(headerRef.current, { autoAlpha: 1, duration: 0.4, ease: "power2.out" }, 0);
-      if (selectorRef.current) tl.to(selectorRef.current, { autoAlpha: 1, duration: 0.4, ease: "power2.out" }, 0.1);
+      if (headerRef.current) {
+        tl.fromTo(
+          headerRef.current,
+          { autoAlpha: 0, y: 8 },
+          { autoAlpha: 1, y: 0, duration: 0.4, ease: "power2.out" },
+          0,
+        );
+      }
+      if (selectorRef.current) {
+        tl.fromTo(
+          selectorRef.current,
+          { autoAlpha: 0, y: 6 },
+          { autoAlpha: 1, y: 0, duration: 0.4, ease: "power2.out" },
+          0.1,
+        );
+      }
     }
 
     // 坐标轴标签动画
@@ -170,17 +242,22 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
             isFirstTime ? 0.7 : 0.5
         );
     }
-  }, [data]);
+  }, [data, chartH, padding.top]);
+
+  const runAnimationRef = useRef(runAnimation);
+  useEffect(() => {
+    runAnimationRef.current = runAnimation;
+  }, [runAnimation]);
 
   useEffect(() => {
-    if (!visible) return;
+    if (!visible || !hasMeasuredSize) return;
     if (!hasAnimatedFirstTime) {
       setHasAnimatedFirstTime(true);
-      runAnimation(true);
+      runAnimationRef.current(true);
     } else {
-      runAnimation(false);
+      runAnimationRef.current(false);
     }
-  }, [visible, animKey, runAnimation, hasAnimatedFirstTime]);
+  }, [visible, hasMeasuredSize, animKey, hasAnimatedFirstTime]);
 
   const handlePeriodChange = (p: Period) => {
     if (p === period) return;
@@ -193,13 +270,13 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
   return (
     <div ref={rootRef} className="d4viz-root" aria-label="个人节点数据库价值监测">
       {/* ── 标题栏 (仅标题) ── */}
-      <header ref={headerRef} className="d1tl-header d4viz-header" style={{ opacity: 0, visibility: "hidden" }}>
+      <header ref={headerRef} className="d1tl-header d4viz-header">
         <span className="d1tl-header-dot d4viz-dot" />
         <span className="d1tl-header-title">节点数据库价值监测</span>
       </header>
 
       {/* ── 时间段选择器独立行 ── */}
-      <div ref={selectorRef} className="d4viz-period-row" style={{ opacity: 0, visibility: "hidden" }}>
+      <div ref={selectorRef} className="d4viz-period-row">
         <div className="d4viz-period-selector" role="group" aria-label="时间段选择">
           {PERIODS.map((p) => (
             <button
@@ -216,7 +293,7 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
       </div>
 
       {/* ── SVG 曲线区域 (填满剩余空间) ── */}
-      <div className="d4viz-chart-container">
+      <div ref={chartContainerRef} className="d4viz-chart-container">
         <svg
           ref={svgRef}
           viewBox={`0 0 ${width} ${height}`}
@@ -236,17 +313,17 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
 
           {/* 轴组 */}
           <g ref={labelsRef} className="d4viz-axis-group">
-            <line x1={padding.left} y1={padding.top} x2={padding.left} y2={getBaseY()} stroke="rgba(30,25,25,0.06)" strokeWidth="1" style={{ opacity: 0, visibility: "hidden", transform: "translateX(-10px)" }} />
-            <line x1={padding.left} y1={getBaseY()} x2={width - padding.right} y2={getBaseY()} stroke="rgba(30,25,25,0.06)" strokeWidth="1" style={{ opacity: 0, visibility: "hidden", transform: "translateX(-10px)" }} />
+            <line x1={padding.left} y1={padding.top} x2={padding.left} y2={getBaseY()} stroke="rgba(30,25,25,0.06)" strokeWidth="1" />
+            <line x1={padding.left} y1={getBaseY()} x2={width - padding.right} y2={getBaseY()} stroke="rgba(30,25,25,0.06)" strokeWidth="1" />
 
             {data.map((pt, i) => (
               <text
                 key={`${period}-x-${i}`}
                 x={getX(i)}
-                y={getBaseY() + 28}
+                y={getBaseY() + axisFontSize * 1.6}
                 textAnchor="middle"
                 className="d4viz-axis-text"
-                style={{ fontSize: '18px', opacity: 0, visibility: "hidden", transform: "translateX(-10px)" }}
+                style={{ fontSize: `${axisFontSize}px` }}
               >
                 {pt.time}
               </text>
@@ -255,11 +332,11 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
             {[0, 50, 100].map(v => (
               <text
                 key={`y-${v}`}
-                x={padding.left - 15}
-                y={getY(v) + 7}
+                x={padding.left - Math.max(12, axisFontSize * 0.9)}
+                y={getY(v) + axisFontSize * 0.34}
                 textAnchor="end"
                 className="d4viz-axis-text"
-                style={{ fontSize: '18px', opacity: 0, visibility: "hidden", transform: "translateX(-10px)" }}
+                style={{ fontSize: `${axisFontSize}px` }}
               >
                 {v}%
               </text>
@@ -271,7 +348,6 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
             ref={areaRef}
             d={areaPath}
             fill="url(#d4-gradient)"
-            style={{ opacity: 0 }}
           />
 
           {/* 曲线 */}
@@ -280,11 +356,10 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
             d={curvePath}
             fill="none"
             stroke={currentConfig.stroke}
-            strokeWidth="4"
+            strokeWidth={lineStrokeWidth}
             strokeLinejoin="round"
             strokeLinecap="round"
             filter="url(#d4-glow)"
-            style={{ opacity: 0 }}
           />
 
           {/* 数据点 */}
@@ -294,11 +369,10 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
               ref={el => { pointsRef.current[i] = el; }}
               cx={getX(i)}
               cy={getY(pt.value)}
-              r="6.5"
+              r={pointRadius}
               fill="#ffffff"
               stroke={currentConfig.stroke}
-              strokeWidth="3.5"
-              style={{ opacity: 0 }}
+              strokeWidth={pointStrokeWidth}
             />
           ))}
         </svg>

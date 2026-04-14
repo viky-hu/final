@@ -271,14 +271,18 @@ export function LoginIntroWindow({ onSignIn }: LoginIntroWindowProps) {
           <foreignObject
             id="intro-panel"
             x={INTRO_COORDS.x1 + 16}
-            y={INTRO_COORDS.y1 + 16}
-            width={INTRO_COORDS.x2 - INTRO_COORDS.x1 - 32}
+            y={INTRO_COORDS.y1 + 25}
+            width={INTRO_COORDS.x2 - INTRO_COORDS.x1 - 24}
             height={INTRO_COORDS.y2 - INTRO_COORDS.y1 - 32}
           >
             <div className={`svg-text-content ${inverted ? "is-inverted" : ""}`}>
               <div className="svg-intro">
                 <h1 className="svg-headline">
-                  基于LightRAG逻辑实现警务数据可检索信息获取更智能
+                  <span className="svg-headline-main">&nbsp;&nbsp;密态智图</span>
+                  <br />
+                  <br />
+                  <br />
+                  <span className="svg-headline-sub">——联邦知识图谱协同检索系统</span>
                 </h1>
               </div>
             </div>
