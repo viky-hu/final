@@ -8,6 +8,7 @@ import { ChatInteractionPanel } from "./components/ChatInteractionPanel";
 import { TraceWindow } from "./components/TraceWindow";
 import { GlobalTopNav } from "../shared/GlobalTopNav";
 import type { StaggeredMenuItem } from "./components/StaggeredMenu";
+import { useAppRuntime } from "@/app/components/runtime/AppRuntimeProvider";
 
 type ChatMode = "local" | "global";
 const ENABLE_LEGACY_MENU = false;
@@ -19,6 +20,7 @@ interface MainWindowProps {
 }
 
 export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowProps) {
+  const { judgeModelConfigured, setJudgeModelConfigured } = useAppRuntime();
   const [legacyMenuOpen, setLegacyMenuOpen] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
   const [traceTarget, setTraceTarget] = useState<{ msgId: string; content: string } | null>(null);
@@ -103,6 +105,8 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
           mode={chatMode}
           onModeChange={setChatMode}
           onOpenTrace={handleOpenTrace}
+          initialJudgeModelConfigured={judgeModelConfigured}
+          onJudgeModelConfiguredChange={setJudgeModelConfigured}
         />
 
         {/* TraceWindow: z-index 200, full-screen overlay, mounted only when a trace is active */}

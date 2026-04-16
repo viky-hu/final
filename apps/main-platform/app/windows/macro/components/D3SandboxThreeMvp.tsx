@@ -35,10 +35,15 @@ gsap.registerPlugin(useGSAP);
 
 interface D3SandboxProps {
   visible: boolean;
-  activeSectorId: string;
-  selectedNodeId: string | null;
   onSectorChange: (sectorId: string) => void;
-  onNodeSelect: (nodeId: string) => void;
+  onNodeSelect: (nodeId: string | null) => void;
+  selfNodeName?: string;
+  selfNodePlacement?: {
+    plateId: PlateId;
+    sceneX: number;
+    sceneY: number;
+  } | null;
+  selectionRevision?: number;
 }
 
 interface NodeConfig {
@@ -46,6 +51,9 @@ interface NodeConfig {
   name: string;
   isRed: boolean;
   offsetX: number;
+  offsetY?: number;
+  sceneX?: number;
+  sceneY?: number;
 }
 
 interface MockNodeData {
@@ -88,7 +96,25 @@ const AUTO_SELECT_NODE_DELAY_MS = 820;
 const INFO_CANVAS_HEIGHT = 88;
 const NODE_SPACING_SCALE = 2.2;
 
-const PLATE_NODES: Record<PlateId, NodeConfig[]> = {
+const DEFAULT_SELF_NODE_NAME = "安保处";
+
+const PLATE_TO_SECTOR: Record<PlateId, string> = {
+  "plate-1": "node-2",
+  "plate-2": "node-4",
+  "plate-3": "node-3",
+  "plate-4": "node-current",
+  "plate-5": "node-5",
+};
+
+function mapPlateToSector(plateId: string | null): string {
+  if (!plateId) return "node-current";
+  if (plateId in PLATE_TO_SECTOR) {
+    return PLATE_TO_SECTOR[plateId as PlateId];
+  }
+  return "node-current";
+}
+
+const BASE_PLATE_NODES: Record<PlateId, NodeConfig[]> = {
   "plate-1": [
     { id: "n-simstreet", name: "模拟街区", isRed: false, offsetX: 0 },
   ],
@@ -100,13 +126,44 @@ const PLATE_NODES: Record<PlateId, NodeConfig[]> = {
   ],
   "plate-4": [
     { id: "n-laoshan",       name: "老山园", isRed: false, offsetX: -24 },
-    { id: "node-center-red", name: "安保处", isRed: true,  offsetX: 24 },
   ],
   "plate-5": [
     { id: "n-library",  name: "图书馆", isRed: false, offsetX: -18 },
     { id: "n-newteach", name: "现教楼", isRed: false, offsetX: 18 },
   ],
 };
+
+function buildPlateNodes(
+  selfNodeName: string,
+  selfNodePlacement: D3SandboxProps["selfNodePlacement"],
+): Record<PlateId, NodeConfig[]> {
+  const cleanedName = selfNodeName.trim() || DEFAULT_SELF_NODE_NAME;
+  const targetPlateId = selfNodePlacement?.plateId ?? "plate-4";
+
+  const base = PLATE_IDS.reduce((acc, plateId) => {
+    acc[plateId] = [...BASE_PLATE_NODES[plateId]];
+    return acc;
+  }, {} as Record<PlateId, NodeConfig[]>);
+
+  const selfNode: NodeConfig = selfNodePlacement
+    ? {
+        id: "node-center-red",
+        name: cleanedName,
+        isRed: true,
+        offsetX: 0,
+        sceneX: selfNodePlacement.sceneX,
+        sceneY: selfNodePlacement.sceneY,
+      }
+    : {
+        id: "node-center-red",
+        name: cleanedName,
+        isRed: true,
+        offsetX: 24,
+      };
+
+  base[targetPlateId] = [...base[targetPlateId], selfNode];
+  return base;
+}
 
 const NODE_MOCK: Record<string, MockNodeData> = {
   "n-simstreet": { v1: "67",     l1: "活跃度%", v2: "8",     l2: "连接数", v3: "847",   l3: "记录总数", code: "BLK-02", lastSeen: "07:22" },
@@ -377,18 +434,20 @@ function CursorPinSvg({ isRed }: { isRed: boolean }) {
 
 function NodeCursorsLayer({
   plates,
+  plateNodes,
   selectedPlateId,
   selectedNodeId,
   onNodeClick,
 }: {
   plates: PlateGeometryBundle[];
+  plateNodes: Record<PlateId, NodeConfig[]>;
   selectedPlateId: string | null;
   selectedNodeId: string | null;
   onNodeClick: (nodeId: string) => void;
 }) {
   const activePlate = selectedPlateId ? plates.find((p) => p.id === selectedPlateId) : null;
   if (!activePlate) return null;
-  const nodes = PLATE_NODES[activePlate.id as PlateId] ?? [];
+  const nodes = plateNodes[activePlate.id as PlateId] ?? [];
   const nodeZ = BASE_DEPTH * SELECTED_DEPTH_SCALE + 10;
 
   return (
@@ -400,7 +459,11 @@ function NodeCursorsLayer({
         return (
           <Html
             key={node.id}
-            position={[activePlate.centroid.x + node.offsetX * NODE_SPACING_SCALE, activePlate.centroid.y, nodeZ]}
+            position={[
+              node.sceneX ?? activePlate.centroid.x + node.offsetX * NODE_SPACING_SCALE,
+              node.sceneY ?? activePlate.centroid.y + (node.offsetY ?? 0),
+              nodeZ,
+            ]}
             zIndexRange={[200, 100]}
           >
             <div
@@ -611,6 +674,7 @@ function PlateMesh({
 
 function PlateScene({
   plates,
+  plateNodes,
   onToggle,
   registerVisual,
   topTexture,
@@ -619,6 +683,7 @@ function PlateScene({
   onNodeClick,
 }: {
   plates: PlateGeometryBundle[];
+  plateNodes: Record<PlateId, NodeConfig[]>;
   onToggle: (id: string) => void;
   registerVisual: (id: string, value: PlateVisualRef | null) => void;
   topTexture: Texture | null;
@@ -678,6 +743,7 @@ function PlateScene({
         ))}
         <NodeCursorsLayer
           plates={plates}
+          plateNodes={plateNodes}
           selectedPlateId={selectedPlateId}
           selectedNodeId={selectedNodeId}
           onNodeClick={onNodeClick}
@@ -701,21 +767,36 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
   const [selectedPlateId, setSelectedPlateId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [plates, setPlates] = useState<PlateGeometryBundle[]>([]);
+  const [desktopSvgMarkup, setDesktopSvgMarkup] = useState<string | null>(null);
   const [topTexture, setTopTexture] = useState<Texture | null>(null);
   const [totalFiles, setTotalFiles] = useState(0);
+  const { visible, onSectorChange, onNodeSelect, selfNodePlacement, selectionRevision } = props;
+  const selfPlacementPlateId = selfNodePlacement?.plateId ?? null;
+
+  const plateNodes = useMemo(
+    () => buildPlateNodes(props.selfNodeName ?? DEFAULT_SELF_NODE_NAME, props.selfNodePlacement ?? null),
+    [props.selfNodeName, props.selfNodePlacement],
+  );
 
   useEffect(() => {
     let active = true;
 
     fetch(DESKTOP_SVG_URL)
-      .then((response) => response.text())
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("desktop svg fetch failed");
+        }
+        return response.text();
+      })
       .then((svgMarkup) => {
         if (!active) return;
+        setDesktopSvgMarkup(svgMarkup);
         const paths = extractDesktopMaskPaths(svgMarkup);
         setPlates(buildPlateGeometries(paths));
       })
       .catch(() => {
         if (!active) return;
+        setDesktopSvgMarkup(null);
         setPlates(buildPlateGeometries([...DESKTOP_MASK_PATHS_FALLBACK]));
       });
 
@@ -725,93 +806,88 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
   }, []);
 
   useEffect(() => {
+    if (!desktopSvgMarkup) {
+      setTopTexture(null);
+      return;
+    }
+
     let active = true;
     let objectUrl: string | null = null;
 
-    fetch(DESKTOP_SVG_URL)
-      .then((response) => response.text())
-      .then((svgMarkup) => {
-        if (!active) return;
+    objectUrl = URL.createObjectURL(new Blob([desktopSvgMarkup], { type: "image/svg+xml;charset=utf-8" }));
+    const image = new Image();
+    image.decoding = "async";
 
-        objectUrl = URL.createObjectURL(new Blob([svgMarkup], { type: "image/svg+xml;charset=utf-8" }));
-        const image = new Image();
-        image.decoding = "async";
+    image.onload = () => {
+      if (!active) {
+        if (objectUrl) {
+          URL.revokeObjectURL(objectUrl);
+          objectUrl = null;
+        }
+        return;
+      }
 
-        image.onload = () => {
-          if (!active) {
-            if (objectUrl) {
-              URL.revokeObjectURL(objectUrl);
-              objectUrl = null;
-            }
-            return;
-          }
+      const oversample = Math.max(2, Math.min(3, window.devicePixelRatio || 1));
+      const probeCanvas = document.createElement("canvas");
+      const probeContext =
+        probeCanvas.getContext("webgl2") ??
+        probeCanvas.getContext("webgl") ??
+        probeCanvas.getContext("experimental-webgl");
+      const maxTextureSize = isWebGlLikeContext(probeContext)
+        ? Number(probeContext.getParameter(probeContext.MAX_TEXTURE_SIZE))
+        : 4096;
+      const targetWidth = Math.max(1, Math.round(SVG_WIDTH * oversample));
+      const targetHeight = Math.max(1, Math.round(SVG_HEIGHT * oversample));
+      const textureScale = Math.min(1, maxTextureSize / targetWidth, maxTextureSize / targetHeight);
 
-          const oversample = Math.max(2, Math.min(3, window.devicePixelRatio || 1));
-          const probeCanvas = document.createElement("canvas");
-          const probeContext =
-            probeCanvas.getContext("webgl2") ??
-            probeCanvas.getContext("webgl") ??
-            probeCanvas.getContext("experimental-webgl");
-          const maxTextureSize = isWebGlLikeContext(probeContext)
-            ? Number(probeContext.getParameter(probeContext.MAX_TEXTURE_SIZE))
-            : 4096;
-          const targetWidth = Math.max(1, Math.round(SVG_WIDTH * oversample));
-          const targetHeight = Math.max(1, Math.round(SVG_HEIGHT * oversample));
-          const textureScale = Math.min(1, maxTextureSize / targetWidth, maxTextureSize / targetHeight);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(targetWidth * textureScale));
+      canvas.height = Math.max(1, Math.round(targetHeight * textureScale));
 
-          const canvas = document.createElement("canvas");
-          canvas.width = Math.max(1, Math.round(targetWidth * textureScale));
-          canvas.height = Math.max(1, Math.round(targetHeight * textureScale));
-
-          const ctx = canvas.getContext("2d");
-          if (!ctx) {
-            setTopTexture(null);
-            if (objectUrl) {
-              URL.revokeObjectURL(objectUrl);
-              objectUrl = null;
-            }
-            return;
-          }
-
-          ctx.imageSmoothingEnabled = true;
-          ctx.imageSmoothingQuality = "high";
-          ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
-
-          const texture = new CanvasTexture(canvas);
-          texture.colorSpace = SRGBColorSpace;
-          texture.minFilter = LinearMipmapLinearFilter;
-          texture.magFilter = LinearFilter;
-          texture.generateMipmaps = true;
-          texture.anisotropy = 1;
-          texture.needsUpdate = true;
-
-          if (loadedTextureRef.current && loadedTextureRef.current !== texture) {
-            loadedTextureRef.current.dispose();
-          }
-          loadedTextureRef.current = texture;
-          setTopTexture(texture);
-
-          if (objectUrl) {
-            URL.revokeObjectURL(objectUrl);
-            objectUrl = null;
-          }
-        };
-
-        image.onerror = () => {
-          if (!active) return;
-          setTopTexture(null);
-          if (objectUrl) {
-            URL.revokeObjectURL(objectUrl);
-            objectUrl = null;
-          }
-        };
-
-        image.src = objectUrl;
-      })
-      .catch(() => {
-        if (!active) return;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
         setTopTexture(null);
-      });
+        if (objectUrl) {
+          URL.revokeObjectURL(objectUrl);
+          objectUrl = null;
+        }
+        return;
+      }
+
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+      const texture = new CanvasTexture(canvas);
+      texture.colorSpace = SRGBColorSpace;
+      texture.minFilter = LinearMipmapLinearFilter;
+      texture.magFilter = LinearFilter;
+      texture.generateMipmaps = true;
+      texture.anisotropy = 1;
+      texture.needsUpdate = true;
+
+      if (loadedTextureRef.current && loadedTextureRef.current !== texture) {
+        loadedTextureRef.current.dispose();
+      }
+      loadedTextureRef.current = texture;
+      setTopTexture(texture);
+
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+        objectUrl = null;
+      }
+    };
+
+    image.onerror = () => {
+      if (!active) return;
+      setTopTexture(null);
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+        objectUrl = null;
+      }
+    };
+
+    image.src = objectUrl;
 
     return () => {
       active = false;
@@ -824,7 +900,7 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
         loadedTextureRef.current = null;
       }
     };
-  }, []);
+  }, [desktopSvgMarkup]);
 
   useEffect(() => {
     let active = true;
@@ -851,34 +927,57 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
   const handleToggle = useCallback((plateId: string) => {
     if (selectedPlateIdRef.current !== plateId) {
       setSelectedNodeId(null);
+      onNodeSelect(null);
     }
     selectedPlateIdRef.current = plateId;
     setSelectedPlateId(plateId);
-  }, []);
+    onSectorChange(mapPlateToSector(plateId));
+  }, [onNodeSelect, onSectorChange]);
 
   const handleNodeClick = useCallback((nodeId: string) => {
     setSelectedNodeId(nodeId);
-  }, []);
+    onNodeSelect(nodeId);
+  }, [onNodeSelect]);
 
   useEffect(() => {
-    if (!props.visible) {
+    if (!visible) {
       selectedPlateIdRef.current = null;
       setSelectedPlateId(null);
       setSelectedNodeId(null);
+      onNodeSelect(null);
       return;
     }
+
+    const defaultPlateId = selfPlacementPlateId ?? DEFAULT_ACTIVE_PLATE_ID;
     const raf = window.requestAnimationFrame(() => {
-      selectedPlateIdRef.current = DEFAULT_ACTIVE_PLATE_ID;
-      setSelectedPlateId(DEFAULT_ACTIVE_PLATE_ID);
+      selectedPlateIdRef.current = defaultPlateId;
+      setSelectedPlateId(defaultPlateId);
+      onSectorChange(mapPlateToSector(defaultPlateId));
     });
     const nodeTimer = window.setTimeout(() => {
-      if (props.visible) setSelectedNodeId("node-center-red");
+      if (visible) {
+        setSelectedNodeId("node-center-red");
+        onNodeSelect("node-center-red");
+      }
     }, AUTO_SELECT_NODE_DELAY_MS);
     return () => {
       window.cancelAnimationFrame(raf);
       window.clearTimeout(nodeTimer);
     };
-  }, [props.visible]);
+  }, [visible, selfPlacementPlateId, onNodeSelect, onSectorChange]);
+
+  useEffect(() => {
+    if (!visible) return;
+    if (!selectionRevision) return;
+    const plateId = selfPlacementPlateId;
+    if (!plateId) return;
+
+    selectedPlateIdRef.current = plateId;
+    setSelectedPlateId(plateId);
+    setSelectedNodeId("node-center-red");
+    onSectorChange(mapPlateToSector(plateId));
+    onNodeSelect("node-center-red");
+  }, [visible, selectionRevision, selfPlacementPlateId, onNodeSelect, onSectorChange]);
 
   useGSAP(
     () => {
@@ -956,7 +1055,7 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
 
   if (!props.visible) return null;
 
-  const allNodes = Object.values(PLATE_NODES).flat();
+  const allNodes: NodeConfig[] = Object.values(plateNodes).flat();
   const activeNode = selectedNodeId ? allNodes.find((n) => n.id === selectedNodeId) : null;
   const activeMock = activeNode && !activeNode.isRed ? NODE_MOCK[activeNode.id] : null;
 
@@ -1076,14 +1175,17 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
           onPointerMissed={() => {
             if (selectedNodeId !== null) {
               setSelectedNodeId(null);
+              onNodeSelect(null);
             } else if (selectedPlateId !== null) {
               selectedPlateIdRef.current = null;
               setSelectedPlateId(null);
+              onSectorChange("node-current");
             }
           }}
         >
           <PlateScene
             plates={plates}
+            plateNodes={plateNodes}
             onToggle={handleToggle}
             registerVisual={registerVisual}
             topTexture={topTexture}

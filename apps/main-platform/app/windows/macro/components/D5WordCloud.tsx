@@ -32,7 +32,7 @@ interface RectBox {
 const DEFAULT_SIZE = { width: 360, height: 240 };
 const CLOUD_PADDING = 18;
 const CLOUD_VERTICAL_RATIO = 0.22;
-const CLOUD_TEXT_COLORS = ["#6367FF", "#8494FF", "#C9BEFF", "#B4D3D9", "#76D2DB"];
+const CLOUD_TEXT_COLORS = ["#6367FF", "#8494FF", "#C9BEFF", "#FFDBFD", "#76D2DB"];
 function buildDenseWords(source: WordCloudDatum[], targetCount = 48): WordCloudDatum[] {
   const seedSuffix = [
     "核心区",
@@ -87,7 +87,6 @@ function buildWordCloudLayout(source: WordCloudDatum[], width: number, height: n
   const deferred: Array<{ word: WordCloudDatum; ratio: number; rotate: number; color: string }> = [];
   const centerX = width / 2;
   const centerY = height / 2;
-  const horizontalRotations = [0];
   const verticalRotations = [90, -90];
   const minFont = Math.max(10, Math.min(12, Math.round(width / 34)));
   const maxFont = Math.min(36, Math.max(minFont + 14, Math.round(width / 10.5)));
@@ -336,9 +335,12 @@ function buildWordCloudLayout(source: WordCloudDatum[], width: number, height: n
 export function D5WordCloud({ visible, activeSectorId, selectedNodeId }: D5WordCloudProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLElement>(null);
+  const canvasWrapRef = useRef<HTMLDivElement>(null);
   const canvasRevealRef = useRef<SVGRectElement>(null);
   const cloudGroupRef = useRef<SVGGElement>(null);
   const wordsRef = useRef<(SVGTextElement | null)[]>([]);
+  const hasRevealPlayedRef = useRef(false);
+  const previousCloudNodeRef = useRef<string | null>(null);
   const [size, setSize] = useState(DEFAULT_SIZE);
 
   // Dual-layer: if node selected → show node cloud; else → show sector cloud
@@ -359,53 +361,75 @@ export function D5WordCloud({ visible, activeSectorId, selectedNodeId }: D5WordC
   }, [layoutWords]);
 
   useEffect(() => {
-    if (!rootRef.current) return;
+    if (!canvasWrapRef.current) return;
+
+    let rafId = 0;
 
     const updateSize = () => {
-      if (!rootRef.current) return;
-      const rootRect = rootRef.current.getBoundingClientRect();
-      const headerHeight = headerRef.current?.getBoundingClientRect().height ?? 44;
-      const nextWidth = Math.max(320, Math.floor(rootRect.width));
-      const nextHeight = Math.max(200, Math.floor(rootRect.height - headerHeight));
+      if (!canvasWrapRef.current) return;
+      const canvasRect = canvasWrapRef.current.getBoundingClientRect();
+      const nextWidth = Math.max(320, Math.floor(canvasRect.width));
+      const nextHeight = Math.max(200, Math.floor(canvasRect.height));
       setSize((prev) => {
         if (prev.width === nextWidth && prev.height === nextHeight) return prev;
         return { width: nextWidth, height: nextHeight };
       });
     };
 
+    const scheduleUpdate = () => {
+      window.cancelAnimationFrame(rafId);
+      rafId = window.requestAnimationFrame(updateSize);
+    };
+
     const observer = new ResizeObserver(() => {
-      updateSize();
+      scheduleUpdate();
     });
 
-    updateSize();
-    observer.observe(rootRef.current);
-    if (headerRef.current) observer.observe(headerRef.current);
+    scheduleUpdate();
+    observer.observe(canvasWrapRef.current);
     return () => {
+      window.cancelAnimationFrame(rafId);
       observer.disconnect();
     };
   }, []);
+
+  useEffect(() => {
+    if (!visible) {
+      hasRevealPlayedRef.current = false;
+      previousCloudNodeRef.current = null;
+    }
+  }, [visible]);
 
   useGSAP(
     () => {
       if (!visible || !headerRef.current || !canvasRevealRef.current) return;
       const validWords = wordsRef.current.filter((item): item is SVGTextElement => Boolean(item));
+      const hasCloudChanged = previousCloudNodeRef.current !== cloudNodeId;
+      previousCloudNodeRef.current = cloudNodeId;
       const tl = gsap.timeline();
 
-      tl.to(headerRef.current, {
-        autoAlpha: 1,
-        duration: 0.35,
-        ease: "power2.out",
-      });
+      const shouldRevealCanvas = !hasRevealPlayedRef.current;
+      if (shouldRevealCanvas) {
+        tl.to(headerRef.current, {
+          autoAlpha: 1,
+          duration: 0.35,
+          ease: "power2.out",
+        });
 
-      tl.to(
-        canvasRevealRef.current,
-        {
-          scaleY: 1,
-          duration: 0.55,
-          ease: "power2.inOut",
-        },
-        0.06,
-      );
+        tl.to(
+          canvasRevealRef.current,
+          {
+            scaleY: 1,
+            duration: 0.55,
+            ease: "power2.inOut",
+          },
+          0.06,
+        );
+        hasRevealPlayedRef.current = true;
+      } else {
+        gsap.set(headerRef.current, { autoAlpha: 1 });
+        gsap.set(canvasRevealRef.current, { scaleY: 1 });
+      }
 
       tl.to(
         validWords,
@@ -415,14 +439,14 @@ export function D5WordCloud({ visible, activeSectorId, selectedNodeId }: D5WordC
           attr: {
             y: (_, target) => Number((target as SVGTextElement).dataset.ty ?? 0),
           },
-          duration: 0.6,
-          ease: "power3.out",
+          duration: hasCloudChanged ? 0.6 : 0.42,
+          ease: hasCloudChanged ? "power3.out" : "power2.out",
           stagger: {
             each: 0.018,
             from: "random",
           },
         },
-        0.58,
+        shouldRevealCanvas ? 0.58 : 0,
       );
 
       return () => {
@@ -441,9 +465,8 @@ export function D5WordCloud({ visible, activeSectorId, selectedNodeId }: D5WordC
         <span className="d1tl-header-title">语义地点词汇云图 · {nodeLabel}</span>
       </header>
 
-      <div className="d5cloud-canvas-wrap">
+      <div ref={canvasWrapRef} className="d5cloud-canvas-wrap">
         <svg
-          key={cloudNodeId}
           viewBox={`0 0 ${size.width} ${size.height}`}
           className="d5cloud-svg"
           preserveAspectRatio="none"

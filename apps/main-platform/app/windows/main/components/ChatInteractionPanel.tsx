@@ -150,10 +150,14 @@ function createDefaultMCGroupState(): MCGroupState {
   };
 }
 
-function createDefaultMCGroupStateMap(): MCGroupStateMap {
+function createDefaultMCGroupStateMap(initialJudgeConfigured = false): MCGroupStateMap {
   return {
     local_query: createDefaultMCGroupState(),
-    judge: createDefaultMCGroupState(),
+    judge: {
+      ...createDefaultMCGroupState(),
+      isConfigured: initialJudgeConfigured,
+      connectSuccess: initialJudgeConfigured,
+    },
     embedding: createDefaultMCGroupState(),
     rerank: createDefaultMCGroupState(),
   };
@@ -237,6 +241,8 @@ export interface ChatInteractionPanelProps {
   mode?: Mode;
   onModeChange?: (mode: Mode) => void;
   onOpenTrace?: (msgId: string, content: string) => void;
+  initialJudgeModelConfigured?: boolean;
+  onJudgeModelConfiguredChange?: (configured: boolean) => void;
 }
 
 export function ChatInteractionPanel({
@@ -245,6 +251,8 @@ export function ChatInteractionPanel({
   mode = "local",
   onModeChange,
   onOpenTrace,
+  initialJudgeModelConfigured = false,
+  onJudgeModelConfiguredChange,
 }: ChatInteractionPanelProps) {
 
   // ── Chat state ──────────────────────────────────────────────────────────────
@@ -256,7 +264,9 @@ export function ChatInteractionPanel({
 
   // ── Model config state ──────────────────────────────────────────────────────
   const [mcPhase, setMCPhase] = useState<MCPhase>("closed");
-  const [mcGroups, setMCGroups] = useState<MCGroupStateMap>(() => createDefaultMCGroupStateMap());
+  const [mcGroups, setMCGroups] = useState<MCGroupStateMap>(
+    () => createDefaultMCGroupStateMap(initialJudgeModelConfigured),
+  );
   const [mcSaveSummary, setMCSaveSummary] = useState("");
   const [mcSaveSummaryTone, setMCSaveSummaryTone] = useState<"" | "success" | "warning">("");
 
@@ -275,6 +285,8 @@ export function ChatInteractionPanel({
   const pendingEntryIdsRef = useRef<Set<string>>(new Set());
   const bubbleTweensRef = useRef<Map<string, gsap.core.Tween>>(new Map());
   const scrollHandledByFlipRef = useRef(false);
+  const typingTimerRef = useRef<number | null>(null);
+  const botReplyTimerRef = useRef<number | null>(null);
 
   const modeRowRef = useRef<HTMLDivElement>(null);
   const msgMaskRef = useRef<HTMLDivElement>(null);
@@ -388,6 +400,12 @@ export function ChatInteractionPanel({
     return () => {
       bubbleTweensRef.current.forEach((t) => t.kill());
       bubbleTweensRef.current.clear();
+      if (typingTimerRef.current !== null) {
+        window.clearTimeout(typingTimerRef.current);
+      }
+      if (botReplyTimerRef.current !== null) {
+        window.clearTimeout(botReplyTimerRef.current);
+      }
     };
   }, []);
 
@@ -456,6 +474,10 @@ export function ChatInteractionPanel({
     return () => clearTimeout(timer);
   }, [mcToast]);
 
+  useEffect(() => {
+    onJudgeModelConfiguredChange?.(mcGroups.judge.isConfigured);
+  }, [mcGroups.judge.isConfigured, onJudgeModelConfiguredChange]);
+
   const pushValidationReply = useCallback((question: string, validationMessage: string) => {
     const now = Date.now();
     const userId = `msg-${now}-user`;
@@ -502,6 +524,15 @@ export function ChatInteractionPanel({
     const text = inputValue.trim();
     if (!text || isSendingRef.current) return;
 
+    if (typingTimerRef.current !== null) {
+      window.clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+    if (botReplyTimerRef.current !== null) {
+      window.clearTimeout(botReplyTimerRef.current);
+      botReplyTimerRef.current = null;
+    }
+
     const validationMessage = getRetrieveValidationMessage(mode);
     if (validationMessage) {
       pushValidationReply(text, validationMessage);
@@ -523,12 +554,14 @@ export function ChatInteractionPanel({
     pendingEntryIdsRef.current.add(userId);
     setMessages((prev) => [...prev, { id: userId, role: "user", content: text }]);
 
-    const typingTimer = setTimeout(() => {
+    typingTimerRef.current = window.setTimeout(() => {
+      typingTimerRef.current = null;
       captureFlip();
       pendingEntryIdsRef.current.add(typingId);
       setMessages((prev) => [...prev, { id: typingId, role: "typing", content: "" }]);
 
-      const botTimer = setTimeout(() => {
+      botReplyTimerRef.current = window.setTimeout(() => {
+        botReplyTimerRef.current = null;
         captureFlip();
         pendingEntryIdsRef.current.add(botId);
         setMessages((prev) =>
@@ -537,11 +570,7 @@ export function ChatInteractionPanel({
         isSendingRef.current = false;
         setIsSending(false);
       }, TYPING_DELAY_MS);
-
-      return () => clearTimeout(botTimer);
     }, 550);
-
-    return () => clearTimeout(typingTimer);
   }, [inputValue, captureFlip, getRetrieveValidationMessage, mode, pushValidationReply]);
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {

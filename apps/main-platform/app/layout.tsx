@@ -13,6 +13,7 @@ import "@fontsource/michroma";
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { WatermarkProvider } from "./components/watermark/WatermarkProvider";
+import { AppRuntimeProvider } from "./components/runtime/AppRuntimeProvider";
 
 export const metadata: Metadata = {
   title: "Main Platform",
@@ -27,7 +28,9 @@ export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="zh-CN">
       <body>
-        <WatermarkProvider>{children}</WatermarkProvider>
+        <WatermarkProvider>
+          <AppRuntimeProvider>{children}</AppRuntimeProvider>
+        </WatermarkProvider>
       </body>
     </html>
   );

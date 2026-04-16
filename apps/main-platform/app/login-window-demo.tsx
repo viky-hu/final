@@ -16,24 +16,18 @@
  *   - 第五窗口（宏观平台）:   ./windows/macro/MacroWindow
  */
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { LoginIntroWindow } from "./windows/login/LoginIntroWindow";
 import { ProductIntroWindow } from "./windows/product/ProductIntroWindow";
 import { MainWindow } from "./windows/main/MainWindow";
 import { DatabaseWindow } from "./windows/database/DatabaseWindow";
 import { MacroWindow } from "./windows/macro/MacroWindow";
-import { useWatermark } from "./components/watermark/WatermarkProvider";
 
 type ActiveWindow = "login" | "product" | "main" | "database" | "macro";
 
 export function LoginWindowDemo() {
-  const { setWatermarkName } = useWatermark();
   const [activeWindow, setActiveWindow] = useState<ActiveWindow>("login");
   const [loginRenderKey, setLoginRenderKey] = useState(0);
-
-  useEffect(() => {
-    setWatermarkName("安保处");
-  }, [setWatermarkName]);
 
   const handleOpenProduct = () => setActiveWindow("product");
   const handleBackToLogin = () => {

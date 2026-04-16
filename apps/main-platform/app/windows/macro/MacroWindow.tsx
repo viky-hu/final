@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { D1Timeline } from "./components/D1Timeline";
 import { D2Visualization } from "./components/D2Visualization";
 import { D3SandboxThreeMvp } from "./components/D3SandboxThreeMvp";
@@ -19,6 +19,7 @@ import {
   MACRO_LINE_SETTLED,
 } from "../shared/coords";
 import { DEFAULT_ACTIVE_SECTOR_ID } from "./macroData";
+import { useAppRuntime } from "@/app/components/runtime/AppRuntimeProvider";
 
 /* ─── 坐标常量 ────────────────────────────────────────────── */
 // viewBox = 1440 × 900 (same as Window 1 / 3)
@@ -28,8 +29,6 @@ const Y_MID = VH / 2;             // 450  – p3 / p4
 
 /* ─── 菜单展开时画面整体水平偏移目标（与 Window 3 一致） ─── */
 const MENU_SHIFT_PX = 0.15 * VW; // 216
-const DEFAULT_INITIAL_NODE_ID = "node-center-red";
-const INITIAL_AUTO_SELECT_DELAY_MS = 980;
 const ENABLE_LEGACY_MENU = false;
 
 interface MacroWindowProps {
@@ -45,6 +44,7 @@ export function MacroWindow({
   onOpenDatabase,
   defaultSelectedNodeId,
 }: MacroWindowProps) {
+  const { username, savedNodeLocation, locationRevision } = useAppRuntime();
   const svgRef = useRef<SVGSVGElement>(null);
   const modulesRef = useRef<HTMLDivElement>(null);
   const [legacyMenuOpen, setLegacyMenuOpen] = useState(false);
@@ -54,31 +54,27 @@ export function MacroWindow({
     defaultSelectedNodeId ?? null,
   );
   const isMenuOpen = ENABLE_LEGACY_MENU ? legacyMenuOpen : false;
-  const autoSelectedRef = useRef(false);
+
+  const selfNodePlacement = useMemo(
+    () =>
+      savedNodeLocation
+        ? {
+            plateId: savedNodeLocation.plateId,
+            sceneX: savedNodeLocation.sceneX,
+            sceneY: savedNodeLocation.sceneY,
+          }
+        : null,
+    [savedNodeLocation?.plateId, savedNodeLocation?.sceneX, savedNodeLocation?.sceneY],
+  );
 
   const handleSectorChange = useCallback((sectorId: string) => {
     setActiveSectorId(sectorId);
     setSelectedNodeId(null);
   }, []);
 
-  const handleNodeSelect = useCallback((nodeId: string) => {
+  const handleNodeSelect = useCallback((nodeId: string | null) => {
     setSelectedNodeId(nodeId);
   }, []);
-
-  useEffect(() => {
-    if (!d1Visible) return;
-    if (autoSelectedRef.current) return;
-    if (defaultSelectedNodeId) return;
-
-    const timer = window.setTimeout(() => {
-      autoSelectedRef.current = true;
-      setSelectedNodeId(DEFAULT_INITIAL_NODE_ID);
-    }, INITIAL_AUTO_SELECT_DELAY_MS);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [d1Visible, defaultSelectedNodeId]);
 
   // 菜单联动补间
   const menuTweenRef = useRef<gsap.core.Tween | null>(null);
@@ -313,7 +309,14 @@ export function MacroWindow({
           </section>
           {/* d3 区 — 中间大片（暗色） */}
           <section className="macro-zone macro-zone--d3" style={{ padding: 0, overflow: 'hidden' }}>
-            <D3SandboxThreeMvp visible={d1Visible} activeSectorId={activeSectorId} selectedNodeId={selectedNodeId} onSectorChange={handleSectorChange} onNodeSelect={handleNodeSelect} />
+            <D3SandboxThreeMvp
+              visible={d1Visible}
+              onSectorChange={handleSectorChange}
+              onNodeSelect={handleNodeSelect}
+              selfNodeName={username}
+              selfNodePlacement={selfNodePlacement}
+              selectionRevision={locationRevision}
+            />
           </section>
           {/* d4 区 — 右上 */}
           <section className="macro-zone macro-zone--d4">
