@@ -39,10 +39,12 @@ interface PersistedRuntimeState {
 
 interface AppRuntimeContextValue extends PersistedRuntimeState {
   locationRevision: number;
+  isSelfCenterNode: boolean;
   setUsername: (nextUsername: string) => void;
   setAvatarDataUrl: (nextAvatarDataUrl: string | null) => void;
   setJudgeModelConfigured: (configured: boolean) => void;
   setSavedNodeLocation: (nextLocation: SavedNodeLocation | null) => void;
+  setIsSelfCenterNode: (isCenter: boolean) => void;
 }
 
 const DEFAULT_RUNTIME_STATE: PersistedRuntimeState = {
@@ -114,6 +116,7 @@ export function AppRuntimeProvider({ children }: AppRuntimeProviderProps) {
   const { setWatermarkName } = useWatermark();
   const [runtimeState, setRuntimeState] = useState<PersistedRuntimeState>(() => readPersistedRuntimeState());
   const [locationRevision, setLocationRevision] = useState(0);
+  const [isSelfCenterNode, setIsSelfCenterNode] = useState(false);
 
   useEffect(() => {
     setWatermarkName(runtimeState.username);
@@ -157,12 +160,23 @@ export function AppRuntimeProvider({ children }: AppRuntimeProviderProps) {
     () => ({
       ...runtimeState,
       locationRevision,
+      isSelfCenterNode,
       setUsername,
       setAvatarDataUrl,
       setJudgeModelConfigured,
       setSavedNodeLocation,
+      setIsSelfCenterNode,
     }),
-    [locationRevision, runtimeState, setAvatarDataUrl, setJudgeModelConfigured, setSavedNodeLocation, setUsername],
+    [
+      isSelfCenterNode,
+      locationRevision,
+      runtimeState,
+      setAvatarDataUrl,
+      setJudgeModelConfigured,
+      setSavedNodeLocation,
+      setUsername,
+      setIsSelfCenterNode,
+    ],
   );
 
   return <AppRuntimeContext.Provider value={contextValue}>{children}</AppRuntimeContext.Provider>;

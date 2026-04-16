@@ -39,7 +39,7 @@ export function MacroWindow({
   onOpenDatabase,
   defaultSelectedNodeId,
 }: MacroWindowProps) {
-  const { username, savedNodeLocation, locationRevision } = useAppRuntime();
+  const { username, savedNodeLocation, locationRevision, isSelfCenterNode } = useAppRuntime();
   const svgRef = useRef<SVGSVGElement>(null);
   const modulesRef = useRef<HTMLDivElement>(null);
   const [d1Visible, setD1Visible] = useState(false);
@@ -262,6 +262,7 @@ export function MacroWindow({
               onSectorChange={handleSectorChange}
               onNodeSelect={handleNodeSelect}
               selfNodeName={username}
+              isSelfCenterNode={isSelfCenterNode}
               selfNodePlacement={selfNodePlacement}
               selectionRevision={locationRevision}
             />

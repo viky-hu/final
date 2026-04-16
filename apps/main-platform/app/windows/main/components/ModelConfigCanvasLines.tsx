@@ -115,6 +115,7 @@ export function ModelConfigCanvasLines({
       tl.eventCallback("onReverseComplete", () => {
         onCloseCompleteRef.current?.();
       });
+      tl.timeScale(1.2);
       tl.reverse();
       return;
     }
@@ -144,34 +145,34 @@ export function ModelConfigCanvasLines({
 
     const tl = gsap.timeline();
 
-    // 阶段1：画线（0.92s，stagger 0.07 — 比主画布 1.08s 快约 15%）
+    // 阶段1：画线（小幅提速）
     tl.to(lines, {
       strokeDashoffset: 0,
-      duration: 0.92,
-      stagger:  0.07,
+      duration: 0.78,
+      stagger:  0.05,
       ease:     LINE_DRAW_EASE,
     }, 0);
 
-    // 阶段2：变色 + 填充 + 扩张（从 t = 1.12s 开始）
-    const phase2Start = 0.2 + 0.92;
+    // 阶段2：变色 + 填充 + 扩张（衔接提速）
+    const phase2Start = 0.16 + 0.78;
 
     tl.to(lines, {
       stroke:   MC_CANVAS_LINE_ACTIVE,
-      duration: 0.43,
+      duration: 0.34,
       ease:     "power2.out",
     }, phase2Start);
 
     if (fillRect) {
       tl.to(fillRect, {
         fillOpacity: 1,
-        duration:    0.15,
+        duration:    0.12,
         ease:        "power2.out",
       }, phase2Start);
     }
 
     tl.to(coords, {
       ...MC_CANVAS_EXPANDED,
-      duration: 0.43,
+      duration: 0.34,
       ease:     "power3.inOut",
       onUpdate: () => {
         syncLines(svg, coords);
@@ -187,7 +188,7 @@ export function ModelConfigCanvasLines({
           menuTweenRef.current = gsap.to(coords, {
             x1: target.x1,
             x2: target.x2,
-            duration: 0.45,
+            duration: 0.36,
             ease:     "power3.inOut",
             onUpdate: () => {
               syncLines(svg, coords);
@@ -221,7 +222,7 @@ export function ModelConfigCanvasLines({
     menuTweenRef.current = gsap.to(coords, {
       x1: target.x1,
       x2: target.x2,
-      duration: 0.45,
+      duration: 0.36,
       ease:     "power3.inOut",
       onUpdate: () => {
         syncLines(svg, coords);

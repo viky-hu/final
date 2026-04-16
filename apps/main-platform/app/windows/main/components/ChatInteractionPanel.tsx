@@ -130,9 +130,9 @@ type MCGroupStateMap = Record<MCGroupId, MCGroupState>;
 
 const MC_GROUP_DEFS: ReadonlyArray<{ id: MCGroupId; title: string }> = [
   { id: "local_query", title: "本地查询模型" },
-  { id: "judge", title: "法官模型" },
   { id: "embedding", title: "嵌入模型" },
   { id: "rerank", title: "重排模型" },
+  { id: "judge", title: "法官模型" },
 ];
 
 function createDefaultMCGroupState(): MCGroupState {
@@ -664,16 +664,16 @@ export function ChatInteractionPanel({
       tl.to(panel, {
         "--mc-scrollbar-thumb-alpha": 0.92,
         "--mc-scrollbar-track-alpha": 0.22,
-        duration: 0.36,
+        duration: 0.3,
         ease: "power2.out",
-      }, 0.12);
+      }, 0.08);
     }
 
     targets.forEach((el, i) => {
       gsap.set(el, { visibility: "visible" });
       tl.to(el,
-        { opacity: 1, y: 0, duration: 0.38, ease: "power3.out" },
-        i * 0.08,
+        { opacity: 1, y: 0, duration: 0.3, ease: "power3.out" },
+        i * 0.06,
       );
     });
 
@@ -701,15 +701,15 @@ export function ChatInteractionPanel({
       tl.to(panel, {
         "--mc-scrollbar-thumb-alpha": 0,
         "--mc-scrollbar-track-alpha": 0,
-        duration: 0.2,
+        duration: 0.16,
         ease: "power2.in",
       }, 0);
     }
 
     targets.forEach((el, i) => {
       tl.to(el,
-        { opacity: 0, y: -15, duration: 0.24, ease: "power2.in" },
-        i * 0.05,
+        { opacity: 0, y: -15, duration: 0.18, ease: "power2.in" },
+        i * 0.035,
       );
     });
 
@@ -727,6 +727,21 @@ export function ChatInteractionPanel({
   const handleMCClose = useCallback(() => {
     if (mcPhase === "opened") setMCPhase("fading_out");
   }, [mcPhase]);
+
+  useEffect(() => {
+    if (mcPhase !== "opened") return;
+
+    const handleEscClose = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      handleMCClose();
+    };
+
+    window.addEventListener("keydown", handleEscClose);
+    return () => {
+      window.removeEventListener("keydown", handleEscClose);
+    };
+  }, [mcPhase, handleMCClose]);
 
   const handleModeSwitch = useCallback((checked: boolean) => {
     if (!checked) {

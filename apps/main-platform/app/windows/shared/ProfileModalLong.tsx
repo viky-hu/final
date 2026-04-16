@@ -104,14 +104,16 @@ async function cropAvatarImageToDataUrl(src: string, cropArea: Area, outputSize:
   return canvas.toDataURL("image/png");
 }
 
-function MapLocationCursorGlyph() {
+function MapLocationCursorGlyph({ isCenter }: { isCenter: boolean }) {
+  const cursorFill = isCenter ? "#dc2626" : "#00C96B";
+  const cursorInner = isCenter ? "#dc2626" : "#006F3B";
   return (
-    <g className="global-top-nav__location-cursor-glyph">
+    <g className={`global-top-nav__location-cursor-glyph${isCenter ? "" : " global-top-nav__location-cursor-glyph--normal"}`}>
       <g transform={`scale(${MAP_CURSOR_SCALE})`}>
         <g transform={`translate(${-MAP_CURSOR_TIP_X} ${-MAP_CURSOR_TIP_Y})`}>
-          <path d={MAP_CURSOR_PATH} fill="#dc2626" stroke="white" strokeWidth="9" strokeLinejoin="round" />
+          <path d={MAP_CURSOR_PATH} fill={cursorFill} stroke="white" strokeWidth="9" strokeLinejoin="round" />
           <circle cx={397} cy={457} r={56} fill="white" fillOpacity={0.8} />
-          <circle cx={397} cy={457} r={28} fill="#dc2626" />
+          <circle cx={397} cy={457} r={28} fill={cursorInner} />
         </g>
       </g>
     </g>
@@ -128,6 +130,8 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
     setUsername,
     setAvatarDataUrl,
     judgeModelConfigured,
+    isSelfCenterNode,
+    setIsSelfCenterNode,
     savedNodeLocation,
     setSavedNodeLocation,
   } = useAppRuntime();
@@ -397,6 +401,10 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
 
   const handleApplyCenterNode = useCallback(() => {
     if (applyState === "loading") return;
+    if (isSelfCenterNode) {
+      setApplyState("success");
+      return;
+    }
 
     setApplyState("loading");
     if (applyTimerRef.current !== null) {
@@ -404,9 +412,13 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
     }
 
     applyTimerRef.current = window.setTimeout(() => {
-      setApplyState(judgeModelConfigured ? "success" : "failed");
+      const success = judgeModelConfigured;
+      setApplyState(success ? "success" : "failed");
+      if (success) {
+        setIsSelfCenterNode(true);
+      }
     }, APPLY_SIMULATION_MS);
-  }, [applyState, judgeModelConfigured]);
+  }, [applyState, isSelfCenterNode, judgeModelConfigured, setIsSelfCenterNode]);
 
   const handleMapClick = useCallback(
     (event: MouseEvent<SVGSVGElement>) => {
@@ -719,7 +731,7 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
                         transform={`translate(${fadingLocation.mapX} ${fadingLocation.mapY})`}
                         className="global-top-nav__location-cursor global-top-nav__location-cursor--leaving"
                       >
-                        <MapLocationCursorGlyph />
+                        <MapLocationCursorGlyph isCenter={isSelfCenterNode} />
                       </g>
                     )}
 
@@ -729,7 +741,7 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
                       transform={`translate(${previewLocation.mapX} ${previewLocation.mapY})`}
                       className="global-top-nav__location-cursor global-top-nav__location-cursor--active"
                     >
-                      <MapLocationCursorGlyph />
+                      <MapLocationCursorGlyph isCenter={isSelfCenterNode} />
                     </g>
                   )}
                 </svg>

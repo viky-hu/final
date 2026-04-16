@@ -38,12 +38,17 @@ interface D3SandboxProps {
   onSectorChange: (sectorId: string) => void;
   onNodeSelect: (nodeId: string | null) => void;
   selfNodeName?: string;
+  isSelfCenterNode?: boolean;
   selfNodePlacement?: {
     plateId: PlateId;
     sceneX: number;
     sceneY: number;
   } | null;
   selectionRevision?: number;
+}
+
+function isSelfNodeId(nodeId: string): boolean {
+  return nodeId === "node-center-red";
 }
 
 interface NodeConfig {
@@ -135,6 +140,7 @@ const BASE_PLATE_NODES: Record<PlateId, NodeConfig[]> = {
 
 function buildPlateNodes(
   selfNodeName: string,
+  isSelfCenterNode: boolean,
   selfNodePlacement: D3SandboxProps["selfNodePlacement"],
 ): Record<PlateId, NodeConfig[]> {
   const cleanedName = selfNodeName.trim() || DEFAULT_SELF_NODE_NAME;
@@ -149,7 +155,7 @@ function buildPlateNodes(
     ? {
         id: "node-center-red",
         name: cleanedName,
-        isRed: true,
+        isRed: isSelfCenterNode,
         offsetX: 0,
         sceneX: selfNodePlacement.sceneX,
         sceneY: selfNodePlacement.sceneY,
@@ -157,7 +163,7 @@ function buildPlateNodes(
     : {
         id: "node-center-red",
         name: cleanedName,
-        isRed: true,
+        isRed: isSelfCenterNode,
         offsetX: 24,
       };
 
@@ -410,13 +416,49 @@ const CURSOR_LEFT_PATH =
 const CURSOR_RIGHT_PATH =
   "M744.181 608.5C817.502 697.186 879.155 770.107 886.681 784.5C895.179 771.241 948.057 707.307 1030.68 607C1072.25 548.604 1089.21 516.154 1103.68 459C1110.3 409.084 1108.59 382.651 1095.18 338.5C1072.66 282.941 1053.7 257.684 1008.18 223.5C962.669 196.768 936.313 188.534 887.681 187C834.795 189.105 808.422 197.36 766.681 223.5C719.23 257.906 701.509 283.533 679.181 339.5C665.859 379.331 664.18 405.619 670.681 459C681.12 510.908 701.882 545.296 744.181 608.5Z";
 
-function CursorPinSvg({ isRed }: { isRed: boolean }) {
-  const vb = isRed ? "155 165 490 643" : "643 165 490 643";
-  const path = isRed ? CURSOR_LEFT_PATH : CURSOR_RIGHT_PATH;
-  const cx = isRed ? 397 : 887;
-  const fill = isRed ? "#dc2626" : "#3b82f6";
-  const grad = isRed ? "#f87171" : "#93c5fd";
-  const gradId = isRed ? "cgr" : "cgb";
+type CursorTone = "red" | "yellow" | "blue";
+
+function resolveCursorTone(node: NodeConfig): CursorTone {
+  if (node.isRed) return "red";
+  if (isSelfNodeId(node.id)) return "yellow";
+  return "blue";
+}
+
+function getCursorTokens(tone: CursorTone) {
+  if (tone === "red") {
+    return {
+      vb: "155 165 490 643",
+      path: CURSOR_LEFT_PATH,
+      cx: 397,
+      fill: "#dc2626",
+      grad: "#f87171",
+      gradId: "cgr",
+    };
+  }
+
+  if (tone === "yellow") {
+    return {
+      vb: "155 165 490 643",
+      path: CURSOR_LEFT_PATH,
+      cx: 397,
+      fill: "#00C96B",
+      grad: "#63E6A7",
+      gradId: "cgy",
+    };
+  }
+
+  return {
+    vb: "643 165 490 643",
+    path: CURSOR_RIGHT_PATH,
+    cx: 887,
+    fill: "#3b82f6",
+    grad: "#93c5fd",
+    gradId: "cgb",
+  };
+}
+
+function CursorPinSvg({ tone }: { tone: CursorTone }) {
+  const { vb, path, cx, fill, grad, gradId } = getCursorTokens(tone);
   return (
     <svg viewBox={vb} fill="none" xmlns="http://www.w3.org/2000/svg">
       <defs>
@@ -454,7 +496,8 @@ function NodeCursorsLayer({
     <>
       {nodes.map((node) => {
         const isSelected = node.id === selectedNodeId;
-        const colorCls = node.isRed ? "d3-node-cursor--red" : "d3-node-cursor--blue";
+        const tone = resolveCursorTone(node);
+        const colorCls = tone === "red" ? "d3-node-cursor--red" : tone === "yellow" ? "d3-node-cursor--yellow" : "d3-node-cursor--blue";
         const selectedCls = isSelected ? " d3-node-cursor--selected" : "";
         return (
           <Html
@@ -473,9 +516,9 @@ function NodeCursorsLayer({
                 onNodeClick(node.id);
               }}
             >
-              <CursorPinSvg isRed={node.isRed} />
+              <CursorPinSvg tone={tone} />
               <div className="d3-node-cursor-pulse" />
-              <span className={`d3-node-label${node.isRed ? " d3-node-label--red" : ""}`}>
+              <span className={`d3-node-label${tone === "red" ? " d3-node-label--red" : tone === "yellow" ? " d3-node-label--yellow" : ""}`}>
                 {node.name}
               </span>
             </div>
@@ -774,11 +817,12 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
   const [registeredVisualCount, setRegisteredVisualCount] = useState(0);
   const [sceneReady, setSceneReady] = useState(false);
   const { visible, onSectorChange, onNodeSelect, selfNodePlacement, selectionRevision } = props;
+  const isSelfCenterNode = props.isSelfCenterNode ?? false;
   const selfPlacementPlateId = selfNodePlacement?.plateId ?? null;
 
   const plateNodes = useMemo(
-    () => buildPlateNodes(props.selfNodeName ?? DEFAULT_SELF_NODE_NAME, props.selfNodePlacement ?? null),
-    [props.selfNodeName, props.selfNodePlacement],
+    () => buildPlateNodes(props.selfNodeName ?? DEFAULT_SELF_NODE_NAME, isSelfCenterNode, props.selfNodePlacement ?? null),
+    [props.selfNodeName, isSelfCenterNode, props.selfNodePlacement],
   );
 
   useEffect(() => {
@@ -1106,7 +1150,10 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
 
   const allNodes: NodeConfig[] = Object.values(plateNodes).flat();
   const activeNode = selectedNodeId ? allNodes.find((n) => n.id === selectedNodeId) : null;
-  const activeMock = activeNode && !activeNode.isRed ? NODE_MOCK[activeNode.id] : null;
+  const isSelfNode = activeNode ? isSelfNodeId(activeNode.id) : false;
+  const activeMock = activeNode && !isSelfNode ? NODE_MOCK[activeNode.id] : null;
+  const isSelfOrdinaryNode = isSelfNode && !activeNode?.isRed;
+  const activeTone = activeNode ? resolveCursorTone(activeNode) : null;
 
   return (
     <div ref={rootRef} className="d3viz-root d3three-root">
@@ -1124,36 +1171,67 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
                 <div className="d3-info-node-head">
                   <svg
                     className="d3-info-cursor-thumb"
-                    viewBox={activeNode.isRed ? "155 165 490 643" : "643 165 490 643"}
+                    viewBox={activeTone ? getCursorTokens(activeTone).vb : "643 165 490 643"}
                     fill="none"
                     xmlns="http://www.w3.org/2000/svg"
                   >
                     <defs>
-                      <linearGradient id={activeNode.isRed ? "tgr" : "tgb"} x1="50%" y1="0%" x2="50%" y2="100%">
-                        <stop offset="0%" stopColor={activeNode.isRed ? "#f87171" : "#93c5fd"} />
-                        <stop offset="100%" stopColor={activeNode.isRed ? "#dc2626" : "#3b82f6"} />
+                      <linearGradient id={activeTone === "red" ? "tgr" : activeTone === "yellow" ? "tgy" : "tgb"} x1="50%" y1="0%" x2="50%" y2="100%">
+                        <stop
+                          offset="0%"
+                          stopColor={activeTone === "red" ? "#f87171" : activeTone === "yellow" ? "#63E6A7" : "#93c5fd"}
+                        />
+                        <stop
+                          offset="100%"
+                          stopColor={activeTone === "red" ? "#dc2626" : activeTone === "yellow" ? "#00C96B" : "#3b82f6"}
+                        />
                       </linearGradient>
                     </defs>
                     <path
-                      d={activeNode.isRed ? CURSOR_LEFT_PATH : CURSOR_RIGHT_PATH}
-                      fill={activeNode.isRed ? "url(#tgr)" : "url(#tgb)"}
+                      d={activeTone === "red" || activeTone === "yellow" ? CURSOR_LEFT_PATH : CURSOR_RIGHT_PATH}
+                      fill={activeTone === "red" ? "url(#tgr)" : activeTone === "yellow" ? "url(#tgy)" : "url(#tgb)"}
                       stroke="white"
                       strokeWidth="9"
                       strokeLinejoin="round"
                     />
-                    <circle cx={activeNode.isRed ? 397 : 887} cy={457} r="56" fill="white" fillOpacity="0.78" />
-                    <circle cx={activeNode.isRed ? 397 : 887} cy={457} r="28" fill={activeNode.isRed ? "#dc2626" : "#3b82f6"} />
+                    <circle cx={activeTone === "red" || activeTone === "yellow" ? 397 : 887} cy={457} r="56" fill="white" fillOpacity="0.78" />
+                    <circle
+                      cx={activeTone === "red" || activeTone === "yellow" ? 397 : 887}
+                      cy={457}
+                      r="28"
+                      fill={activeTone === "red" ? "#dc2626" : activeTone === "yellow" ? "#006F3B" : "#3b82f6"}
+                    />
                   </svg>
                   <div className="d3-info-node-text">
                     <span className={`d3-info-node-name${activeNode.isRed ? " d3-info-node-name--red" : ""}`}>
                       {activeNode.name}
                     </span>
+                    {isSelfNode && (
+                      <span className={`d3-info-self-tag${activeNode.isRed ? " d3-info-self-tag--red" : ""}`}>
+                        我的节点
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
 
               <div className="d3-info-metrics">
-                {activeNode.isRed ? (
+                {isSelfOrdinaryNode ? (
+                  <>
+                    <div className="d3-info-metric d3-info-metric--self-normal">
+                      <span className="d3-info-metric-val d3-info-metric-val--self-normal">67</span>
+                      <span className="d3-info-metric-lbl d3-info-metric-lbl--self-normal">活跃度%</span>
+                    </div>
+                    <div className="d3-info-metric d3-info-metric--self-normal">
+                      <span className="d3-info-metric-val d3-info-metric-val--self-normal">8</span>
+                      <span className="d3-info-metric-lbl d3-info-metric-lbl--self-normal">连接数</span>
+                    </div>
+                    <div className="d3-info-metric d3-info-metric--self-normal">
+                      <span className="d3-info-metric-val d3-info-metric-val--self-normal">847</span>
+                      <span className="d3-info-metric-lbl d3-info-metric-lbl--self-normal">记录总数</span>
+                    </div>
+                  </>
+                ) : activeNode.isRed ? (
                   <>
                     <div className="d3-info-metric">
                       <span className="d3-info-metric-val d3-info-metric-val--red">{totalFiles.toLocaleString()}</span>
@@ -1192,9 +1270,9 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
 
               <div className="d3-info-status-col">
                 <span
-                  className={`d3-info-badge ${activeNode.isRed ? "d3-info-badge--restricted" : "d3-info-badge--online"}`}
+                  className={`d3-info-badge ${activeNode.isRed ? "d3-info-badge--restricted" : isSelfNode ? "d3-info-badge--self-normal" : "d3-info-badge--online"}`}
                 >
-                  {activeNode.isRed ? "高权限" : "普通权限"}
+                  {activeNode.isRed ? "高权限" : isSelfNode ? "普通节点" : "普通权限"}
                 </span>
               </div>
             </>
