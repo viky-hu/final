@@ -15,17 +15,27 @@
  *   - 第五窗口（宏观平台）:   ./windows/macro/MacroWindow
  */
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { LoginIntroWindow } from "./windows/login/LoginIntroWindow";
 import { MainWindow } from "./windows/main/MainWindow";
 import { DatabaseWindow } from "./windows/database/DatabaseWindow";
 import { MacroWindow } from "./windows/macro/MacroWindow";
+import { WatermarkOverlay } from "./components/watermark/WatermarkOverlay";
+import { useWatermark } from "./components/watermark/WatermarkProvider";
 
 type ActiveWindow = "login" | "main" | "database" | "macro";
 
 export function LoginWindowDemo() {
   const [activeWindow, setActiveWindow] = useState<ActiveWindow>("login");
   const [loginRenderKey, setLoginRenderKey] = useState(0);
+  const { watermarkName } = useWatermark();
+
+  const renderWithWatermark = (content: ReactNode) => (
+    <>
+      {content}
+      <WatermarkOverlay text={watermarkName} />
+    </>
+  );
 
   const handleBackToLogin = () => {
     setActiveWindow("login");
@@ -36,7 +46,7 @@ export function LoginWindowDemo() {
   const handleOpenMacro = () => setActiveWindow("macro");
 
   if (activeWindow === "macro") {
-    return (
+    return renderWithWatermark(
       <MacroWindow
         onBack={handleBackToLogin}
         onNavigateToMain={() => setActiveWindow("main")}
@@ -46,7 +56,7 @@ export function LoginWindowDemo() {
   }
 
   if (activeWindow === "database") {
-    return (
+    return renderWithWatermark(
       <DatabaseWindow
         onBack={handleBackToLogin}
         onNavigateToMain={() => setActiveWindow("main")}
@@ -56,7 +66,7 @@ export function LoginWindowDemo() {
   }
 
   if (activeWindow === "main") {
-    return (
+    return renderWithWatermark(
       <MainWindow
         onBack={handleBackToLogin}
         onOpenDatabase={handleOpenDatabase}

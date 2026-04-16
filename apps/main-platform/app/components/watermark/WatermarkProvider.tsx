@@ -8,7 +8,6 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import { WatermarkOverlay } from "./WatermarkOverlay";
 
 const DEFAULT_WATERMARK_NAME = "本机节点";
 
@@ -37,12 +36,7 @@ export function WatermarkProvider({ children, initialName }: WatermarkProviderPr
     [watermarkName, setWatermarkName],
   );
 
-  return (
-    <WatermarkContext.Provider value={contextValue}>
-      {children}
-      <WatermarkOverlay text={watermarkName} />
-    </WatermarkContext.Provider>
-  );
+  return <WatermarkContext.Provider value={contextValue}>{children}</WatermarkContext.Provider>;
 }
 
 export function useWatermark() {
