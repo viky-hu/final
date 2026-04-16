@@ -6,6 +6,7 @@ import { gsap } from "gsap";
 /* ── 时间段类型 ── */
 type Period = "当天" | "本周" | "本月" | "本季" | "本年";
 const PERIODS: Period[] = ["当天", "本周", "本月", "本季", "本年"];
+const SELF_NODE_PLACEHOLDER = "__SELF_NODE__";
 
 /* ── 颜色：从 #6367FF → #C9BEFF，5 档渐变 ── */
 const BAR_COLORS = [
@@ -19,48 +20,49 @@ const BAR_COLORS = [
 /* ── 各时间段模拟数据 ── */
 const MOCK_DATA: Record<Period, { name: string; value: number }[]> = {
   当天: [
-    { name: "text1", value: 14 },
-    { name: "text3", value: 11 },
-    { name: "text2", value: 8 },
-    { name: "text5", value: 6 },
-    { name: "text4", value: 4 },
+    { name: SELF_NODE_PLACEHOLDER, value: 14 },
+    { name: "老山园", value: 11 },
+    { name: "教务处", value: 8 },
+    { name: "现教楼", value: 6 },
+    { name: "图书馆", value: 4 },
   ],
   本周: [
-    { name: "text2", value: 52 },
-    { name: "text1", value: 47 },
-    { name: "text4", value: 35 },
-    { name: "text3", value: 28 },
-    { name: "text6", value: 19 },
+    { name: "教务处", value: 52 },
+    { name: SELF_NODE_PLACEHOLDER, value: 47 },
+    { name: "图书馆", value: 35 },
+    { name: "老山园", value: 28 },
+    { name: "警体馆", value: 19 },
   ],
   本月: [
-    { name: "text1", value: 183 },
-    { name: "text3", value: 154 },
-    { name: "text5", value: 121 },
-    { name: "text2", value: 98 },
-    { name: "text6", value: 72 },
+    { name: SELF_NODE_PLACEHOLDER, value: 183 },
+    { name: "老山园", value: 154 },
+    { name: "现教楼", value: 121 },
+    { name: "教务处", value: 98 },
+    { name: "警体馆", value: 72 },
   ],
   本季: [
-    { name: "text1", value: 410 },
-    { name: "text2", value: 380 },
-    { name: "text3", value: 297 },
-    { name: "text4", value: 234 },
-    { name: "text5", value: 188 },
+    { name: SELF_NODE_PLACEHOLDER, value: 410 },
+    { name: "教务处", value: 380 },
+    { name: "老山园", value: 297 },
+    { name: "图书馆", value: 234 },
+    { name: "现教楼", value: 188 },
   ],
   本年: [
-    { name: "text1", value: 1204 },
-    { name: "text3", value: 987 },
-    { name: "text2", value: 856 },
-    { name: "text5", value: 721 },
-    { name: "text6", value: 534 },
+    { name: SELF_NODE_PLACEHOLDER, value: 1204 },
+    { name: "老山园", value: 987 },
+    { name: "教务处", value: 856 },
+    { name: "现教楼", value: 721 },
+    { name: "警体馆", value: 534 },
   ],
 };
 
 interface D2VisualizationProps {
   /** 由父组件在画布完全展开后传入，控制首次动画时机 */
   visible: boolean;
+  selfNodeName?: string;
 }
 
-export function D2Visualization({ visible }: D2VisualizationProps) {
+export function D2Visualization({ visible, selfNodeName }: D2VisualizationProps) {
   const [period, setPeriod] = useState<Period>("本月");
   const [animKey, setAnimKey] = useState(0); // 每次切换时触发重新动画
   const rootRef = useRef<HTMLDivElement>(null);
@@ -69,7 +71,10 @@ export function D2Visualization({ visible }: D2VisualizationProps) {
   const headerRef = useRef<HTMLElement>(null);
   const prevVisibleRef = useRef(false);
 
-  const data = MOCK_DATA[period];
+  const resolvedSelfNodeName = selfNodeName?.trim() || "本机节点";
+  const data = MOCK_DATA[period].map((item) =>
+    item.name === SELF_NODE_PLACEHOLDER ? { ...item, name: resolvedSelfNodeName } : item,
+  );
   const maxVal = data[0].value;
 
   /* ── 动画函数 ── */

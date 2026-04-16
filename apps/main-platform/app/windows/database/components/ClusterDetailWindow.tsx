@@ -112,12 +112,13 @@ function FileTypeIcon({ mimeType, name }: { mimeType: string; name: string }) {
 
 interface ClusterDetailWindowProps {
   cluster: Cluster;
+  actorName: string;
   onBack: () => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function ClusterDetailWindow({ cluster, onBack }: ClusterDetailWindowProps) {
+export function ClusterDetailWindow({ cluster, actorName, onBack }: ClusterDetailWindowProps) {
   const rootRef        = useRef<HTMLDivElement>(null);
   const hLineRef       = useRef<SVGLineElement>(null);
   const hLineSvgRef    = useRef<SVGSVGElement>(null);
@@ -243,10 +244,10 @@ export function ClusterDetailWindow({ cluster, onBack }: ClusterDetailWindowProp
       fetch(`/api/database/clusters/${cluster.id}/files`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: nf.name, size: nf.size, mimeType: nf.mimeType }),
+        body: JSON.stringify({ name: nf.name, size: nf.size, mimeType: nf.mimeType, actor: actorName }),
       }).catch(() => {/* backend unavailable in dev is fine */});
     });
-  }, [cluster.id]);
+  }, [cluster.id, actorName]);
 
   // ── Animate each new file row ──────────────────────────────────────────────
   useEffect(() => {

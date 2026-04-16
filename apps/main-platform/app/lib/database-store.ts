@@ -37,14 +37,14 @@ const DEFAULT_CLUSTERS: Cluster[] = [
 // ── Seed update log from default clusters ────────────────────────────────────
 function seedUpdateLog(): DatabaseUpdate[] {
   return [
-    { id: "seed-7", time: "19:01", date: "2026.3.19", actor: "text1", action: "新建了聚类《核心知识库》",     type: "cluster", timestamp: new Date("2026-03-19T19:01:00").getTime() },
-    { id: "seed-6", time: "15:30", date: "2026.3.19", actor: "text3", action: "上传文件至《研究文献集》",     type: "file",    timestamp: new Date("2026-03-19T15:30:00").getTime() },
-    { id: "seed-5", time: "08:50", date: "2026.3.18", actor: "text2", action: "新建了聚类《实验数据集》",     type: "cluster", timestamp: new Date("2026-03-18T08:50:00").getTime() },
-    { id: "seed-4", time: "19:30", date: "2026.3.17", actor: "text1", action: "上传文件至《核心知识库》",     type: "file",    timestamp: new Date("2026-03-17T19:30:00").getTime() },
-    { id: "seed-3", time: "11:12", date: "2026.3.17", actor: "text4", action: "上传文件至《实验数据集》",     type: "file",    timestamp: new Date("2026-03-17T11:12:00").getTime() },
-    { id: "seed-2", time: "09:00", date: "2026.3.16", actor: "text5", action: "新建了聚类《研究文献集》",     type: "cluster", timestamp: new Date("2026-03-16T09:00:00").getTime() },
-    { id: "seed-1", time: "14:22", date: "2026.3.15", actor: "text2", action: "新建了聚类《核心知识库》",     type: "cluster", timestamp: new Date("2026-03-15T14:22:00").getTime() },
-    { id: "seed-0", time: "10:00", date: "2026.3.14", actor: "text6", action: "上传文件至《研究文献集》",     type: "file",    timestamp: new Date("2026-03-14T10:00:00").getTime() },
+    { id: "seed-7", time: "19:01", date: "2026.3.19", actor: "本机节点", action: "新建了聚类《核心知识库》",     type: "cluster", timestamp: new Date("2026-03-19T19:01:00").getTime() },
+    { id: "seed-6", time: "15:30", date: "2026.3.19", actor: "老山园", action: "上传文件至《研究文献集》",     type: "file",    timestamp: new Date("2026-03-19T15:30:00").getTime() },
+    { id: "seed-5", time: "08:50", date: "2026.3.18", actor: "教务处", action: "新建了聚类《实验数据集》",     type: "cluster", timestamp: new Date("2026-03-18T08:50:00").getTime() },
+    { id: "seed-4", time: "19:30", date: "2026.3.17", actor: "本机节点", action: "上传文件至《核心知识库》",     type: "file",    timestamp: new Date("2026-03-17T19:30:00").getTime() },
+    { id: "seed-3", time: "11:12", date: "2026.3.17", actor: "图书馆", action: "上传文件至《实验数据集》",     type: "file",    timestamp: new Date("2026-03-17T11:12:00").getTime() },
+    { id: "seed-2", time: "09:00", date: "2026.3.16", actor: "现教楼", action: "新建了聚类《研究文献集》",     type: "cluster", timestamp: new Date("2026-03-16T09:00:00").getTime() },
+    { id: "seed-1", time: "14:22", date: "2026.3.15", actor: "教务处", action: "新建了聚类《核心知识库》",     type: "cluster", timestamp: new Date("2026-03-15T14:22:00").getTime() },
+    { id: "seed-0", time: "10:00", date: "2026.3.14", actor: "警体馆", action: "上传文件至《研究文献集》",     type: "file",    timestamp: new Date("2026-03-14T10:00:00").getTime() },
   ];
 }
 
@@ -63,7 +63,12 @@ export function getClusters(): Cluster[] {
   return [...store.clusters];
 }
 
-export function addCluster(name: string): Cluster {
+function normalizeActorName(actor?: string | null): string {
+  const normalized = actor?.trim() ?? "";
+  return normalized || "本机节点";
+}
+
+export function addCluster(name: string, actor?: string): Cluster {
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
   const cluster: Cluster = {
@@ -75,7 +80,7 @@ export function addCluster(name: string): Cluster {
   store.clusters.push(cluster);
   // Append to update log
   pushUpdate({
-    actor: "本机节点",
+    actor: normalizeActorName(actor),
     action: `新建了聚类《${name}》`,
     type: "cluster",
     now,
@@ -103,6 +108,7 @@ export function listClusterFiles(clusterId: string): ClusterFile[] {
 export function addClusterFile(
   clusterId: string,
   body: AddClusterFileBody,
+  actor?: string,
 ): ClusterFile {
   const now = new Date();
   const today = now.toISOString().slice(0, 10);
@@ -128,7 +134,7 @@ export function addClusterFile(
 
   // Append to update log
   pushUpdate({
-    actor: "本机节点",
+    actor: normalizeActorName(actor),
     action: `上传文件至《${clusterName}》`,
     type: "file",
     now,

@@ -66,7 +66,7 @@ function estimateTextWidth(rawText: string): number {
 }
 
 function buildWatermarkPattern(text: string): WatermarkPattern {
-  const rawText = text.trim() || "安保处";
+  const rawText = text.trim() || "本机节点";
   const safeText = escapeXml(rawText);
 
   const textWidth = estimateTextWidth(rawText);

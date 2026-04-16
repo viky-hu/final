@@ -96,7 +96,7 @@ const AUTO_SELECT_NODE_DELAY_MS = 820;
 const INFO_CANVAS_HEIGHT = 88;
 const NODE_SPACING_SCALE = 2.2;
 
-const DEFAULT_SELF_NODE_NAME = "安保处";
+const DEFAULT_SELF_NODE_NAME = "本机节点";
 
 const PLATE_TO_SECTOR: Record<PlateId, string> = {
   "plate-1": "node-2",
@@ -762,6 +762,7 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
   const loadedTextureRef = useRef<Texture | null>(null);
   const selectedPlateIdRef = useRef<string | null>(null);
   const canvasOpenRef = useRef(false);
+  const sceneReadyRef = useRef(false);
 
   const visualRefs = useRef<Record<string, PlateVisualRef>>({});
   const [selectedPlateId, setSelectedPlateId] = useState<string | null>(null);
@@ -770,6 +771,8 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
   const [desktopSvgMarkup, setDesktopSvgMarkup] = useState<string | null>(null);
   const [topTexture, setTopTexture] = useState<Texture | null>(null);
   const [totalFiles, setTotalFiles] = useState(0);
+  const [registeredVisualCount, setRegisteredVisualCount] = useState(0);
+  const [sceneReady, setSceneReady] = useState(false);
   const { visible, onSectorChange, onNodeSelect, selfNodePlacement, selectionRevision } = props;
   const selfPlacementPlateId = selfNodePlacement?.plateId ?? null;
 
@@ -777,6 +780,10 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
     () => buildPlateNodes(props.selfNodeName ?? DEFAULT_SELF_NODE_NAME, props.selfNodePlacement ?? null),
     [props.selfNodeName, props.selfNodePlacement],
   );
+
+  useEffect(() => {
+    sceneReadyRef.current = sceneReady;
+  }, [sceneReady]);
 
   useEffect(() => {
     let active = true;
@@ -917,11 +924,28 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
     if (value) {
       visualRefs.current[id] = value;
       const isSelected = selectedPlateIdRef.current === id;
-      value.group.scale.z = isSelected ? SELECTED_DEPTH_SCALE : 1;
-      value.pulse.value = isSelected ? 1 : 0;
+      value.group.scale.z = 1;
+      value.pulse.value = 0;
+
+      if (isSelected && sceneReadyRef.current) {
+        gsap.to(value.group.scale, {
+          z: SELECTED_DEPTH_SCALE,
+          duration: 0.5,
+          ease: "expo.out",
+          overwrite: true,
+        });
+        gsap.to(value.pulse, {
+          value: 1,
+          duration: 0.45,
+          ease: "sine.out",
+          overwrite: true,
+        });
+      }
+      setRegisteredVisualCount(Object.keys(visualRefs.current).length);
       return;
     }
     delete visualRefs.current[id];
+    setRegisteredVisualCount(Object.keys(visualRefs.current).length);
   }, []);
 
   const handleToggle = useCallback((plateId: string) => {
@@ -965,6 +989,30 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
       window.clearTimeout(nodeTimer);
     };
   }, [visible, selfPlacementPlateId, onNodeSelect, onSectorChange]);
+
+  useEffect(() => {
+    if (!visible || plates.length === 0) {
+      setSceneReady(false);
+      return;
+    }
+    if (registeredVisualCount < plates.length) {
+      setSceneReady(false);
+      return;
+    }
+
+    let frameA = 0;
+    let frameB = 0;
+    frameA = window.requestAnimationFrame(() => {
+      frameB = window.requestAnimationFrame(() => {
+        setSceneReady(true);
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameA);
+      window.cancelAnimationFrame(frameB);
+    };
+  }, [visible, plates.length, registeredVisualCount]);
 
   useEffect(() => {
     if (!visible) return;
@@ -1031,6 +1079,7 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
   useGSAP(
     () => {
       if (!props.visible) return;
+      if (!sceneReady) return;
 
       Object.entries(visualRefs.current).forEach(([plateId, visual]) => {
         const targetScale = selectedPlateId === plateId ? SELECTED_DEPTH_SCALE : 1;
@@ -1050,7 +1099,7 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
         });
       });
     },
-    { dependencies: [selectedPlateId, props.visible, plates.length], scope: rootRef },
+    { dependencies: [selectedPlateId, props.visible, sceneReady, plates.length], scope: rootRef },
   );
 
   if (!props.visible) return null;
@@ -1099,11 +1148,6 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
                     <span className={`d3-info-node-name${activeNode.isRed ? " d3-info-node-name--red" : ""}`}>
                       {activeNode.name}
                     </span>
-                    {!activeNode.isRed && (
-                      <span className="d3-info-node-code">
-                        {`NODE · ${activeMock?.code ?? ""}`}
-                      </span>
-                    )}
                   </div>
                 </div>
               </div>

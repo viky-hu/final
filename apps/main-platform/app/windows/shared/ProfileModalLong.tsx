@@ -37,6 +37,18 @@ const M3_MAP_BG_OFFSET_Y_PERCENT = 1;
 const MAP_CURSOR_PATH =
   "M254.5 609C327.821 697.686 389.473 770.607 397 785C405.498 771.741 458.375 707.807 541 607.5C582.567 549.104 599.532 516.654 614 459.5C620.615 409.584 618.912 383.151 605.5 339C582.976 283.441 564.02 258.184 518.5 224C472.988 197.268 446.632 189.034 398 187.5C345.114 189.605 318.741 197.86 277 224C229.549 258.406 211.828 284.033 189.5 340C176.178 379.831 174.499 406.119 181 459.5C191.438 511.408 212.2 545.796 254.5 609Z";
 
+const M3_PLATE_LABELS: Record<SavedNodeLocation["plateId"], string> = {
+  "plate-1": "西北区域",
+  "plate-2": "行政区",
+  "plate-3": "实战馆区",
+  "plate-4": "食堂-宿舍区",
+  "plate-5": "教学区",
+};
+
+function getM3PlateLabel(plateId: SavedNodeLocation["plateId"]): string {
+  return M3_PLATE_LABELS[plateId] ?? plateId;
+}
+
 async function loadImageFromSource(src: string): Promise<HTMLImageElement> {
   return await new Promise((resolve, reject) => {
     const image = new Image();
@@ -730,7 +742,7 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
               <span className="global-top-nav__save-hint global-top-nav__m3-feedback-hint" aria-live="polite">{m3Hint}</span>
               <div className="global-top-nav__m3-action-block">
                 <p className="global-top-nav__m3-lock-hint">
-                  {previewLocation ? `当前定位：${previewLocation.plateId}` : "当前定位：未选择"}
+                  {previewLocation ? `当前定位：${getM3PlateLabel(previewLocation.plateId)}` : "当前定位：未选择"}
                 </p>
                 <button type="button" className="global-top-nav__save-btn global-top-nav__m3-save-btn" onClick={handleSaveLocation}>
                   保存位置

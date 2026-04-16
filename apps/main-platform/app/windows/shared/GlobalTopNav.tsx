@@ -134,7 +134,7 @@ export function GlobalTopNav({
         <div className="global-top-nav__overlay" role="presentation" onClick={(e) => e.target === e.currentTarget && closeAllPopups()}>
           <section className="global-top-nav__logout-modal" role="dialog" aria-modal="true" aria-label="退出登录确认">
             <p className="global-top-nav__logout-title">是否确认退出登录？</p>
-            <p className="global-top-nav__logout-subtitle">退出后将返回第一窗口（登录界面）。</p>
+            <p className="global-top-nav__logout-subtitle">将会返回登录界面</p>
             <div className="global-top-nav__logout-actions">
               <button type="button" className="global-top-nav__ghost-btn" onClick={closeAllPopups}>
                 取消

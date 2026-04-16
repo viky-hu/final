@@ -272,7 +272,7 @@ export function D4Visualization({ visible }: D4VisualizationProps) {
       {/* ── 标题栏 (仅标题) ── */}
       <header ref={headerRef} className="d1tl-header d4viz-header">
         <span className="d1tl-header-dot d4viz-dot" />
-        <span className="d1tl-header-title">节点数据库价值监测</span>
+        <span className="d1tl-header-title">本节点数据库价值监测</span>
       </header>
 
       {/* ── 时间段选择器独立行 ── */}

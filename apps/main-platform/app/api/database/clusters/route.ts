@@ -15,6 +15,7 @@ const CreateClusterSchema = z.object({
     .trim()
     .min(1, "聚类名称不能为空")
     .max(50, "名称不能超过 50 个字符"),
+  actor: z.string().trim().max(32, "节点名称不能超过 32 个字符").optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -31,6 +32,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 422 });
   }
 
-  const cluster = addCluster(result.data.name);
+  const cluster = addCluster(result.data.name, result.data.actor);
   return NextResponse.json({ cluster }, { status: 201 });
 }

@@ -14,6 +14,7 @@ import type { Cluster } from "@/app/lib/database-store";
 import { LINE_DRAW_EASE } from "../shared/animation";
 import { DB_V_LINE_X_RATIO, DB_LINE_COLOR, DB_LINE_STROKE_W } from "../shared/coords";
 import { ClusterDetailWindow } from "./components/ClusterDetailWindow";
+import { useAppRuntime } from "@/app/components/runtime/AppRuntimeProvider";
 
 interface DatabaseWindowProps {
   onBack: () => void;
@@ -22,6 +23,7 @@ interface DatabaseWindowProps {
 }
 
 export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: DatabaseWindowProps) {
+  const { username } = useAppRuntime();
   const [clusters, setClusters] = useState<Cluster[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newClusterName, setNewClusterName] = useState("");
@@ -223,7 +225,7 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
       const res = await fetch("/api/database/clusters", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, actor: username }),
       });
       if (!res.ok) {
         const data = await res.json() as { error?: string };
@@ -237,7 +239,7 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
     } finally {
       setIsSubmitting(false);
     }
-  }, [newClusterName, fetchData, closeModal]);
+  }, [newClusterName, fetchData, closeModal, username]);
 
   const totalFileCount = clusters.reduce((sum, cluster) => sum + cluster.fileCount, 0);
 
@@ -418,6 +420,7 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
       {selectedCluster && (
         <ClusterDetailWindow
           cluster={selectedCluster}
+          actorName={username}
           onBack={() => setSelectedCluster(null)}
         />
       )}

@@ -12,7 +12,7 @@ import {
 import { useWatermark } from "@/app/components/watermark/WatermarkProvider";
 
 const RUNTIME_STORAGE_KEY = "main-platform-runtime-profile-v1";
-const DEFAULT_USERNAME = "安保处";
+const DEFAULT_USERNAME = "本机节点";
 const RUNTIME_PLATE_IDS: RuntimePlateId[] = ["plate-1", "plate-2", "plate-3", "plate-4", "plate-5"];
 
 export type RuntimePlateId = "plate-1" | "plate-2" | "plate-3" | "plate-4" | "plate-5";

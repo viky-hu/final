@@ -10,7 +10,7 @@ import {
 } from "react";
 import { WatermarkOverlay } from "./WatermarkOverlay";
 
-const DEFAULT_WATERMARK_NAME = "安保处";
+const DEFAULT_WATERMARK_NAME = "本机节点";
 
 type WatermarkContextValue = {
   watermarkName: string;

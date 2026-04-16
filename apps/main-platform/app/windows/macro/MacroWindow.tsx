@@ -253,7 +253,7 @@ export function MacroWindow({
           </section>
           {/* d2 区 — 左下 */}
           <section className="macro-zone macro-zone--d2">
-            <D2Visualization visible={d1Visible} />
+            <D2Visualization visible={d1Visible} selfNodeName={username} />
           </section>
           {/* d3 区 — 中间大片（暗色） */}
           <section className="macro-zone macro-zone--d3" style={{ padding: 0, overflow: 'hidden' }}>
@@ -272,7 +272,7 @@ export function MacroWindow({
           </section>
           {/* d5 区 — 右下 */}
           <section className="macro-zone macro-zone--d5">
-            <D5WordCloud visible={d1Visible} activeSectorId={activeSectorId} selectedNodeId={selectedNodeId} />
+            <D5WordCloud visible={d1Visible} activeSectorId={activeSectorId} selectedNodeId={selectedNodeId} selfNodeName={username} />
           </section>
         </div>
 

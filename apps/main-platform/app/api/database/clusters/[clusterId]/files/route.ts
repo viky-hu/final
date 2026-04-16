@@ -19,6 +19,7 @@ const AddFileSchema = z.object({
   size: z.number().nonnegative("文件大小不能为负数"),
   mimeType: z.string().min(1, "MIME 类型不能为空"),
   localPath: z.string().optional(),
+  actor: z.string().trim().max(32, "节点名称不能超过 32 个字符").optional(),
 });
 
 // POST /api/database/clusters/[clusterId]/files
@@ -41,6 +42,7 @@ export async function POST(
     return NextResponse.json({ error: message }, { status: 422 });
   }
 
-  const file = addClusterFile(clusterId, result.data);
+  const { actor, ...fileBody } = result.data;
+  const file = addClusterFile(clusterId, fileBody, actor);
   return NextResponse.json({ file }, { status: 201 });
 }
