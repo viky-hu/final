@@ -127,7 +127,8 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
   const [draftAvatarPreviewUrl, setDraftAvatarPreviewUrl] = useState<string | null>(null);
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [draftUsername, setDraftUsername] = useState(username);
-  const [m1Hint, setM1Hint] = useState("");
+  const [m1AvatarHint, setM1AvatarHint] = useState("");
+  const [m15NameHint, setM15NameHint] = useState("");
 
   const [applyState, setApplyState] = useState<"idle" | "loading" | "success" | "failed">("idle");
 
@@ -146,7 +147,8 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
   const avatarUploadInputRef = useRef<HTMLInputElement | null>(null);
 
   const applyTimerRef = useRef<number | null>(null);
-  const m1HintTimerRef = useRef<number | null>(null);
+  const m1AvatarHintTimerRef = useRef<number | null>(null);
+  const m15NameHintTimerRef = useRef<number | null>(null);
   const m3HintTimerRef = useRef<number | null>(null);
   const avatarSuccessTimerRef = useRef<number | null>(null);
   const mapCursorFadeTimerRef = useRef<number | null>(null);
@@ -157,13 +159,23 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
     return "";
   }, [applyState]);
 
-  const pushM1Hint = useCallback((nextHint: string) => {
-    setM1Hint(nextHint);
-    if (m1HintTimerRef.current !== null) {
-      window.clearTimeout(m1HintTimerRef.current);
+  const pushM1AvatarHint = useCallback((nextHint: string) => {
+    setM1AvatarHint(nextHint);
+    if (m1AvatarHintTimerRef.current !== null) {
+      window.clearTimeout(m1AvatarHintTimerRef.current);
     }
-    m1HintTimerRef.current = window.setTimeout(() => {
-      setM1Hint("");
+    m1AvatarHintTimerRef.current = window.setTimeout(() => {
+      setM1AvatarHint("");
+    }, 1800);
+  }, []);
+
+  const pushM15NameHint = useCallback((nextHint: string) => {
+    setM15NameHint(nextHint);
+    if (m15NameHintTimerRef.current !== null) {
+      window.clearTimeout(m15NameHintTimerRef.current);
+    }
+    m15NameHintTimerRef.current = window.setTimeout(() => {
+      setM15NameHint("");
     }, 1800);
   }, []);
 
@@ -276,7 +288,7 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
     event.currentTarget.value = "";
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      pushM1Hint("仅支持图片文件");
+      pushM1AvatarHint("仅支持图片文件");
       return;
     }
 
@@ -296,7 +308,7 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
       image.src = src;
     };
     reader.readAsDataURL(file);
-  }, [pushM1Hint]);
+  }, [pushM1AvatarHint]);
 
   const handleAvatarCropComplete = useCallback((_croppedArea: Area, croppedAreaPixels: Area) => {
     setAvatarCropPixels(croppedAreaPixels);
@@ -329,11 +341,11 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
 
   const handleApplyAvatar = useCallback(async () => {
     if (!draftAvatarSrc) {
-      pushM1Hint("请先上传头像文件");
+      pushM1AvatarHint("请先上传头像文件");
       return;
     }
     if (!avatarCropPixels) {
-      pushM1Hint("请先调整头像裁剪区域");
+      pushM1AvatarHint("请先调整头像裁剪区域");
       return;
     }
 
@@ -347,29 +359,29 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
         window.clearTimeout(avatarSuccessTimerRef.current);
       }
       avatarSuccessTimerRef.current = window.setTimeout(() => {
-        pushM1Hint("头像上传成功，已同步保存");
+        pushM1AvatarHint("头像上传成功，已同步保存");
       }, AVATAR_SUCCESS_HINT_DELAY_MS);
     } catch {
-      pushM1Hint("头像处理失败，请重试");
+      pushM1AvatarHint("头像处理失败，请重试");
     } finally {
       setAvatarBusy(false);
     }
-  }, [avatarCropPixels, draftAvatarSrc, pushM1Hint, resetAvatarDraft, setAvatarDataUrl]);
+  }, [avatarCropPixels, draftAvatarSrc, pushM1AvatarHint, resetAvatarDraft, setAvatarDataUrl]);
 
   const handleSaveUsername = useCallback(() => {
     const nextName = draftUsername.trim();
     if (!nextName) {
-      pushM1Hint("节点名称不能为空");
+      pushM15NameHint("节点名称不能为空");
       return;
     }
     if (nextName === username) {
-      pushM1Hint("名称未变化");
+      pushM15NameHint("请填写修改后的名称");
       return;
     }
 
     setUsername(nextName);
-    pushM1Hint("名称已保存并全局同步");
-  }, [draftUsername, pushM1Hint, setUsername, username]);
+    pushM15NameHint("名称已保存");
+  }, [draftUsername, pushM15NameHint, setUsername, username]);
 
   const handleApplyCenterNode = useCallback(() => {
     if (applyState === "loading") return;
@@ -411,7 +423,7 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
 
   const handleSaveLocation = useCallback(() => {
     if (!previewLocation) {
-      pushM3Hint("请先在板块区域内选择位置");
+      pushM3Hint("请先在合法区域内选择位置");
       return;
     }
 
@@ -424,7 +436,7 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
     setPreviewLocation(committed);
     previewLocationRef.current = committed;
     setFadingLocation(null);
-    pushM3Hint("位置已保存，宏观平台会按映射自动升起对应板块");
+    pushM3Hint("位置已保存");
   }, [previewLocation, pushM3Hint, setSavedNodeLocation]);
 
   useEffect(() => {
@@ -432,7 +444,8 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
     previewLocationRef.current = savedNodeLocation;
     setFadingLocation(null);
     setApplyState("idle");
-    setM1Hint("");
+    setM1AvatarHint("");
+    setM15NameHint("");
     setM3Hint("");
     resetAvatarDraft();
   }, [resetAvatarDraft, savedNodeLocation]);
@@ -519,8 +532,11 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
       if (applyTimerRef.current !== null) {
         window.clearTimeout(applyTimerRef.current);
       }
-      if (m1HintTimerRef.current !== null) {
-        window.clearTimeout(m1HintTimerRef.current);
+      if (m1AvatarHintTimerRef.current !== null) {
+        window.clearTimeout(m1AvatarHintTimerRef.current);
+      }
+      if (m15NameHintTimerRef.current !== null) {
+        window.clearTimeout(m15NameHintTimerRef.current);
       }
       if (m3HintTimerRef.current !== null) {
         window.clearTimeout(m3HintTimerRef.current);
@@ -537,10 +553,14 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
   return (
     <section className="global-top-nav__profile-modal global-top-nav__profile-modal--long" role="dialog" aria-modal="true" aria-label="个人信息设置">
       <div className="global-top-nav__profile-content global-top-nav__profile-content--long">
-        <section className="global-top-nav__section">
-          <h3 className="global-top-nav__panel-title">头像设置</h3>
+        <header className="global-top-nav__profile-modal-title-wrap">
+          <h2 className="global-top-nav__profile-modal-title">节点信息设置</h2>
+        </header>
 
-          <div className="global-top-nav__m1-grid">
+        <section className="global-top-nav__section">
+          <h3 className="global-top-nav__panel-title">更改头像</h3>
+
+          <div className={`global-top-nav__m1-grid${draftAvatarSrc ? "" : " global-top-nav__m1-grid--single"}`}>
             <div className="global-top-nav__m1-left">
               <input
                 ref={avatarUploadInputRef}
@@ -555,7 +575,7 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
                 className="global-top-nav__save-btn global-top-nav__avatar-upload-trigger"
                 onClick={() => avatarUploadInputRef.current?.click()}
               >
-                上传头像
+                上传图片
               </button>
 
               {draftAvatarSrc && (
@@ -579,53 +599,57 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
                     </div>
                   </div>
 
-                  <p className="global-top-nav__avatar-crop-guide">可拖拽或滚轮调整尺寸</p>
-
-                  <div className="global-top-nav__inline-actions">
-                    <button type="button" className="global-top-nav__save-btn" onClick={handleApplyAvatar} disabled={avatarBusy}>
-                      {avatarBusy ? "处理中…" : "保存头像"}
-                    </button>
-                    <button type="button" className="global-top-nav__ghost-btn" onClick={handleResetAvatarCrop}>
-                      重置裁剪
-                    </button>
-                  </div>
+                  <p className="global-top-nav__avatar-crop-guide">使用滚轮或拖拽调整尺寸</p>
                 </>
               )}
             </div>
 
-            <div className="global-top-nav__m1-right">
-              {draftAvatarSrc && (
-                <>
-                  <p className="global-top-nav__field-label">头像预览</p>
-                  <div className="global-top-nav__avatar-round-preview">
-                    {draftAvatarPreviewUrl ? (
-                      <img src={draftAvatarPreviewUrl} className="global-top-nav__avatar-preview-image" alt="圆形头像预览" />
-                    ) : (
+            {draftAvatarSrc && (
+              <div className="global-top-nav__m1-right">
+                <p className="global-top-nav__field-label">头像预览</p>
+                <div className="global-top-nav__avatar-round-preview">
+                  {draftAvatarPreviewUrl ? (
+                    <img src={draftAvatarPreviewUrl} className="global-top-nav__avatar-preview-image" alt="圆形头像预览" />
+                  ) : (
                       <span className="global-top-nav__avatar-crop-placeholder">拖拽或缩放后生成预览</span>
-                    )}
-                  </div>
-                </>
-              )}
+                  )}
+                </div>
 
-              <label className="global-top-nav__field-label" htmlFor="display-name-input">
-                节点名称
-              </label>
-              <input
-                id="display-name-input"
-                className="global-top-nav__field-input"
-                value={draftUsername}
-                onChange={(e) => setDraftUsername(e.target.value)}
-              />
-              <button type="button" className="global-top-nav__save-btn global-top-nav__name-save-btn" onClick={handleSaveUsername}>
-                保存名称
-              </button>
-              <span className="global-top-nav__save-hint" aria-live="polite">{m1Hint}</span>
-            </div>
+                <div className="global-top-nav__inline-actions">
+                  <button type="button" className="global-top-nav__save-btn" onClick={handleApplyAvatar} disabled={avatarBusy}>
+                    {avatarBusy ? "处理中…" : "保存头像"}
+                  </button>
+                  <button type="button" className="global-top-nav__ghost-btn" onClick={handleResetAvatarCrop}>
+                    重置裁剪
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
+
+          <span className="global-top-nav__save-hint" aria-live="polite">{m1AvatarHint}</span>
         </section>
 
         <section className="global-top-nav__section">
-          <h3 className="global-top-nav__panel-title">中心节点申请</h3>
+          <h3 className="global-top-nav__panel-title">节点名称</h3>
+
+          <label className="global-top-nav__field-label" htmlFor="display-name-input">
+            节点名称
+          </label>
+          <input
+            id="display-name-input"
+            className="global-top-nav__field-input"
+            value={draftUsername}
+            onChange={(e) => setDraftUsername(e.target.value)}
+          />
+          <button type="button" className="global-top-nav__save-btn global-top-nav__name-save-btn" onClick={handleSaveUsername}>
+            保存名称
+          </button>
+          <span className="global-top-nav__save-hint" aria-live="polite">{m15NameHint}</span>
+        </section>
+
+        <section className="global-top-nav__section">
+          <h3 className="global-top-nav__panel-title">申请权限</h3>
           <p className="global-top-nav__panel-subtitle">
             当前法官模型状态：
             <strong className={judgeModelConfigured ? "global-top-nav__status-ok" : "global-top-nav__status-bad"}>
@@ -639,7 +663,7 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
             onClick={handleApplyCenterNode}
             disabled={applyState === "loading"}
           >
-            {applyState === "loading" ? "申请中，请稍候…" : "申请成为中心节点"}
+            {applyState === "loading" ? "申请中，请稍候…" : "申请中心节点"}
           </button>
 
           <span
@@ -651,7 +675,7 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
         </section>
 
         <section className="global-top-nav__section">
-          <h3 className="global-top-nav__panel-title">节点位置设置</h3>
+          <h3 className="global-top-nav__panel-title">节点位置</h3>
           <p className="global-top-nav__panel-subtitle">请在地图区域内选取位置，点击保存后生效</p>
 
           <div className="global-top-nav__m3-layout">
