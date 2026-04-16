@@ -1,14 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { D1Timeline } from "./components/D1Timeline";
 import { D2Visualization } from "./components/D2Visualization";
 import { D3SandboxThreeMvp } from "./components/D3SandboxThreeMvp";
 import { D4Visualization } from "./components/D4Visualization";
 import { D5WordCloud } from "./components/D5WordCloud";
 import { gsap } from "gsap";
-import { StaggeredMenu } from "../main/components/StaggeredMenu";
-import type { StaggeredMenuItem } from "../main/components/StaggeredMenu";
 import { GlobalTopNav } from "../shared/GlobalTopNav";
 import { LINE_DRAW_EASE } from "../shared/animation";
 import {
@@ -27,9 +25,6 @@ const X_LEFT = VW * 0.25;         // 360  – p1 (25%)
 const X_RIGHT = VW * 0.75;        // 1080 – p2 (75%)
 const Y_MID = VH / 2;             // 450  – p3 / p4
 
-/* ─── 菜单展开时画面整体水平偏移目标（与 Window 3 一致） ─── */
-const MENU_SHIFT_PX = 0.15 * VW; // 216
-const ENABLE_LEGACY_MENU = false;
 
 interface MacroWindowProps {
   onBack?: () => void;
@@ -47,13 +42,11 @@ export function MacroWindow({
   const { username, savedNodeLocation, locationRevision } = useAppRuntime();
   const svgRef = useRef<SVGSVGElement>(null);
   const modulesRef = useRef<HTMLDivElement>(null);
-  const [legacyMenuOpen, setLegacyMenuOpen] = useState(false);
   const [d1Visible, setD1Visible] = useState(false);
   const [activeSectorId, setActiveSectorId] = useState(DEFAULT_ACTIVE_SECTOR_ID);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(
     defaultSelectedNodeId ?? null,
   );
-  const isMenuOpen = ENABLE_LEGACY_MENU ? legacyMenuOpen : false;
 
   const selfNodePlacement = useMemo(
     () =>
@@ -75,11 +68,6 @@ export function MacroWindow({
   const handleNodeSelect = useCallback((nodeId: string | null) => {
     setSelectedNodeId(nodeId);
   }, []);
-
-  // 菜单联动补间
-  const menuTweenRef = useRef<gsap.core.Tween | null>(null);
-  const entryDoneRef = useRef(false);
-  const pendingMenuOpenRef = useRef<boolean | null>(null);
 
   /* ─── 入场动画 ─────────────────────────────────────────── */
   useLayoutEffect(() => {
@@ -120,14 +108,7 @@ export function MacroWindow({
 
     const tl = gsap.timeline({
       onComplete: () => {
-        entryDoneRef.current = true;
         setD1Visible(true);
-        // 如果入场期间菜单已打开，补一次偏移
-        if (pendingMenuOpenRef.current !== null) {
-          const shouldShift = pendingMenuOpenRef.current;
-          pendingMenuOpenRef.current = null;
-          animateMenuShift(shouldShift);
-        }
       },
     });
 
@@ -199,39 +180,6 @@ export function MacroWindow({
 
     return () => { tl.kill(); };
   }, []);
-
-  /* ─── 菜单联动偏移 ─────────────────────────────────────── */
-  const animateMenuShift = useCallback((open: boolean) => {
-    const svg = svgRef.current;
-    const modules = modulesRef.current;
-    if (!svg) return;
-
-    menuTweenRef.current?.kill();
-    const targetX = open ? -MENU_SHIFT_PX : 0;
-
-    menuTweenRef.current = gsap.to([svg, modules].filter(Boolean), {
-      x: targetX,
-      duration: 0.45,
-      ease: "power3.inOut",
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!entryDoneRef.current) {
-      pendingMenuOpenRef.current = isMenuOpen;
-      return;
-    }
-    animateMenuShift(isMenuOpen);
-    return () => { menuTweenRef.current?.kill(); };
-  }, [isMenuOpen, animateMenuShift]);
-
-  /* ─── 菜单配置 ─────────────────────────────────────────── */
-  const menuItems: StaggeredMenuItem[] = [
-    { label: "返回初始界面", ariaLabel: "返回初始界面", link: "#", onClick: onBack },
-    { label: "宏观平台",     ariaLabel: "宏观平台",     link: "#" },
-    { label: "数据库",       ariaLabel: "数据库",       link: "#", onClick: onOpenDatabase },
-    { label: "交互对话",     ariaLabel: "交互对话",     link: "#", onClick: onNavigateToMain },
-  ];
 
   return (
     <div className="macro-window-page">
@@ -328,23 +276,6 @@ export function MacroWindow({
           </section>
         </div>
 
-        {/* Temporary disablement: keep legacy menu code for future restoration */}
-        {ENABLE_LEGACY_MENU && (
-          <div className="macro-menu-layer sm-scope">
-            <StaggeredMenu
-              position="right"
-              items={menuItems}
-              displayItemNumbering={true}
-              menuButtonColor="#111111"
-              openMenuButtonColor="#111111"
-              changeMenuColorOnOpen={false}
-              colors={["#D8B4FE", "#A855F7"]}
-              accentColor="#A855F7"
-              onMenuOpen={() => setLegacyMenuOpen(true)}
-              onMenuClose={() => setLegacyMenuOpen(false)}
-            />
-          </div>
-        )}
       </div>
     </div>
   );

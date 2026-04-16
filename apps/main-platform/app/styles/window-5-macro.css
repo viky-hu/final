@@ -354,15 +354,6 @@
   50%       { opacity: 0.5; }
 }
 
-/* 菜单层 */
-.macro-menu-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 10;
-  min-height: 100%;
-  pointer-events: none;
-}
-
 /* ========== D2 数据可视化面板 ========== */
 
 /* d2 区域自身需填满格子 */

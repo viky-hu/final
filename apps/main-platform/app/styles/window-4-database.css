@@ -329,31 +329,6 @@
   white-space: nowrap;
 }
 
-/* ── Menu layer ── */
-.db-menu-layer {
-  position: fixed;
-  top: var(--global-top-nav-height);
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 100;
-  pointer-events: none;
-}
-
-/* Keep menu top spacing aligned with header after ticker removal */
-.db-menu-layer .staggered-menu-header {
-  padding-top: 1.2rem;
-}
-
-/* Override menu toggle text color for light background */
-.db-menu-layer .sm-toggle {
-  color: #111111 !important;
-}
-
-.db-menu-layer .sm-toggle:focus-visible {
-  outline-color: #111111;
-}
-
 /* ── Modal overlay ── */
 .db-modal-overlay {
   position: fixed;

@@ -2,16 +2,13 @@
 
 import { useState, useCallback } from "react";
 import { DotGrid } from "./components/DotGrid";
-import { StaggeredMenu } from "./components/StaggeredMenu";
 import { ChatCanvasLines } from "./components/ChatCanvasLines";
 import { ChatInteractionPanel } from "./components/ChatInteractionPanel";
 import { TraceWindow } from "./components/TraceWindow";
 import { GlobalTopNav } from "../shared/GlobalTopNav";
-import type { StaggeredMenuItem } from "./components/StaggeredMenu";
 import { useAppRuntime } from "@/app/components/runtime/AppRuntimeProvider";
 
 type ChatMode = "local" | "global";
-const ENABLE_LEGACY_MENU = false;
 
 interface MainWindowProps {
   onBack?: () => void;
@@ -21,11 +18,9 @@ interface MainWindowProps {
 
 export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowProps) {
   const { judgeModelConfigured, setJudgeModelConfigured } = useAppRuntime();
-  const [legacyMenuOpen, setLegacyMenuOpen] = useState(false);
   const [canvasReady, setCanvasReady] = useState(false);
   const [traceTarget, setTraceTarget] = useState<{ msgId: string; content: string } | null>(null);
   const [chatMode, setChatMode] = useState<ChatMode>("local");
-  const isMenuOpen = ENABLE_LEGACY_MENU ? legacyMenuOpen : false;
 
   const handleOpenTrace = useCallback((msgId: string, content: string) => {
     setTraceTarget({ msgId, content });
@@ -34,32 +29,6 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
   const handleCloseTrace = useCallback(() => {
     setTraceTarget(null);
   }, []);
-
-  const menuItems: StaggeredMenuItem[] = [
-    {
-      label: "返回初始界面",
-      ariaLabel: "返回初始界面",
-      link: "#",
-      onClick: onBack,
-    },
-    {
-      label: "宏观平台",
-      ariaLabel: "宏观平台",
-      link: "#",
-      onClick: onOpenMacro,
-    },
-    {
-      label: "数据库",
-      ariaLabel: "数据库",
-      link: "#",
-      onClick: onOpenDatabase,
-    },
-    {
-      label: "交互对话",
-      ariaLabel: "交互对话",
-      link: "#",
-    },
-  ];
 
   return (
     <div className="main-window-page">
@@ -92,7 +61,7 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
         {/* ChatCanvasLines: z-index 5, SVG canvas layer between dotgrid and menu */}
         <div className="main-window-canvas-layer">
           <ChatCanvasLines
-            menuOpen={isMenuOpen}
+            menuOpen={false}
             mode={chatMode}
             onComplete={() => setCanvasReady(true)}
           />
@@ -100,7 +69,7 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
 
         {/* ChatInteractionPanel: z-index 6, interactive chat layer above canvas, pointer-events on children only */}
         <ChatInteractionPanel
-          menuOpen={isMenuOpen}
+          menuOpen={false}
           canvasReady={canvasReady}
           mode={chatMode}
           onModeChange={setChatMode}
@@ -118,23 +87,6 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
           />
         )}
 
-        {/* Temporary disablement: keep legacy menu code for future restoration */}
-        {ENABLE_LEGACY_MENU && (
-          <div className="main-window-menu-layer">
-            <StaggeredMenu
-              position="right"
-              items={menuItems}
-              displayItemNumbering={true}
-              menuButtonColor="#111111"
-              openMenuButtonColor="#111111"
-              changeMenuColorOnOpen={true}
-              colors={["#7A96FF", "#0047FF"]}
-              accentColor="#0047FF"
-              onMenuOpen={() => setLegacyMenuOpen(true)}
-              onMenuClose={() => setLegacyMenuOpen(false)}
-            />
-          </div>
-        )}
       </div>
     </div>
   );

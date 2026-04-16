@@ -9,15 +9,11 @@ import {
 } from "react";
 import { gsap } from "gsap";
 import { FolderOpen, Database } from "lucide-react";
-import { StaggeredMenu } from "../main/components/StaggeredMenu";
-import type { StaggeredMenuItem } from "../main/components/StaggeredMenu";
 import { GlobalTopNav } from "../shared/GlobalTopNav";
 import type { Cluster } from "@/app/lib/database-store";
 import { LINE_DRAW_EASE } from "../shared/animation";
 import { DB_V_LINE_X_RATIO, DB_LINE_COLOR, DB_LINE_STROKE_W } from "../shared/coords";
 import { ClusterDetailWindow } from "./components/ClusterDetailWindow";
-
-const ENABLE_LEGACY_MENU = false;
 
 interface DatabaseWindowProps {
   onBack: () => void;
@@ -243,14 +239,6 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
     }
   }, [newClusterName, fetchData, closeModal]);
 
-  // ── Menu config ────────────────────────────────────────────────────────────
-  const menuItems: StaggeredMenuItem[] = [
-    { label: "返回初始界面", ariaLabel: "返回初始界面", link: "#", onClick: onBack },
-    { label: "宏观平台",     ariaLabel: "宏观平台",     link: "#", onClick: onOpenMacro },
-    { label: "数据库",       ariaLabel: "数据库",       link: "#" },
-    { label: "交互对话",     ariaLabel: "交互对话",     link: "#", onClick: onNavigateToMain },
-  ];
-
   const totalFileCount = clusters.reduce((sum, cluster) => sum + cluster.fileCount, 0);
 
   return (
@@ -424,21 +412,6 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
 
       </div>
 
-      {/* ── Menu layer (always on top) ────────────────────────────────── */}
-      {ENABLE_LEGACY_MENU && (
-        <div className="db-menu-layer sm-scope">
-          <StaggeredMenu
-            position="right"
-            items={menuItems}
-            displayItemNumbering={true}
-            menuButtonColor="#111111"
-            openMenuButtonColor="#111111"
-            changeMenuColorOnOpen={false}
-            colors={["#F5E8E0", "#8B1A1A"]}
-            accentColor="#CC0000"
-          />
-        </div>
-      )}
       </div>
 
       {/* ── Cluster Detail Overlay ────────────────────────────────────── */}
