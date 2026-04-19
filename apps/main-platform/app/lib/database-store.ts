@@ -351,6 +351,13 @@ export function listClusterFiles(clusterId: string): ClusterFile[] {
   return files.map((f) => ({ ...f }));
 }
 
+export function getClusterFile(clusterId: string, fileId: string): ClusterFile | null {
+  const state = getState();
+  const files = state.clusterFiles[clusterId] ?? [];
+  const found = files.find((file) => file.id === fileId);
+  return found ? { ...found } : null;
+}
+
 export function addClusterFile(
   clusterId: string,
   body: AddClusterFileBody,

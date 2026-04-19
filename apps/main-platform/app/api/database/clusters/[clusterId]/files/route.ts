@@ -10,7 +10,7 @@ export async function GET(
   { params }: { params: Promise<{ clusterId: string }> },
 ) {
   const { clusterId } = await params;
-  const files = listClusterFiles(clusterId);
+  const files = listClusterFiles(clusterId).map(({ textContent, contentBase64, ...meta }) => meta);
   return NextResponse.json({ files });
 }
 
@@ -21,7 +21,7 @@ const AddFileSchema = z.object({
   localPath: z.string().optional(),
   textContent: z.string().optional(),
   contentBase64: z.string().optional(),
-  actor: z.string().trim().max(32, "节点名称不能超过 32 个字符").optional(),
+  actor: z.string().trim().optional(),
 });
 
 // POST /api/database/clusters/[clusterId]/files

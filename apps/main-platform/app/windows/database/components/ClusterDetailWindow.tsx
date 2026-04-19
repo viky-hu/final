@@ -32,6 +32,7 @@ interface LocalFile {
   mimeType: string;
   addedAt: string;
   fileObject: File;
+  hasInlineContent: boolean;
 }
 
 // ── File type groups for the upload bubble ───────────────────────────────────
@@ -144,6 +145,7 @@ function bytesToBase64(bytes: Uint8Array): string {
 
 function toLocalFile(record: ClusterFile): LocalFile {
   const mimeType = record.mimeType || getMimeFromName(record.name);
+  const hasInlineContent = record.textContent != null || Boolean(record.contentBase64);
 
   let blob: Blob;
   if (record.textContent != null) {
@@ -164,6 +166,7 @@ function toLocalFile(record: ClusterFile): LocalFile {
     mimeType,
     addedAt: record.addedAt,
     fileObject,
+    hasInlineContent,
   };
 }
 
@@ -194,6 +197,8 @@ export function ClusterDetailWindow({ cluster, actorName, onBack, onFilesChanged
   const [selectedFile, setSelectedFile] = useState<LocalFile | null>(null);
   const [deleteTargetFile, setDeleteTargetFile] = useState<LocalFile | null>(null);
   const [isDeletingFile, setIsDeletingFile] = useState(false);
+  const [previewLoadingFileId, setPreviewLoadingFileId] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const fetchFiles = useCallback(async () => {
     try {
@@ -209,6 +214,29 @@ export function ClusterDetailWindow({ cluster, actorName, onBack, onFilesChanged
   useEffect(() => {
     void fetchFiles();
   }, [fetchFiles]);
+
+  const ensureFileForPreview = useCallback(async (target: LocalFile): Promise<LocalFile> => {
+    if (target.hasInlineContent) return target;
+
+    try {
+      const res = await fetch(`/api/database/clusters/${cluster.id}/files/${target.id}`);
+      if (!res.ok) return target;
+      const data = await res.json() as { file: ClusterFile };
+      const hydrated = toLocalFile(data.file);
+      setFiles((prev) => prev.map((item) => (item.id === hydrated.id ? hydrated : item)));
+      return hydrated;
+    } catch {
+      return target;
+    }
+  }, [cluster.id]);
+
+  const handleOpenPreview = useCallback(async (target: LocalFile) => {
+    if (previewLoadingFileId) return;
+    setPreviewLoadingFileId(target.id);
+    const resolved = await ensureFileForPreview(target);
+    setSelectedFile(resolved);
+    setPreviewLoadingFileId(null);
+  }, [ensureFileForPreview, previewLoadingFileId]);
 
   // ── Entrance: slide-in from right then draw line + fade list header ────────
   useLayoutEffect(() => {
@@ -305,11 +333,16 @@ export function ClusterDetailWindow({ cluster, actorName, onBack, onFilesChanged
     const list = e.target.files;
     if (!list || list.length === 0) return;
 
-    setShowBubble(false);
-    e.target.value = "";
-
     const selected = Array.from(list);
-    for (const file of selected) {
+    if (selected.length === 0) {
+      setUploadError("未读取到所选文件，请重试");
+      return;
+    }
+
+    setShowBubble(false);
+    setUploadError(null);
+    e.target.value = "";
+    const uploadTasks = selected.map(async (file) => {
       const mimeType = file.type || getMimeFromName(file.name);
       let textContent: string | undefined;
       let contentBase64: string | undefined;
@@ -321,7 +354,7 @@ export function ClusterDetailWindow({ cluster, actorName, onBack, onFilesChanged
         contentBase64 = bytesToBase64(bytes);
       }
 
-      await fetch(`/api/database/clusters/${cluster.id}/files`, {
+      const res = await fetch(`/api/database/clusters/${cluster.id}/files`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -333,9 +366,51 @@ export function ClusterDetailWindow({ cluster, actorName, onBack, onFilesChanged
           actor: actorName,
         }),
       });
+
+      if (!res.ok) {
+        let reason = "上传失败";
+        try {
+          const data = await res.json() as { error?: string };
+          if (data.error) reason = data.error;
+        } catch {
+          // ignore non-json error body
+        }
+        throw new Error(`${reason}（HTTP ${res.status}）`);
+      }
+      const data = await res.json() as { file: ClusterFile };
+      const uploaded: LocalFile = {
+        id: data.file.id,
+        name: file.name,
+        size: file.size,
+        mimeType,
+        addedAt: data.file.addedAt,
+        fileObject: file,
+        hasInlineContent: true,
+      };
+
+      setFiles((prev) => {
+        if (prev.some((existing) => existing.id === uploaded.id)) return prev;
+        return [...prev, uploaded];
+      });
+
+      return true;
+    });
+
+    const uploadResults = await Promise.all(uploadTasks.map((task) =>
+      task.catch((error: unknown) => {
+        const message = error instanceof Error ? error.message : "上传失败";
+        setUploadError((prev) => prev ?? message);
+        return false;
+      }),
+    ));
+    const uploadedCount = uploadResults.filter(Boolean).length;
+    if (uploadedCount === 0) {
+      setUploadError((prev) => prev ?? "上传失败：未收到服务端成功响应，请重试");
+    } else if (uploadedCount < selected.length) {
+      setUploadError(`部分文件上传失败：成功 ${uploadedCount} / ${selected.length}`);
     }
 
-    await fetchFiles();
+    void fetchFiles();
     if (onFilesChanged) {
       await onFilesChanged();
     }
@@ -486,6 +561,11 @@ export function ClusterDetailWindow({ cluster, actorName, onBack, onFilesChanged
         </header>
 
         <div ref={listBodyRef} className="db-list-body" role="list">
+          {uploadError && (
+            <div className="db-list-empty" role="status" aria-live="polite">
+              <span>{uploadError}</span>
+            </div>
+          )}
           {files.length === 0 ? (
             <div className="db-list-empty" role="listitem">
               <FolderOpen size={24} strokeWidth={1} aria-hidden="true" />
@@ -498,9 +578,10 @@ export function ClusterDetailWindow({ cluster, actorName, onBack, onFilesChanged
                 className="db-file-row"
                 role="listitem"
                 tabIndex={0}
-                onClick={() => setSelectedFile(f)}
-                onKeyDown={(e) => e.key === "Enter" && setSelectedFile(f)}
+                onClick={() => void handleOpenPreview(f)}
+                onKeyDown={(e) => e.key === "Enter" && void handleOpenPreview(f)}
                 aria-label={`打开文件：${f.name}`}
+                aria-busy={previewLoadingFileId === f.id}
               >
                 <div className="db-file-icon" aria-hidden="true">
                   <FileTypeIcon mimeType={f.mimeType} name={f.name} />

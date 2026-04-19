@@ -31,6 +31,23 @@ function delay(ms: number): Promise<void> {
   });
 }
 
+function downloadInBrowser(file: File, fallbackName?: string): boolean {
+  if (typeof window === "undefined" || typeof document === "undefined") return false;
+
+  const objectUrl = URL.createObjectURL(file);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = fallbackName?.trim() || file.name || "download";
+  anchor.style.display = "none";
+
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+
+  setTimeout(() => URL.revokeObjectURL(objectUrl), 0);
+  return true;
+}
+
 export function isDesktopBridgeAvailable(): boolean {
   return (
     typeof window !== "undefined" &&
@@ -46,10 +63,14 @@ export async function openFileWithSystem(
   fallbackFile?: File,
   fallbackName?: string,
 ): Promise<OpenFileResult> {
-  void fallbackFile;
-  void fallbackName;
-
   if (!isDesktopBridgeAvailable() || !localPath) {
+    if (fallbackFile && downloadInBrowser(fallbackFile, fallbackName)) {
+      return {
+        ok: true,
+        message: "已触发浏览器下载",
+      };
+    }
+
     return {
       ok: false,
       error: "当前运行环境不支持系统打开文件",
