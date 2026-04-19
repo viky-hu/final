@@ -8,7 +8,7 @@ import {
   useState,
 } from "react";
 import { gsap } from "gsap";
-import { FolderOpen, Database } from "lucide-react";
+import { FolderOpen, Database, Trash2 } from "lucide-react";
 import { GlobalTopNav } from "../shared/GlobalTopNav";
 import type { Cluster } from "@/app/lib/database-store";
 import { LINE_DRAW_EASE } from "../shared/animation";
@@ -30,6 +30,8 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
   const [inputError, setInputError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedCluster, setSelectedCluster] = useState<Cluster | null>(null);
+  const [deleteTargetCluster, setDeleteTargetCluster] = useState<Cluster | null>(null);
+  const [isDeletingCluster, setIsDeletingCluster] = useState(false);
 
   const createBtnRef = useRef<HTMLButtonElement>(null);
   const inputRef     = useRef<HTMLInputElement>(null);
@@ -196,11 +198,12 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && isModalOpen) closeModal();
+      if (e.key === "Escape" && deleteTargetCluster && !isDeletingCluster) setDeleteTargetCluster(null);
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isModalOpen]);
+  }, [isModalOpen, deleteTargetCluster, isDeletingCluster]);
 
   // ── Modal handlers ─────────────────────────────────────────────────────────
   const openModal = useCallback(() => {
@@ -240,6 +243,26 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
       setIsSubmitting(false);
     }
   }, [newClusterName, fetchData, closeModal, username]);
+
+  const handleConfirmDeleteCluster = useCallback(async () => {
+    if (!deleteTargetCluster) return;
+    setIsDeletingCluster(true);
+    try {
+      const res = await fetch(`/api/database/clusters/${deleteTargetCluster.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actor: username }),
+      });
+      if (!res.ok) return;
+      setDeleteTargetCluster(null);
+      if (selectedCluster?.id === deleteTargetCluster.id) {
+        setSelectedCluster(null);
+      }
+      await fetchData();
+    } finally {
+      setIsDeletingCluster(false);
+    }
+  }, [deleteTargetCluster, fetchData, selectedCluster?.id, username]);
 
   const totalFileCount = clusters.reduce((sum, cluster) => sum + cluster.fileCount, 0);
 
@@ -405,6 +428,19 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
                   <div className="db-cluster-side">
                     <span className="db-cluster-meta">文件数: {cluster.fileCount}</span>
                     <span className="db-cluster-date">{cluster.createdAt}</span>
+                    <button
+                      className="db-cluster-delete-btn"
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDeleteTargetCluster(cluster);
+                      }}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      aria-label={`删除聚类：${cluster.name}`}
+                    >
+                      <Trash2 size={12} strokeWidth={1.9} />
+                      删除
+                    </button>
                   </div>
                 </div>
               ))
@@ -421,7 +457,11 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
         <ClusterDetailWindow
           cluster={selectedCluster}
           actorName={username}
-          onBack={() => setSelectedCluster(null)}
+          onBack={() => {
+            setSelectedCluster(null);
+            void fetchData();
+          }}
+          onFilesChanged={fetchData}
         />
       )}
 
@@ -484,6 +524,58 @@ export function DatabaseWindow({ onBack, onNavigateToMain, onOpenMacro }: Databa
                 aria-busy={isSubmitting}
               >
                 {isSubmitting ? "创建中…" : "确认创建"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteTargetCluster && (
+        <div
+          className="db-modal-overlay"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isDeletingCluster) {
+              setDeleteTargetCluster(null);
+            }
+          }}
+        >
+          <div
+            className="db-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="db-delete-cluster-title"
+          >
+            <div className="db-modal-header">
+              <p className="db-modal-eyebrow">DATABASE · DELETE</p>
+              <h3 id="db-delete-cluster-title" className="db-modal-title db-modal-title--danger">
+                删除聚类
+              </h3>
+            </div>
+
+            <div className="db-modal-body">
+              <p className="db-modal-desc">
+                确认删除聚类《{deleteTargetCluster.name}》？该聚类下文件将一并删除，且不可恢复。
+              </p>
+            </div>
+
+            <div className="db-modal-footer">
+              <button
+                className="db-modal-cancel"
+                onClick={() => setDeleteTargetCluster(null)}
+                type="button"
+                disabled={isDeletingCluster}
+              >
+                取消
+              </button>
+              <button
+                className="db-modal-confirm db-modal-confirm--danger"
+                onClick={handleConfirmDeleteCluster}
+                type="button"
+                disabled={isDeletingCluster}
+                aria-busy={isDeletingCluster}
+              >
+                {isDeletingCluster ? "删除中…" : "确认删除"}
               </button>
             </div>
           </div>

@@ -19,6 +19,8 @@ const AddFileSchema = z.object({
   size: z.number().nonnegative("文件大小不能为负数"),
   mimeType: z.string().min(1, "MIME 类型不能为空"),
   localPath: z.string().optional(),
+  textContent: z.string().optional(),
+  contentBase64: z.string().optional(),
   actor: z.string().trim().max(32, "节点名称不能超过 32 个字符").optional(),
 });
 

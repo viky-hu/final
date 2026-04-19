@@ -10,6 +10,8 @@ export interface ClusterFile {
   mimeType: string;
   addedAt: string;    // ISO date YYYY-MM-DD
   localPath?: string; // populated only in Electron/desktop context
+  textContent?: string;
+  contentBase64?: string;
 }
 
 export interface ListClusterFilesResponse {
@@ -21,6 +23,8 @@ export interface AddClusterFileBody {
   size: number;
   mimeType: string;
   localPath?: string;
+  textContent?: string;
+  contentBase64?: string;
 }
 
 export interface AddClusterFileResponse {

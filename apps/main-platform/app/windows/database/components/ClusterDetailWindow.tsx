@@ -21,6 +21,7 @@ import {
 import { LINE_DRAW_EASE } from "../../shared/animation";
 import { FilePreviewModal } from "./FilePreviewModal";
 import type { Cluster } from "@/app/lib/database-store";
+import type { ClusterFile } from "@/app/lib/cluster-files-contract";
 
 // ── Local file model ──────────────────────────────────────────────────────────
 
@@ -114,11 +115,69 @@ interface ClusterDetailWindowProps {
   cluster: Cluster;
   actorName: string;
   onBack: () => void;
+  onFilesChanged?: () => void | Promise<void>;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function ClusterDetailWindow({ cluster, actorName, onBack }: ClusterDetailWindowProps) {
+function base64ToBuffer(base64: string): ArrayBuffer {
+  if (typeof window === "undefined") return new ArrayBuffer(0);
+  const binary = window.atob(base64);
+  const len = binary.length;
+  const buffer = new ArrayBuffer(len);
+  const view = new Uint8Array(buffer);
+  for (let i = 0; i < len; i += 1) {
+    view[i] = binary.charCodeAt(i);
+  }
+  return buffer;
+}
+
+function bytesToBase64(bytes: Uint8Array): string {
+  if (typeof window === "undefined") return "";
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+  }
+  return window.btoa(binary);
+}
+
+function toLocalFile(record: ClusterFile): LocalFile {
+  const mimeType = record.mimeType || getMimeFromName(record.name);
+
+  let blob: Blob;
+  if (record.textContent != null) {
+    blob = new Blob([record.textContent], { type: mimeType });
+  } else if (record.contentBase64) {
+    const buffer = base64ToBuffer(record.contentBase64);
+    blob = new Blob([buffer], { type: mimeType });
+  } else {
+    blob = new Blob([], { type: mimeType });
+  }
+
+  const fileObject = new globalThis.File([blob], record.name, { type: mimeType });
+
+  return {
+    id: record.id,
+    name: record.name,
+    size: record.size,
+    mimeType,
+    addedAt: record.addedAt,
+    fileObject,
+  };
+}
+
+const TEXT_EXTENSIONS = new Set([
+  "txt", "md", "csv", "json", "xml", "yaml", "yml", "log", "ini", "toml", "html", "css", "js", "ts", "tsx", "jsx",
+]);
+
+function shouldPersistAsText(file: File): boolean {
+  if (file.type.startsWith("text/")) return true;
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return TEXT_EXTENSIONS.has(ext);
+}
+
+export function ClusterDetailWindow({ cluster, actorName, onBack, onFilesChanged }: ClusterDetailWindowProps) {
   const rootRef        = useRef<HTMLDivElement>(null);
   const hLineRef       = useRef<SVGLineElement>(null);
   const hLineSvgRef    = useRef<SVGSVGElement>(null);
@@ -133,6 +192,23 @@ export function ClusterDetailWindow({ cluster, actorName, onBack }: ClusterDetai
   const [files, setFiles]               = useState<LocalFile[]>([]);
   const [showBubble, setShowBubble]     = useState(false);
   const [selectedFile, setSelectedFile] = useState<LocalFile | null>(null);
+  const [deleteTargetFile, setDeleteTargetFile] = useState<LocalFile | null>(null);
+  const [isDeletingFile, setIsDeletingFile] = useState(false);
+
+  const fetchFiles = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/database/clusters/${cluster.id}/files`);
+      if (!res.ok) return;
+      const data = await res.json() as { files: ClusterFile[] };
+      setFiles(data.files.map(toLocalFile));
+    } catch {
+      // ignore network failure, keep current view
+    }
+  }, [cluster.id]);
+
+  useEffect(() => {
+    void fetchFiles();
+  }, [fetchFiles]);
 
   // ── Entrance: slide-in from right then draw line + fade list header ────────
   useLayoutEffect(() => {
@@ -213,41 +289,80 @@ export function ClusterDetailWindow({ cluster, actorName, onBack }: ClusterDetai
         setSelectedFile(null);
         return;
       }
+      if (deleteTargetFile && !isDeletingFile) {
+        setDeleteTargetFile(null);
+        return;
+      }
       handleBack();
     };
 
     window.addEventListener("keydown", handleEsc);
     return () => window.removeEventListener("keydown", handleEsc);
-  }, [handleBack, selectedFile, showBubble]);
+  }, [deleteTargetFile, handleBack, isDeletingFile, selectedFile, showBubble]);
 
   // ── Handle file selection from any hidden input ────────────────────────────
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const list = e.target.files;
     if (!list || list.length === 0) return;
 
-    const today = new Date().toISOString().slice(0, 10);
-    const newFiles: LocalFile[] = Array.from(list).map((f) => ({
-      id: `local-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-      name: f.name,
-      size: f.size,
-      mimeType: f.type || getMimeFromName(f.name),
-      addedAt: today,
-      fileObject: f,
-    }));
-
-    setFiles((prev) => [...prev, ...newFiles]);
     setShowBubble(false);
     e.target.value = "";
 
-    // Also sync to backend stub (fire-and-forget for now)
-    newFiles.forEach((nf) => {
-      fetch(`/api/database/clusters/${cluster.id}/files`, {
+    const selected = Array.from(list);
+    for (const file of selected) {
+      const mimeType = file.type || getMimeFromName(file.name);
+      let textContent: string | undefined;
+      let contentBase64: string | undefined;
+
+      if (shouldPersistAsText(file)) {
+        textContent = await file.text();
+      } else {
+        const bytes = new Uint8Array(await file.arrayBuffer());
+        contentBase64 = bytesToBase64(bytes);
+      }
+
+      await fetch(`/api/database/clusters/${cluster.id}/files`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: nf.name, size: nf.size, mimeType: nf.mimeType, actor: actorName }),
-      }).catch(() => {/* backend unavailable in dev is fine */});
-    });
-  }, [cluster.id, actorName]);
+        body: JSON.stringify({
+          name: file.name,
+          size: file.size,
+          mimeType,
+          textContent,
+          contentBase64,
+          actor: actorName,
+        }),
+      });
+    }
+
+    await fetchFiles();
+    if (onFilesChanged) {
+      await onFilesChanged();
+    }
+  }, [actorName, cluster.id, fetchFiles, onFilesChanged]);
+
+  const handleConfirmDeleteFile = useCallback(async () => {
+    if (!deleteTargetFile) return;
+    setIsDeletingFile(true);
+    try {
+      const res = await fetch(`/api/database/clusters/${cluster.id}/files/${deleteTargetFile.id}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ actor: actorName }),
+      });
+      if (!res.ok) return;
+      if (selectedFile?.id === deleteTargetFile.id) {
+        setSelectedFile(null);
+      }
+      setDeleteTargetFile(null);
+      await fetchFiles();
+      if (onFilesChanged) {
+        await onFilesChanged();
+      }
+    } finally {
+      setIsDeletingFile(false);
+    }
+  }, [actorName, cluster.id, deleteTargetFile, fetchFiles, onFilesChanged, selectedFile?.id]);
 
   // ── Animate each new file row ──────────────────────────────────────────────
   useEffect(() => {
@@ -393,6 +508,18 @@ export function ClusterDetailWindow({ cluster, actorName, onBack }: ClusterDetai
                 <span className="db-file-name">{f.name}</span>
                 <span className="db-file-meta">{formatFileSize(f.size)}</span>
                 <span className="db-file-date">{f.addedAt}</span>
+                <button
+                  className="db-file-delete-btn"
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDeleteTargetFile(f);
+                  }}
+                  onKeyDown={(e) => e.stopPropagation()}
+                  aria-label={`删除文件：${f.name}`}
+                >
+                  删除
+                </button>
               </div>
             ))
           )}
@@ -404,8 +531,59 @@ export function ClusterDetailWindow({ cluster, actorName, onBack }: ClusterDetai
         <FilePreviewModal
           file={selectedFile.fileObject}
           name={selectedFile.name}
+          addedAt={selectedFile.addedAt}
           onClose={() => setSelectedFile(null)}
         />
+      )}
+
+      {deleteTargetFile && (
+        <div
+          className="db-modal-overlay"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isDeletingFile) {
+              setDeleteTargetFile(null);
+            }
+          }}
+        >
+          <div
+            className="db-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="db-delete-file-title"
+          >
+            <div className="db-modal-header">
+              <p className="db-modal-eyebrow">FILE · DELETE</p>
+              <h3 id="db-delete-file-title" className="db-modal-title db-modal-title--danger">
+                删除文件
+              </h3>
+            </div>
+            <div className="db-modal-body">
+              <p className="db-modal-desc">
+                确认删除文件《{deleteTargetFile.name}》？删除后不可恢复。
+              </p>
+            </div>
+            <div className="db-modal-footer">
+              <button
+                className="db-modal-cancel"
+                onClick={() => setDeleteTargetFile(null)}
+                type="button"
+                disabled={isDeletingFile}
+              >
+                取消
+              </button>
+              <button
+                className="db-modal-confirm db-modal-confirm--danger"
+                onClick={handleConfirmDeleteFile}
+                type="button"
+                disabled={isDeletingFile}
+                aria-busy={isDeletingFile}
+              >
+                {isDeletingFile ? "删除中…" : "确认删除"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

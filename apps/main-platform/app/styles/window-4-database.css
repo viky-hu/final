@@ -509,7 +509,7 @@
   color: #111111;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow-y: auto;
   will-change: transform;
 }
 
@@ -709,11 +709,16 @@
 
 /* ── File list section ── */
 .db-file-list-section {
-  flex: 1;
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+}
+
+/* File list body inside detail window - natural flow, no separate scroll */
+.db-file-list-section .db-list-body {
+  flex: 0 0 auto;
+  overflow-y: visible;
+  overscroll-behavior: auto;
 }
 
 .db-file-list-header {
@@ -725,7 +730,7 @@
 /* ── File rows (mirrors db-cluster-row) ── */
 .db-file-row {
   display: grid;
-  grid-template-columns: 2.5rem 1fr auto auto;
+  grid-template-columns: 2.5rem 1fr auto auto auto;
   align-items: center;
   gap: 1rem;
   padding: 1.2rem clamp(2rem, 4vw, 4rem);
@@ -1152,7 +1157,7 @@
 /* ── Cluster detail + file list responsive ── */
 @media (max-width: 768px) {
   .db-file-row {
-    grid-template-columns: 2rem 1fr auto;
+    grid-template-columns: 2rem 1fr auto auto;
   }
 
   .db-file-date {
@@ -1178,7 +1183,7 @@
 
 @media (max-width: 480px) {
   .db-file-row {
-    grid-template-columns: 2rem 1fr;
+    grid-template-columns: 2rem 1fr auto;
   }
 
   .db-file-meta {
@@ -1188,4 +1193,72 @@
   .db-cluster-detail-title {
     font-size: 2rem;
   }
+}
+
+/* ── Delete buttons (cluster list and file list) ── */
+.db-cluster-delete-btn,
+.db-file-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35em 0.7em;
+  background: transparent;
+  color: rgba(204, 0, 0, 0.7);
+  border: 1px solid rgba(204, 0, 0, 0.35);
+  border-radius: 0;
+  font-family: 'Inter', 'Helvetica Neue', sans-serif;
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s, box-shadow 0.12s;
+  outline: none;
+}
+
+.db-cluster-delete-btn:hover,
+.db-file-delete-btn:hover {
+  background: rgba(204, 0, 0, 0.08);
+  color: #CC0000;
+  border-color: rgba(204, 0, 0, 0.6);
+  box-shadow: 2px 2px 0px 0px rgba(204, 0, 0, 0.25);
+}
+
+.db-cluster-delete-btn:active,
+.db-file-delete-btn:active {
+  transform: translate(1px, 1px);
+  box-shadow: none;
+}
+
+.db-cluster-delete-btn:focus-visible,
+.db-file-delete-btn:focus-visible {
+  outline: 2px solid #CC0000;
+  outline-offset: 2px;
+}
+
+/* Danger modal title (black per user request) */
+.db-modal-title--danger {
+  color: #111111;
+}
+
+/* Danger confirm button (black per user request) */
+.db-modal-confirm--danger {
+  background: #111111;
+  color: #F9F9F7;
+  border: 2px solid #111111;
+}
+
+.db-modal-confirm--danger:hover:not(:disabled) {
+  background: #F9F9F7;
+  color: #111111;
+  box-shadow: 4px 4px 0px 0px rgba(17, 17, 17, 0.35);
+  transform: translate(-2px, -2px);
+}
+
+/* Modal description text for delete confirmations */
+.db-modal-desc {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: rgba(17, 17, 17, 0.85);
 }

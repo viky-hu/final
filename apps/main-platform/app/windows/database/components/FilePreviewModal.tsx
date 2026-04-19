@@ -8,6 +8,7 @@ import { openFileWithSystem } from "@/app/lib/desktop-file-bridge";
 interface FilePreviewModalProps {
   file: File;
   name: string;
+  addedAt?: string;
   onClose: () => void;
 }
 
@@ -39,7 +40,7 @@ function formatFileSize(bytes: number): string {
 
 const TEXT_PREVIEW_LIMIT = 64 * 1024; // 64 KB text preview cap
 
-export function FilePreviewModal({ file, name, onClose }: FilePreviewModalProps) {
+export function FilePreviewModal({ file, name, addedAt, onClose }: FilePreviewModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const modalRef  = useRef<HTMLDivElement>(null);
 
@@ -125,7 +126,10 @@ export function FilePreviewModal({ file, name, onClose }: FilePreviewModalProps)
         {/* ── Header ── */}
         <div className="db-preview-header">
           <div className="db-preview-header-info">
-            <p className="db-modal-eyebrow">FILE PREVIEW · {fileSizeLabel}</p>
+            <p className="db-modal-eyebrow">
+              FILE PREVIEW · {fileSizeLabel}
+              {addedAt ? ` · ${addedAt}` : ""}
+            </p>
             <h3 className="db-preview-title">{name}</h3>
             <p className="db-preview-mime">{fileMimeLabel}</p>
           </div>
