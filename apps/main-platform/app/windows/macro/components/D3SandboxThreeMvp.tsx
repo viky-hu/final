@@ -55,6 +55,7 @@ interface NodeConfig {
   id: string;
   name: string;
   isRed: boolean;
+  isCenter?: boolean;
   offsetX: number;
   offsetY?: number;
   sceneX?: number;
@@ -101,7 +102,7 @@ const AUTO_SELECT_NODE_DELAY_MS = 820;
 const INFO_CANVAS_HEIGHT = 88;
 const NODE_SPACING_SCALE = 2.2;
 
-const DEFAULT_SELF_NODE_NAME = "本机节点";
+const DEFAULT_SELF_NODE_NAME = "图书馆-法律文献区";
 
 const PLATE_TO_SECTOR: Record<PlateId, string> = {
   "plate-1": "node-2",
@@ -121,20 +122,20 @@ function mapPlateToSector(plateId: string | null): string {
 
 const BASE_PLATE_NODES: Record<PlateId, NodeConfig[]> = {
   "plate-1": [
-    { id: "n-simstreet", name: "模拟街区", isRed: false, offsetX: 0 },
+    { id: "n-simstreet", name: "大数据教研室", isRed: false, offsetX: 0 },
   ],
   "plate-2": [
-    { id: "n-registrar", name: "教务处",   isRed: false, offsetX: 0 },
+    { id: "n-registrar", name: "党史教育中心",   isRed: false, offsetX: 0 },
   ],
   "plate-3": [
-    { id: "n-gym",       name: "警体馆",   isRed: false, offsetX: 0 },
+    { id: "n-gym",       name: "马克思理论教研室",   isRed: false, offsetX: 0 },
   ],
   "plate-4": [
-    { id: "n-laoshan",       name: "老山园", isRed: false, offsetX: -24 },
+    { id: "n-laoshan",       name: "法学教研室", isRed: false, offsetX: -24 },
   ],
   "plate-5": [
-    { id: "n-library",  name: "图书馆", isRed: false, offsetX: -18 },
-    { id: "n-newteach", name: "现教楼", isRed: false, offsetX: 18 },
+    { id: "n-library",  name: "图书馆-红色经典区", isRed: false, isCenter: true, offsetX: -18 },
+    { id: "n-newteach", name: "语言实践中心", isRed: false, offsetX: 18 },
   ],
 };
 
@@ -156,6 +157,7 @@ function buildPlateNodes(
         id: "node-center-red",
         name: cleanedName,
         isRed: isSelfCenterNode,
+        isCenter: isSelfCenterNode,
         offsetX: 0,
         sceneX: selfNodePlacement.sceneX,
         sceneY: selfNodePlacement.sceneY,
@@ -164,6 +166,7 @@ function buildPlateNodes(
         id: "node-center-red",
         name: cleanedName,
         isRed: isSelfCenterNode,
+        isCenter: isSelfCenterNode,
         offsetX: 24,
       };
 
@@ -416,11 +419,13 @@ const CURSOR_LEFT_PATH =
 const CURSOR_RIGHT_PATH =
   "M744.181 608.5C817.502 697.186 879.155 770.107 886.681 784.5C895.179 771.241 948.057 707.307 1030.68 607C1072.25 548.604 1089.21 516.154 1103.68 459C1110.3 409.084 1108.59 382.651 1095.18 338.5C1072.66 282.941 1053.7 257.684 1008.18 223.5C962.669 196.768 936.313 188.534 887.681 187C834.795 189.105 808.422 197.36 766.681 223.5C719.23 257.906 701.509 283.533 679.181 339.5C665.859 379.331 664.18 405.619 670.681 459C681.12 510.908 701.882 545.296 744.181 608.5Z";
 
-type CursorTone = "red" | "yellow" | "blue";
+type CursorTone = "red" | "orange" | "yellow" | "blue";
 
 function resolveCursorTone(node: NodeConfig): CursorTone {
-  if (node.isRed) return "red";
-  if (isSelfNodeId(node.id)) return "yellow";
+  if (isSelfNodeId(node.id)) {
+    return node.isRed ? "red" : "yellow";
+  }
+  if (node.isCenter) return "orange";
   return "blue";
 }
 
@@ -441,9 +446,20 @@ function getCursorTokens(tone: CursorTone) {
       vb: "155 165 490 643",
       path: CURSOR_LEFT_PATH,
       cx: 397,
-      fill: "#00C96B",
-      grad: "#63E6A7",
+      fill: "#2FD68A",
+      grad: "#79E7B7",
       gradId: "cgy",
+    };
+  }
+
+  if (tone === "orange") {
+    return {
+      vb: "155 165 490 643",
+      path: CURSOR_LEFT_PATH,
+      cx: 397,
+      fill: "#ea580c",
+      grad: "#fb923c",
+      gradId: "cgo",
     };
   }
 
@@ -497,7 +513,14 @@ function NodeCursorsLayer({
       {nodes.map((node) => {
         const isSelected = node.id === selectedNodeId;
         const tone = resolveCursorTone(node);
-        const colorCls = tone === "red" ? "d3-node-cursor--red" : tone === "yellow" ? "d3-node-cursor--yellow" : "d3-node-cursor--blue";
+        const colorCls =
+          tone === "red"
+            ? "d3-node-cursor--red"
+            : tone === "orange"
+              ? "d3-node-cursor--orange"
+              : tone === "yellow"
+                ? "d3-node-cursor--yellow"
+                : "d3-node-cursor--blue";
         const selectedCls = isSelected ? " d3-node-cursor--selected" : "";
         return (
           <Html
@@ -518,7 +541,9 @@ function NodeCursorsLayer({
             >
               <CursorPinSvg tone={tone} />
               <div className="d3-node-cursor-pulse" />
-              <span className={`d3-node-label${tone === "red" ? " d3-node-label--red" : tone === "yellow" ? " d3-node-label--yellow" : ""}`}>
+              <span
+                className={`d3-node-label${tone === "red" ? " d3-node-label--red" : tone === "orange" ? " d3-node-label--orange" : tone === "yellow" ? " d3-node-label--yellow" : ""}`}
+              >
                 {node.name}
               </span>
             </div>
@@ -684,10 +709,6 @@ function PlateMesh({
       <mesh
         geometry={plate.geometry}
         renderOrder={1}
-        onPointerDown={(event) => {
-          event.stopPropagation();
-          onToggle(plate.id);
-        }}
       >
         <primitive object={topMaterial} attach="material-0" />
         <primitive object={sideMaterial} attach="material-1" />
@@ -817,12 +838,12 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
   const [registeredVisualCount, setRegisteredVisualCount] = useState(0);
   const [sceneReady, setSceneReady] = useState(false);
   const { visible, onSectorChange, onNodeSelect, selfNodePlacement, selectionRevision } = props;
-  const isSelfCenterNode = props.isSelfCenterNode ?? false;
+  const selfCenterEnabled = props.isSelfCenterNode ?? false;
   const selfPlacementPlateId = selfNodePlacement?.plateId ?? null;
 
   const plateNodes = useMemo(
-    () => buildPlateNodes(props.selfNodeName ?? DEFAULT_SELF_NODE_NAME, isSelfCenterNode, props.selfNodePlacement ?? null),
-    [props.selfNodeName, isSelfCenterNode, props.selfNodePlacement],
+    () => buildPlateNodes(props.selfNodeName ?? DEFAULT_SELF_NODE_NAME, selfCenterEnabled, props.selfNodePlacement ?? null),
+    [props.selfNodeName, selfCenterEnabled, props.selfNodePlacement],
   );
 
   useEffect(() => {
@@ -1151,9 +1172,13 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
   const allNodes: NodeConfig[] = Object.values(plateNodes).flat();
   const activeNode = selectedNodeId ? allNodes.find((n) => n.id === selectedNodeId) : null;
   const isSelfNode = activeNode ? isSelfNodeId(activeNode.id) : false;
+  const isCenterNode = Boolean(activeNode && (activeNode.isCenter || activeNode.isRed));
+  const isSelfCenterNode = Boolean(isSelfNode && activeNode?.isRed);
+  const isOrangeCenterNode = Boolean(isCenterNode && !isSelfCenterNode);
   const activeMock = activeNode && !isSelfNode ? NODE_MOCK[activeNode.id] : null;
-  const isSelfOrdinaryNode = isSelfNode && !activeNode?.isRed;
+  const isSelfOrdinaryNode = isSelfNode && !isCenterNode;
   const activeTone = activeNode ? resolveCursorTone(activeNode) : null;
+  const activeCursorTokens = activeTone ? getCursorTokens(activeTone) : getCursorTokens("blue");
 
   return (
     <div ref={rootRef} className="d3viz-root d3three-root">
@@ -1171,46 +1196,46 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
                 <div className="d3-info-node-head">
                   <svg
                     className="d3-info-cursor-thumb"
-                    viewBox={activeTone ? getCursorTokens(activeTone).vb : "643 165 490 643"}
+                    viewBox={activeCursorTokens.vb}
                     fill="none"
                     xmlns="http://www.w3.org/2000/svg"
                   >
                     <defs>
-                      <linearGradient id={activeTone === "red" ? "tgr" : activeTone === "yellow" ? "tgy" : "tgb"} x1="50%" y1="0%" x2="50%" y2="100%">
-                        <stop
-                          offset="0%"
-                          stopColor={activeTone === "red" ? "#f87171" : activeTone === "yellow" ? "#63E6A7" : "#93c5fd"}
-                        />
-                        <stop
-                          offset="100%"
-                          stopColor={activeTone === "red" ? "#dc2626" : activeTone === "yellow" ? "#00C96B" : "#3b82f6"}
-                        />
+                      <linearGradient id={`tg-${activeCursorTokens.gradId}`} x1="50%" y1="0%" x2="50%" y2="100%">
+                        <stop offset="0%" stopColor={activeCursorTokens.grad} />
+                        <stop offset="100%" stopColor={activeCursorTokens.fill} />
                       </linearGradient>
                     </defs>
                     <path
-                      d={activeTone === "red" || activeTone === "yellow" ? CURSOR_LEFT_PATH : CURSOR_RIGHT_PATH}
-                      fill={activeTone === "red" ? "url(#tgr)" : activeTone === "yellow" ? "url(#tgy)" : "url(#tgb)"}
+                      d={activeCursorTokens.path}
+                      fill={`url(#tg-${activeCursorTokens.gradId})`}
                       stroke="white"
                       strokeWidth="9"
                       strokeLinejoin="round"
                     />
-                    <circle cx={activeTone === "red" || activeTone === "yellow" ? 397 : 887} cy={457} r="56" fill="white" fillOpacity="0.78" />
+                    <circle cx={activeCursorTokens.cx} cy={457} r="56" fill="white" fillOpacity="0.78" />
                     <circle
-                      cx={activeTone === "red" || activeTone === "yellow" ? 397 : 887}
+                      cx={activeCursorTokens.cx}
                       cy={457}
                       r="28"
-                      fill={activeTone === "red" ? "#dc2626" : activeTone === "yellow" ? "#006F3B" : "#3b82f6"}
+                      fill={activeCursorTokens.fill}
                     />
                   </svg>
                   <div className="d3-info-node-text">
-                    <span className={`d3-info-node-name${activeNode.isRed ? " d3-info-node-name--red" : ""}`}>
+                    <span
+                      className={`d3-info-node-name${isSelfCenterNode ? " d3-info-node-name--red" : isOrangeCenterNode ? " d3-info-node-name--orange" : ""}`}
+                    >
                       {activeNode.name}
                     </span>
-                    {isSelfNode && (
-                      <span className={`d3-info-self-tag${activeNode.isRed ? " d3-info-self-tag--red" : ""}`}>
+                    {isCenterNode ? (
+                      <span className={`d3-info-self-tag ${isSelfCenterNode ? "d3-info-self-tag--red" : "d3-info-self-tag--center-orange"}`}>
+                        中心节点
+                      </span>
+                    ) : isSelfNode ? (
+                      <span className={`d3-info-self-tag${isSelfCenterNode ? " d3-info-self-tag--red" : ""}`}>
                         我的节点
                       </span>
-                    )}
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -1231,10 +1256,12 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
                       <span className="d3-info-metric-lbl d3-info-metric-lbl--self-normal">记录总数</span>
                     </div>
                   </>
-                ) : activeNode.isRed ? (
+                ) : isCenterNode ? (
                   <>
                     <div className="d3-info-metric">
-                      <span className="d3-info-metric-val d3-info-metric-val--red">{totalFiles.toLocaleString()}</span>
+                      <span className={`d3-info-metric-val ${isSelfCenterNode ? "d3-info-metric-val--red" : "d3-info-metric-val--orange"}`}>
+                        {totalFiles.toLocaleString()}
+                      </span>
                       <span className="d3-info-metric-lbl">核心数据 (份)</span>
                     </div>
                     <div className="d3-info-metric">
@@ -1270,9 +1297,9 @@ export function D3SandboxThreeMvp(props: D3SandboxProps) {
 
               <div className="d3-info-status-col">
                 <span
-                  className={`d3-info-badge ${activeNode.isRed ? "d3-info-badge--restricted" : isSelfNode ? "d3-info-badge--self-normal" : "d3-info-badge--online"}`}
+                  className={`d3-info-badge ${isCenterNode ? (isSelfCenterNode ? "d3-info-badge--restricted" : "d3-info-badge--center-orange") : isSelfNode ? "d3-info-badge--self-normal" : "d3-info-badge--online"}`}
                 >
-                  {activeNode.isRed ? "高权限" : isSelfNode ? "普通节点" : "普通权限"}
+                  {isCenterNode ? "中心权限" : "普通权限"}
                 </span>
               </div>
             </>

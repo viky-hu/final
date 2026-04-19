@@ -202,7 +202,11 @@ function buildMCPayload(group: MCGroupState) {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BOT_REPLY = "这是模拟回答，后续将接入实际代码。";
-const TYPING_DELAY_MS = 700;
+const TYPING_STAGE_STATIC_DELAY_MS = 550;
+const THINKING_TOTAL_DELAY_MS_BY_MODE: Record<Mode, number> = {
+  local: 5000,
+  global: 15000,
+};
 const TRACE_BUTTON_WIDTH = 80;
 
 interface MockQAPair {
@@ -273,6 +277,7 @@ export function ChatInteractionPanel({
   // Derived
   const mcMounted = mcPhase !== "closed";
   const mcCanvasOpen = mcPhase === "opening" || mcPhase === "opened" || mcPhase === "fading_out";
+  const mcCloseVisible = mcPhase === "opened" || mcPhase === "fading_out";
   const mcAnyConnecting = MC_GROUP_DEFS.some(({ id }) => mcGroups[id].isConnecting);
 
   // ── Chat refs ───────────────────────────────────────────────────────────────
@@ -540,6 +545,8 @@ export function ChatInteractionPanel({
     }
 
     const replyText = resolveMockReply(text);
+    const thinkingTotalDelayMs = THINKING_TOTAL_DELAY_MS_BY_MODE[mode];
+    const typingDelayMs = Math.max(0, thinkingTotalDelayMs - TYPING_STAGE_STATIC_DELAY_MS);
 
     isSendingRef.current = true;
     setIsSending(true);
@@ -569,8 +576,8 @@ export function ChatInteractionPanel({
         );
         isSendingRef.current = false;
         setIsSending(false);
-      }, TYPING_DELAY_MS);
-    }, 550);
+      }, typingDelayMs);
+    }, TYPING_STAGE_STATIC_DELAY_MS);
   }, [inputValue, captureFlip, getRetrieveValidationMessage, mode, pushValidationReply]);
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -725,7 +732,13 @@ export function ChatInteractionPanel({
   }, [mcPhase]);
 
   const handleMCClose = useCallback(() => {
-    if (mcPhase === "opened") setMCPhase("fading_out");
+    if (mcPhase === "opened") {
+      setMCPhase("fading_out");
+      return;
+    }
+    if (mcPhase === "opening") {
+      setMCPhase("closing_canvas");
+    }
   }, [mcPhase]);
 
   useEffect(() => {
@@ -875,6 +888,20 @@ export function ChatInteractionPanel({
             />
           </div>
 
+          <div
+            className={`mc-canvas-close-anchor${mcCloseVisible ? " mc-canvas-close-anchor--visible" : ""}`}
+            aria-hidden={!mcCloseVisible}
+          >
+            <button
+              className="mc-close-btn"
+              onClick={handleMCClose}
+              aria-label="关闭模型配置"
+              type="button"
+            >
+              <span className="mc-close-x" aria-hidden="true" />
+            </button>
+          </div>
+
           {/* Form panel layer — 跟随菜单同步左移（照搬 panelRef 逻辑） */}
           <div ref={mcPanelLayerRef} className="mc-panel-layer">
             <div ref={mcPanelRef} className="mc-panel">
@@ -885,14 +912,6 @@ export function ChatInteractionPanel({
                   <span className="mc-eyebrow">MODEL CONFIG</span>
                   <h2 className="mc-panel-title">模型配置</h2>
                 </div>
-                <button
-                  className="mc-close-btn"
-                  onClick={handleMCClose}
-                  aria-label="关闭模型配置"
-                  type="button"
-                >
-                  <span className="mc-close-x" aria-hidden="true" />
-                </button>
               </div>
 
               <div ref={mcFieldsRef} className="mc-groups">

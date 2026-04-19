@@ -93,9 +93,35 @@
 .svg-login-form {
   width: min(320px, 100%);
   margin: auto;
+  position: relative;
+  color: #ffffff;
+}
+
+.svg-form-switcher {
+  position: relative;
+  min-height: 19.5rem;
+}
+
+.svg-form-panel {
+  position: absolute;
+  inset: 0;
   display: grid;
   gap: 1.1rem;
-  color: #ffffff;
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+  transition: opacity 0.34s ease, transform 0.34s ease;
+}
+
+.svg-form-panel.is-active {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.svg-form-panel.is-inactive {
+  opacity: 0;
+  transform: translateY(-8px);
 }
 
 .svg-field {
@@ -149,14 +175,52 @@
   top: 0.45rem;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.78);
   cursor: pointer;
   padding: 0;
+  width: 1.6rem;
+  height: 1.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .svg-toggle-pwd:hover {
   color: #ffffff;
+}
+
+.svg-eye-icon {
+  width: 1rem;
+  height: 1rem;
+  display: inline-flex;
+}
+
+.svg-eye-icon-svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.svg-eye-icon-svg path,
+.svg-eye-icon-svg circle,
+.svg-eye-icon-svg line {
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.svg-eye-icon-svg circle {
+  fill: currentColor;
+  fill-opacity: 0.2;
+}
+
+.svg-eye-icon-slash {
+  opacity: 1;
+  transition: opacity 0.18s ease;
+}
+
+.svg-eye-icon-slash.is-hidden {
+  opacity: 0;
 }
 
 .svg-form-row {
@@ -200,10 +264,43 @@
   background: rgba(255, 255, 255, 0.14);
 }
 
+.svg-submit:disabled {
+  cursor: default;
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.svg-form-actions {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.svg-submit-secondary {
+  margin-top: 0;
+  border-color: rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.svg-submit-secondary:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .svg-register {
   margin: 0.2rem 0 0;
   font-size: 0.76rem;
   color: rgba(255, 255, 255, 0.86);
+}
+
+.svg-inline-link {
+  margin-left: 0.2rem;
+  border: none;
+  padding: 0;
+  background: transparent;
+  color: #ffffff;
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
 }
 
 .svg-scroll-hint {

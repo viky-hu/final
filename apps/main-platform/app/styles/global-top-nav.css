@@ -667,8 +667,8 @@
 
 .global-top-nav__location-cursor-glyph--normal {
   filter:
-    drop-shadow(0 0 4px rgba(0, 201, 107, 0.36))
-    drop-shadow(0 0 9px rgba(0, 201, 107, 0.18));
+    drop-shadow(0 0 4px rgba(47, 214, 138, 0.36))
+    drop-shadow(0 0 9px rgba(47, 214, 138, 0.18));
 }
 
 .global-top-nav__location-cursor--active .global-top-nav__location-cursor-glyph {
@@ -830,6 +830,66 @@
   justify-content: center;
   align-self: flex-start;
   line-height: 1.2;
+}
+
+.global-top-nav__profile-modal--long .global-top-nav__save-btn,
+.global-top-nav__profile-modal--long .global-top-nav__long-apply-btn {
+  border: 2px solid #111111;
+  background: #111111;
+  color: #f9f9f7;
+  border-radius: 0;
+  outline: none;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform, box-shadow;
+  transition: background 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.global-top-nav__profile-modal--long .global-top-nav__save-btn:hover,
+.global-top-nav__profile-modal--long .global-top-nav__long-apply-btn:hover {
+  background: #f9f9f7;
+  color: #111111;
+  box-shadow: 4px 4px 0px 0px #111111;
+  transform: translate(-2px, -2px);
+}
+
+.global-top-nav__profile-modal--long .global-top-nav__save-btn:active,
+.global-top-nav__profile-modal--long .global-top-nav__long-apply-btn:active {
+  transform: translate(0, 0);
+  box-shadow: none;
+}
+
+.global-top-nav__profile-modal--long .global-top-nav__ghost-btn {
+  border: 2px solid #111111;
+  background: #f9f9f7;
+  color: #111111;
+  border-radius: 0;
+  outline: none;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  will-change: transform, box-shadow;
+  transition: background 0.15s, color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.global-top-nav__profile-modal--long .global-top-nav__ghost-btn:hover {
+  background: #f9f9f7;
+  color: #111111;
+  box-shadow: 4px 4px 0px 0px #111111;
+  transform: translate(-2px, -2px);
+}
+
+.global-top-nav__profile-modal--long .global-top-nav__ghost-btn:active {
+  background: #f9f9f7;
+  color: #111111;
+  transform: translate(0, 0);
+  box-shadow: none;
+}
+
+.global-top-nav__profile-modal--long .global-top-nav__save-btn:focus-visible,
+.global-top-nav__profile-modal--long .global-top-nav__ghost-btn:focus-visible,
+.global-top-nav__profile-modal--long .global-top-nav__long-apply-btn:focus-visible {
+  outline: 2px solid #cc0000;
+  outline-offset: 2px;
 }
 
 .global-top-nav__logout-modal {

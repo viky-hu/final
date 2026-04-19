@@ -9,7 +9,7 @@ import {
   type ReactNode,
 } from "react";
 
-const DEFAULT_WATERMARK_NAME = "本机节点";
+const DEFAULT_WATERMARK_NAME = "图书馆-法律文献区";
 
 type WatermarkContextValue = {
   watermarkName: string;

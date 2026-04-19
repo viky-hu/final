@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, useCallback } from "react";
+import { memo, useRef, useState, useEffect, useCallback, useMemo } from "react";
 import { gsap } from "gsap";
 
 /* ── 时间段类型 ── */
@@ -21,38 +21,38 @@ const BAR_COLORS = [
 const MOCK_DATA: Record<Period, { name: string; value: number }[]> = {
   当天: [
     { name: SELF_NODE_PLACEHOLDER, value: 14 },
-    { name: "老山园", value: 11 },
-    { name: "教务处", value: 8 },
-    { name: "现教楼", value: 6 },
-    { name: "图书馆", value: 4 },
+    { name: "法学教研室", value: 11 },
+    { name: "党史教育中心", value: 8 },
+    { name: "语言实践中心", value: 6 },
+    { name: "图书馆-红色经典区", value: 4 },
   ],
   本周: [
-    { name: "教务处", value: 52 },
+    { name: "党史教育中心", value: 52 },
     { name: SELF_NODE_PLACEHOLDER, value: 47 },
-    { name: "图书馆", value: 35 },
-    { name: "老山园", value: 28 },
-    { name: "警体馆", value: 19 },
+    { name: "图书馆-红色经典区", value: 35 },
+    { name: "法学教研室", value: 28 },
+    { name: "马克思理论教研室", value: 19 },
   ],
   本月: [
     { name: SELF_NODE_PLACEHOLDER, value: 183 },
-    { name: "老山园", value: 154 },
-    { name: "现教楼", value: 121 },
-    { name: "教务处", value: 98 },
-    { name: "警体馆", value: 72 },
+    { name: "法学教研室", value: 154 },
+    { name: "语言实践中心", value: 121 },
+    { name: "党史教育中心", value: 98 },
+    { name: "马克思理论教研室", value: 72 },
   ],
   本季: [
     { name: SELF_NODE_PLACEHOLDER, value: 410 },
-    { name: "教务处", value: 380 },
-    { name: "老山园", value: 297 },
-    { name: "图书馆", value: 234 },
-    { name: "现教楼", value: 188 },
+    { name: "党史教育中心", value: 380 },
+    { name: "法学教研室", value: 297 },
+    { name: "图书馆-红色经典区", value: 234 },
+    { name: "语言实践中心", value: 188 },
   ],
   本年: [
     { name: SELF_NODE_PLACEHOLDER, value: 1204 },
-    { name: "老山园", value: 987 },
-    { name: "教务处", value: 856 },
-    { name: "现教楼", value: 721 },
-    { name: "警体馆", value: 534 },
+    { name: "法学教研室", value: 987 },
+    { name: "党史教育中心", value: 856 },
+    { name: "语言实践中心", value: 721 },
+    { name: "马克思理论教研室", value: 534 },
   ],
 };
 
@@ -62,7 +62,7 @@ interface D2VisualizationProps {
   selfNodeName?: string;
 }
 
-export function D2Visualization({ visible, selfNodeName }: D2VisualizationProps) {
+function D2VisualizationImpl({ visible, selfNodeName }: D2VisualizationProps) {
   const [period, setPeriod] = useState<Period>("本月");
   const [animKey, setAnimKey] = useState(0); // 每次切换时触发重新动画
   const rootRef = useRef<HTMLDivElement>(null);
@@ -71,9 +71,13 @@ export function D2Visualization({ visible, selfNodeName }: D2VisualizationProps)
   const headerRef = useRef<HTMLElement>(null);
   const prevVisibleRef = useRef(false);
 
-  const resolvedSelfNodeName = selfNodeName?.trim() || "本机节点";
-  const data = MOCK_DATA[period].map((item) =>
-    item.name === SELF_NODE_PLACEHOLDER ? { ...item, name: resolvedSelfNodeName } : item,
+  const resolvedSelfNodeName = selfNodeName?.trim() || "图书馆-法律文献区";
+  const data = useMemo(
+    () =>
+      MOCK_DATA[period].map((item) =>
+        item.name === SELF_NODE_PLACEHOLDER ? { ...item, name: resolvedSelfNodeName } : item,
+      ),
+    [period, resolvedSelfNodeName],
   );
   const maxVal = data[0].value;
 
@@ -199,3 +203,5 @@ export function D2Visualization({ visible, selfNodeName }: D2VisualizationProps)
     </div>
   );
 }
+
+export const D2Visualization = memo(D2VisualizationImpl);

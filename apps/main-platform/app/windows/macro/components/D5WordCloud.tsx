@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useEffect } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { gsap } from "gsap";
 import { useGSAP } from "@gsap/react";
 import { MACRO_NODES, NODE_WORD_CLOUDS, WordCloudDatum } from "../macroData";
@@ -36,16 +36,16 @@ const CLOUD_VERTICAL_RATIO = 0.22;
 const CLOUD_TEXT_COLORS = ["#6367FF", "#8494FF", "#C9BEFF", "#FFDBFD", "#76D2DB"];
 
 const NODE_DISPLAY_LABELS: Record<string, string> = {
-  "node-2": "教务处",
-  "node-3": "警体馆",
-  "node-4": "老山园",
-  "node-5": "图书馆",
-  "n-registrar": "教务处",
-  "n-gym": "警体馆",
-  "n-laoshan": "老山园",
-  "n-library": "图书馆",
-  "n-newteach": "现教楼",
-  "n-simstreet": "田径场与模拟街区",
+  "node-2": "党史教育中心",
+  "node-3": "马克思理论教研室",
+  "node-4": "法学教研室",
+  "node-5": "图书馆-红色经典区",
+  "n-registrar": "党史教育中心",
+  "n-gym": "马克思理论教研室",
+  "n-laoshan": "法学教研室",
+  "n-library": "图书馆-红色经典区",
+  "n-newteach": "语言实践中心",
+  "n-simstreet": "大数据教研室",
 };
 
 const NODE_CLOUD_KEY_ALIASES: Record<string, string> = {
@@ -55,52 +55,14 @@ const NODE_CLOUD_KEY_ALIASES: Record<string, string> = {
   "n-library": "node-5",
 };
 
-function buildDenseWords(source: WordCloudDatum[], targetCount = 48): WordCloudDatum[] {
-  const seedSuffix = [
-    "核心区",
-    "热区",
-    "片区",
-    "路段",
-    "站域",
-    "圈层",
-    "联动区",
-    "交汇处",
-    "缓冲带",
-    "南侧",
-    "北侧",
-    "东侧",
-    "西侧",
-    "周边",
-    "节点",
-  ];
-  const unique = new Map<string, number>();
-  source.forEach((item) => {
-    unique.set(item.text, item.weight);
-  });
-
-  let suffixIndex = 0;
-  let round = 0;
-  const sorted = [...source].sort((a, b) => b.weight - a.weight);
-  while (unique.size < targetCount) {
-    const base = sorted[round % sorted.length];
-    const suffix = seedSuffix[suffixIndex % seedSuffix.length];
-    const text = `${base.text}${suffix}`;
-    if (!unique.has(text)) {
-      const decay = 0.72 - (round % 4) * 0.08;
-      unique.set(text, Math.max(10, Math.round(base.weight * decay)));
-    }
-    suffixIndex += 1;
-    round += 1;
-    if (round > 200) break;
-  }
-  return [...unique.entries()].map(([text, weight]) => ({ text, weight }));
-}
-
 function buildWordCloudLayout(source: WordCloudDatum[], width: number, height: number): LayoutWord[] {
   if (!source.length || width <= 0 || height <= 0) return [];
 
-  const targetCount = Math.max(30, Math.min(42, Math.floor((width * height) / 4600)));
-  const sorted = buildDenseWords(source, targetCount).sort((a, b) => b.weight - a.weight);
+  const sorted = Array.from(
+    new Map(source.map((item) => [item.text.trim(), item])).values(),
+  )
+    .filter((item) => item.text.length > 0)
+    .sort((a, b) => b.weight - a.weight);
   const maxWeight = sorted[0]?.weight ?? 100;
   const minWeight = sorted[sorted.length - 1]?.weight ?? 0;
   const placedBoxes: RectBox[] = [];
@@ -365,16 +327,26 @@ export function D5WordCloud({ visible, activeSectorId, selectedNodeId, selfNodeN
   const previousCloudNodeRef = useRef<string | null>(null);
   const [size, setSize] = useState(DEFAULT_SIZE);
 
-  // Dual-layer: if node selected → show node cloud; else → show sector cloud
-  const focusNodeId = selectedNodeId ?? activeSectorId;
-  const resolvedSelfNodeName = selfNodeName?.trim() || "本机节点";
+  const resolveCloudNodeId = useCallback((nodeId: string | null | undefined): string => {
+    if (!nodeId) return "node-current";
+    const resolved = NODE_CLOUD_KEY_ALIASES[nodeId] ?? nodeId;
+    return NODE_WORD_CLOUDS[resolved] ? resolved : "node-current";
+  }, []);
 
-  const cloudNodeId = useMemo(() => {
-    const resolved = NODE_CLOUD_KEY_ALIASES[focusNodeId] ?? focusNodeId;
-    if (NODE_WORD_CLOUDS[resolved]) return resolved;
-    if (NODE_WORD_CLOUDS[activeSectorId]) return activeSectorId;
-    return "node-current";
-  }, [focusNodeId, activeSectorId]);
+  const [displayNodeId, setDisplayNodeId] = useState<string>(() =>
+    resolveCloudNodeId(selectedNodeId ?? activeSectorId),
+  );
+
+  useEffect(() => {
+    if (!selectedNodeId) return;
+    const nextNodeId = resolveCloudNodeId(selectedNodeId);
+    setDisplayNodeId((prev) => (prev === nextNodeId ? prev : nextNodeId));
+  }, [selectedNodeId, resolveCloudNodeId]);
+
+  const focusNodeId = displayNodeId;
+  const resolvedSelfNodeName = selfNodeName?.trim() || "图书馆-法律文献区";
+
+  const cloudNodeId = focusNodeId;
 
   const nodeLabel = useMemo(
     () => {
@@ -391,9 +363,9 @@ export function D5WordCloud({ visible, activeSectorId, selectedNodeId, selfNodeN
         return NODE_DISPLAY_LABELS[aliasedNodeId];
       }
 
-      return MACRO_NODES.find((item) => item.id === activeSectorId)?.label ?? NODE_DISPLAY_LABELS[activeSectorId] ?? activeSectorId;
+      return MACRO_NODES.find((item) => item.id === focusNodeId)?.label ?? NODE_DISPLAY_LABELS[focusNodeId] ?? focusNodeId;
     },
-    [focusNodeId, activeSectorId, resolvedSelfNodeName],
+    [focusNodeId, resolvedSelfNodeName],
   );
   const sourceWords = NODE_WORD_CLOUDS[cloudNodeId] ?? NODE_WORD_CLOUDS["node-current"];
   const layoutWords = useMemo(

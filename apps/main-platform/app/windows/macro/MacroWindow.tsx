@@ -269,7 +269,12 @@ export function MacroWindow({
           </section>
           {/* d4 区 — 右上 */}
           <section className="macro-zone macro-zone--d4">
-            <D4Visualization visible={d1Visible} />
+            <D4Visualization
+              visible={d1Visible}
+              activeSectorId={activeSectorId}
+              selectedNodeId={selectedNodeId}
+              selfNodeName={username}
+            />
           </section>
           {/* d5 区 — 右下 */}
           <section className="macro-zone macro-zone--d5">

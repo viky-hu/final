@@ -548,6 +548,15 @@ export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps)
         <div className="trace-canvas">
 
           <section className="trace-page trace-page--main">
+            <button
+              type="button"
+              className="trace-page-main-close-btn mc-close-btn"
+              onClick={handleClose}
+              aria-label="关闭知识溯源"
+            >
+              <span className="mc-close-x" aria-hidden="true" />
+            </button>
+
             <svg
               ref={svgRef}
               viewBox={`0 0 ${TVW} ${TVH}`}
@@ -737,7 +746,7 @@ export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps)
           </section>
 
           <section ref={graphPageRef} className="trace-page trace-page--graph" aria-label="知识图谱页面">
-            <TraceKnowledgeGraph />
+            <TraceKnowledgeGraph onExit={handleClose} />
           </section>
 
         </div>

@@ -1017,6 +1017,30 @@
   overflow: hidden;
 }
 
+.trace-page-main-close-btn {
+  position: absolute;
+  top: max(18px, 2.6vh);
+  left: max(18px, 1.8vw);
+  z-index: 6;
+  margin-top: 0;
+}
+
+.trace-page-main-close-btn.mc-close-btn {
+  width: 40px;
+  height: 40px;
+  border-width: 1.25px;
+}
+
+.trace-page-main-close-btn .mc-close-x {
+  width: 14px;
+  height: 14px;
+}
+
+.trace-page-main-close-btn .mc-close-x::before,
+.trace-page-main-close-btn .mc-close-x::after {
+  height: 1.9px;
+}
+
 .trace-window-bg {
   position: absolute;
   inset: 0;
@@ -1068,6 +1092,7 @@
 }
 
 .trace-page--main {
+  position: relative;
   padding: 0;
 }
 
@@ -1095,6 +1120,44 @@
   display: grid;
   grid-template-rows: auto 1fr auto;
   box-shadow: 0 18px 56px rgba(0, 27, 183, 0.14);
+  position: relative;
+}
+
+.trace-graph-exit-wrap {
+  position: absolute;
+  right: 18px;
+  bottom: 14px;
+  z-index: 5;
+}
+
+.trace-graph-exit-btn {
+  min-width: 164px;
+  height: 44px;
+  padding: 0 18px;
+  border: 1px solid rgba(30, 25, 25, 0.28);
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #1e1919;
+  font-size: 0.98rem;
+  font-family: "DingTalk JinBuTi", system-ui, sans-serif;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, transform 0.12s;
+}
+
+.trace-graph-exit-btn:hover {
+  border-color: rgba(30, 25, 25, 0.45);
+  background: rgba(30, 25, 25, 0.04);
+}
+
+.trace-graph-exit-btn:active {
+  transform: translateY(1px);
+  background: rgba(30, 25, 25, 0.08);
+}
+
+.trace-graph-exit-btn:focus-visible {
+  outline: 2px solid rgba(0, 71, 255, 0.5);
+  outline-offset: 2px;
 }
 
 .trace-graph-header {
@@ -1619,6 +1682,46 @@
   inset: 0;
   z-index: 2;
   pointer-events: none;
+}
+
+.mc-canvas-close-anchor {
+  position: absolute;
+  top: 30px;
+  right: calc(25% + 18px);
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-8px) scale(0.92);
+  transition:
+    opacity 0.26s ease,
+    transform 0.3s cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 0.3s;
+}
+
+.mc-canvas-close-anchor--visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  transition-delay: 0s;
+}
+
+.mc-canvas-close-anchor .mc-close-btn {
+  pointer-events: auto;
+  margin-top: 0;
+  width: 30px;
+  height: 30px;
+  border-width: 1.25px;
+}
+
+.mc-canvas-close-anchor .mc-close-x {
+  width: 11px;
+  height: 11px;
+}
+
+.mc-canvas-close-anchor .mc-close-x::before,
+.mc-canvas-close-anchor .mc-close-x::after {
+  height: 1.5px;
 }
 
 .mc-canvas-svg {

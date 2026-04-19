@@ -105,8 +105,8 @@ async function cropAvatarImageToDataUrl(src: string, cropArea: Area, outputSize:
 }
 
 function MapLocationCursorGlyph({ isCenter }: { isCenter: boolean }) {
-  const cursorFill = isCenter ? "#dc2626" : "#00C96B";
-  const cursorInner = isCenter ? "#dc2626" : "#006F3B";
+  const cursorFill = isCenter ? "#dc2626" : "#2FD68A";
+  const cursorInner = isCenter ? "#dc2626" : "#167C52";
   return (
     <g className={`global-top-nav__location-cursor-glyph${isCenter ? "" : " global-top-nav__location-cursor-glyph--normal"}`}>
       <g transform={`scale(${MAP_CURSOR_SCALE})`}>
@@ -127,6 +127,7 @@ interface ProfileModalLongProps {
 export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
   const {
     username,
+    avatarDataUrl,
     setUsername,
     setAvatarDataUrl,
     judgeModelConfigured,
@@ -584,7 +585,7 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
         <section className="global-top-nav__section">
           <h3 className="global-top-nav__panel-title">更改头像</h3>
 
-          <div className={`global-top-nav__m1-grid${draftAvatarSrc ? "" : " global-top-nav__m1-grid--single"}`}>
+          <div className="global-top-nav__m1-grid">
             <div className="global-top-nav__m1-left">
               <input
                 ref={avatarUploadInputRef}
@@ -628,17 +629,21 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
               )}
             </div>
 
-            {draftAvatarSrc && (
-              <div className="global-top-nav__m1-right">
-                <p className="global-top-nav__field-label">头像预览</p>
-                <div className="global-top-nav__avatar-round-preview">
-                  {draftAvatarPreviewUrl ? (
-                    <img src={draftAvatarPreviewUrl} className="global-top-nav__avatar-preview-image" alt="圆形头像预览" />
-                  ) : (
-                      <span className="global-top-nav__avatar-crop-placeholder">拖拽或缩放后生成预览</span>
-                  )}
-                </div>
+            <div className="global-top-nav__m1-right">
+              <p className="global-top-nav__field-label">头像预览</p>
+              <div className="global-top-nav__avatar-round-preview">
+                {draftAvatarPreviewUrl ? (
+                  <img src={draftAvatarPreviewUrl} className="global-top-nav__avatar-preview-image" alt="圆形头像预览" />
+                ) : !draftAvatarSrc && avatarDataUrl ? (
+                  <img src={avatarDataUrl} className="global-top-nav__avatar-preview-image" alt="当前头像预览" />
+                ) : draftAvatarSrc ? (
+                  <span className="global-top-nav__avatar-crop-placeholder">拖拽或缩放后生成预览</span>
+                ) : (
+                  <span className="global-top-nav__avatar-crop-placeholder">当前未设置头像</span>
+                )}
+              </div>
 
+              {draftAvatarSrc && (
                 <div className="global-top-nav__inline-actions">
                   <button type="button" className="global-top-nav__save-btn" onClick={handleApplyAvatar} disabled={avatarBusy}>
                     {avatarBusy ? "处理中…" : "保存头像"}
@@ -647,8 +652,8 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
                     重置裁剪
                   </button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           <span className="global-top-nav__save-hint" aria-live="polite">{m1AvatarHint}</span>

@@ -12,8 +12,12 @@ import {
 import { useWatermark } from "@/app/components/watermark/WatermarkProvider";
 
 const RUNTIME_STORAGE_KEY = "main-platform-runtime-profile-v1";
-const DEFAULT_USERNAME = "本机节点";
+const DEFAULT_USERNAME = "图书馆-法律文献区";
 const RUNTIME_PLATE_IDS: RuntimePlateId[] = ["plate-1", "plate-2", "plate-3", "plate-4", "plate-5"];
+const LEGACY_SELF_USERNAME_MAP: Record<string, string> = {
+  "安保处": DEFAULT_USERNAME,
+  "本机节点": DEFAULT_USERNAME,
+};
 
 export type RuntimePlateId = "plate-1" | "plate-2" | "plate-3" | "plate-4" | "plate-5";
 
@@ -58,7 +62,8 @@ const AppRuntimeContext = createContext<AppRuntimeContextValue | null>(null);
 
 function normalizeUsername(nextUsername: string): string {
   const normalized = nextUsername.trim();
-  return normalized || DEFAULT_USERNAME;
+  if (!normalized) return DEFAULT_USERNAME;
+  return LEGACY_SELF_USERNAME_MAP[normalized] ?? normalized;
 }
 
 function isFiniteNumber(value: unknown): value is number {

@@ -114,7 +114,11 @@ function loadVisScript(): Promise<void> {
   return visScriptPromise;
 }
 
-export function TraceKnowledgeGraph() {
+export interface TraceKnowledgeGraphProps {
+  onExit?: () => void;
+}
+
+export function TraceKnowledgeGraph({ onExit }: TraceKnowledgeGraphProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const networkRef = useRef<VisNetworkInstance | null>(null);
 
@@ -314,6 +318,17 @@ export function TraceKnowledgeGraph() {
         <p className="trace-graph-center-roots">{bottomEdgeCountText}</p>
         <p className="trace-graph-center-roots">{bottomKeywordsText}</p>
       </footer>
+
+      <div className="trace-graph-exit-wrap">
+        <button
+          type="button"
+          className="trace-graph-exit-btn"
+          onClick={onExit}
+          aria-label="退出知识溯源页面"
+        >
+          退出页面
+        </button>
+      </div>
     </div>
   );
 }

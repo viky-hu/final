@@ -5,8 +5,8 @@ import { useMemo, type CSSProperties } from "react";
 const ROTATION_DEG = -28;
 const FONT_SIZE = 12;
 const LETTER_SPACING = 0.45;
-const STEP_PADDING_X = 36;
-const STEP_PADDING_Y = 26;
+const STEP_PADDING_X = 10;
+const STEP_PADDING_Y = 70;
 const FONT_FAMILY = '"Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif';
 const FONT_WEIGHT = 260;
 const WATERMARK_LIGHT_COLOR = "rgba(236,236,236,0.12)";
@@ -66,7 +66,7 @@ function estimateTextWidth(rawText: string): number {
 }
 
 function buildWatermarkPattern(text: string): WatermarkPattern {
-  const rawText = text.trim() || "本机节点";
+  const rawText = text.trim() || "图书馆-法律文献区";
   const safeText = escapeXml(rawText);
 
   const textWidth = estimateTextWidth(rawText);
