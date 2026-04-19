@@ -68,10 +68,7 @@ function BotBubble({ msgId, content, traceCaseId, showTrace, onTrace }: BotBubbl
     gsap.set(btnOuter, { width: 0 });
     gsap.set(btnInner, { opacity: 0 });
 
-    const targetTraceWidth = Math.min(
-      TRACE_BUTTON_MAX_WIDTH,
-      Math.max(TRACE_BUTTON_MIN_WIDTH, bubble.getBoundingClientRect().width),
-    );
+    const targetTraceWidth = TRACE_BUTTON_FIXED_WIDTH;
 
     const tl = gsap.timeline({ paused: true });
 
@@ -268,8 +265,7 @@ const THINKING_TOTAL_DELAY_MS_BY_MODE: Record<Mode, number> = {
   local: 5000,
   global: 15000,
 };
-const TRACE_BUTTON_MIN_WIDTH = 80;
-const TRACE_BUTTON_MAX_WIDTH = 96;
+const TRACE_BUTTON_FIXED_WIDTH = 96;
 const BOT_STREAM_INTERVAL_MS = 26;
 const BOT_STREAM_CHUNK_SIZE = 2;
 
