@@ -32,6 +32,13 @@ const INTRO_X = 30;
 const INTRO_Y = TVH * 0.29;
 const INTRO_WIDTH = C1 - 60;
 const INTRO_HEIGHT = TVH - 130;
+const TRACE_COL_HEAD_Y = RTOP - 28;
+const TRACE_COL_HEAD_LEFT_X = C1 + 16;
+const TRACE_COL_META_DIVIDER_X = TRACE_COL_HEAD_LEFT_X + 200;
+const TRACE_COL_META_X = TRACE_COL_META_DIVIDER_X + 20;
+const TRACE_COL_META_Y = TRACE_COL_HEAD_Y - 2;
+const TRACE_COL_META_DIVIDER_Y_TOP = TRACE_COL_META_Y - 14;
+const TRACE_COL_META_DIVIDER_Y_BOTTOM = TRACE_COL_META_Y + 8;
 
 interface TraceRow {
   text: string;
@@ -606,16 +613,38 @@ export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps)
 
               <text
                 className="trace-col-head"
-                x={C1 + 16}
-                y={RTOP - 28}
+                x={TRACE_COL_HEAD_LEFT_X}
+                y={TRACE_COL_HEAD_Y}
                 textAnchor="start"
               >
                 语义相关文本
               </text>
+              <line
+                className="trace-col-head-divider trace-col-head-divider--glow"
+                x1={TRACE_COL_META_DIVIDER_X}
+                y1={TRACE_COL_META_DIVIDER_Y_TOP}
+                x2={TRACE_COL_META_DIVIDER_X}
+                y2={TRACE_COL_META_DIVIDER_Y_BOTTOM}
+              />
+              <line
+                className="trace-col-head-divider trace-col-head-divider--core"
+                x1={TRACE_COL_META_DIVIDER_X}
+                y1={TRACE_COL_META_DIVIDER_Y_TOP}
+                x2={TRACE_COL_META_DIVIDER_X}
+                y2={TRACE_COL_META_DIVIDER_Y_BOTTOM}
+              />
+              <text
+                className="trace-col-meta"
+                x={TRACE_COL_META_X}
+                y={TRACE_COL_META_Y}
+                textAnchor="start"
+              >
+                {`${dataset.rows.length}份高相关文本`}
+              </text>
               <text
                 className="trace-col-head"
                 x={C3 + 16}
-                y={RTOP - 28}
+                y={TRACE_COL_HEAD_Y}
                 textAnchor="start"
               >
                 来源文件

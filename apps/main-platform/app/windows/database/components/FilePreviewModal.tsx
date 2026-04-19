@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { gsap } from "gsap";
-import { X, ExternalLink, File } from "lucide-react";
+import { X, Download, File } from "lucide-react";
 import { openFileWithSystem } from "@/app/lib/desktop-file-bridge";
 
 interface FilePreviewModalProps {
@@ -145,7 +145,7 @@ export function FilePreviewModal({ file, name, onClose }: FilePreviewModalProps)
             <pre className="db-preview-text">{textContent}
               {file.size > TEXT_PREVIEW_LIMIT && (
                 <span className="db-preview-truncate-notice">
-                  {"\n\n"}[仅显示前 64 KB，完整内容请点击「打开文件」]
+                  {"\n\n"}[仅显示前 64 KB，完整内容请点击「下载文件」]
                 </span>
               )}
             </pre>
@@ -206,21 +206,14 @@ export function FilePreviewModal({ file, name, onClose }: FilePreviewModalProps)
           )}
           <div className="db-preview-footer-btns">
             <button
-              className="db-modal-cancel"
-              onClick={handleClose}
-              type="button"
-            >
-              关闭
-            </button>
-            <button
               className="db-preview-open-btn"
               onClick={handleOpenFile}
               type="button"
               disabled={isOpening}
               aria-busy={isOpening}
             >
-              <ExternalLink size={14} strokeWidth={2} />
-              {isOpening ? "打开中…" : "打开文件"}
+              <Download size={14} strokeWidth={2} />
+              {isOpening ? "下载中…" : "下载文件"}
             </button>
           </div>
         </div>

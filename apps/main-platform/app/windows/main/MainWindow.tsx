@@ -17,7 +17,7 @@ interface MainWindowProps {
 }
 
 export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowProps) {
-  const { judgeModelConfigured, setJudgeModelConfigured } = useAppRuntime();
+  const { modelConfigState, setModelConfigState } = useAppRuntime();
   const [canvasReady, setCanvasReady] = useState(false);
   const [traceTarget, setTraceTarget] = useState<{ msgId: string; content: string } | null>(null);
   const [chatMode, setChatMode] = useState<ChatMode>("local");
@@ -74,8 +74,8 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
           mode={chatMode}
           onModeChange={setChatMode}
           onOpenTrace={handleOpenTrace}
-          initialJudgeModelConfigured={judgeModelConfigured}
-          onJudgeModelConfiguredChange={setJudgeModelConfigured}
+          initialModelConfigState={modelConfigState}
+          onModelConfigStateChange={setModelConfigState}
         />
 
         {/* TraceWindow: z-index 200, full-screen overlay, mounted only when a trace is active */}

@@ -11,6 +11,7 @@ import { gsap } from "gsap";
 import { Flip } from "gsap/Flip";
 import { LINE_DRAW_EASE } from "../../shared/animation";
 import { ModelConfigCanvasLines } from "./ModelConfigCanvasLines";
+import type { RuntimeModelConfigState } from "@/app/components/runtime/AppRuntimeProvider";
 
 gsap.registerPlugin(Flip);
 
@@ -20,6 +21,34 @@ interface BotBubbleProps {
   content: string;
   showTrace: boolean;
   onTrace: (msgId: string, content: string) => void;
+}
+
+function buildMCGroupStateMapFromRuntime(
+  state: RuntimeModelConfigState | undefined,
+  initialJudgeConfigured: boolean,
+): MCGroupStateMap {
+  const fallback = createDefaultMCGroupStateMap(initialJudgeConfigured);
+  if (!state) return fallback;
+
+  const groupIds: MCGroupId[] = ["local_query", "embedding", "rerank", "judge"];
+  return groupIds.reduce((acc, groupId) => {
+    const group = state[groupId];
+    const fallbackGroup = fallback[groupId];
+    acc[groupId] = {
+      ...fallbackGroup,
+      provider: group.provider,
+      model: group.model,
+      baseUrl: group.baseUrl,
+      apiKey: group.apiKey,
+      modelPath: group.modelPath,
+      localUrl: group.localUrl,
+      isConfigured: group.isConfigured,
+      connectError: "",
+      connectSuccess: group.isConfigured,
+      isConnecting: false,
+    };
+    return acc;
+  }, {} as MCGroupStateMap);
 }
 
 function BotBubble({ msgId, content, showTrace, onTrace }: BotBubbleProps) {
@@ -150,6 +179,26 @@ function createDefaultMCGroupState(): MCGroupState {
   };
 }
 
+function isSameMCGroupStateMap(prev: MCGroupStateMap, next: MCGroupStateMap): boolean {
+  const groupIds: MCGroupId[] = ["local_query", "embedding", "rerank", "judge"];
+  return groupIds.every((id) => {
+    const prevGroup = prev[id];
+    const nextGroup = next[id];
+    return (
+      prevGroup.provider === nextGroup.provider &&
+      prevGroup.model === nextGroup.model &&
+      prevGroup.baseUrl === nextGroup.baseUrl &&
+      prevGroup.apiKey === nextGroup.apiKey &&
+      prevGroup.modelPath === nextGroup.modelPath &&
+      prevGroup.localUrl === nextGroup.localUrl &&
+      prevGroup.isConfigured === nextGroup.isConfigured &&
+      prevGroup.connectError === nextGroup.connectError &&
+      prevGroup.connectSuccess === nextGroup.connectSuccess &&
+      prevGroup.isConnecting === nextGroup.isConnecting
+    );
+  });
+}
+
 function createDefaultMCGroupStateMap(initialJudgeConfigured = false): MCGroupStateMap {
   return {
     local_query: createDefaultMCGroupState(),
@@ -247,6 +296,8 @@ export interface ChatInteractionPanelProps {
   onOpenTrace?: (msgId: string, content: string) => void;
   initialJudgeModelConfigured?: boolean;
   onJudgeModelConfiguredChange?: (configured: boolean) => void;
+  initialModelConfigState?: RuntimeModelConfigState;
+  onModelConfigStateChange?: (state: RuntimeModelConfigState) => void;
 }
 
 export function ChatInteractionPanel({
@@ -257,6 +308,8 @@ export function ChatInteractionPanel({
   onOpenTrace,
   initialJudgeModelConfigured = false,
   onJudgeModelConfiguredChange,
+  initialModelConfigState,
+  onModelConfigStateChange,
 }: ChatInteractionPanelProps) {
 
   // ── Chat state ──────────────────────────────────────────────────────────────
@@ -268,8 +321,8 @@ export function ChatInteractionPanel({
 
   // ── Model config state ──────────────────────────────────────────────────────
   const [mcPhase, setMCPhase] = useState<MCPhase>("closed");
-  const [mcGroups, setMCGroups] = useState<MCGroupStateMap>(
-    () => createDefaultMCGroupStateMap(initialJudgeModelConfigured),
+  const [mcGroups, setMCGroups] = useState<MCGroupStateMap>(() =>
+    buildMCGroupStateMapFromRuntime(initialModelConfigState, initialJudgeModelConfigured),
   );
   const [mcSaveSummary, setMCSaveSummary] = useState("");
   const [mcSaveSummaryTone, setMCSaveSummaryTone] = useState<"" | "success" | "warning">("");
@@ -311,6 +364,46 @@ export function ChatInteractionPanel({
     embedding: null,
     rerank: null,
   });
+  const prevModeRef = useRef<Mode>(mode);
+
+  const toRuntimeModelConfigState = useCallback((groups: MCGroupStateMap): RuntimeModelConfigState => ({
+    local_query: {
+      provider: groups.local_query.provider,
+      model: groups.local_query.model,
+      baseUrl: groups.local_query.baseUrl,
+      apiKey: groups.local_query.apiKey,
+      modelPath: groups.local_query.modelPath,
+      localUrl: groups.local_query.localUrl,
+      isConfigured: groups.local_query.isConfigured,
+    },
+    embedding: {
+      provider: groups.embedding.provider,
+      model: groups.embedding.model,
+      baseUrl: groups.embedding.baseUrl,
+      apiKey: groups.embedding.apiKey,
+      modelPath: groups.embedding.modelPath,
+      localUrl: groups.embedding.localUrl,
+      isConfigured: groups.embedding.isConfigured,
+    },
+    rerank: {
+      provider: groups.rerank.provider,
+      model: groups.rerank.model,
+      baseUrl: groups.rerank.baseUrl,
+      apiKey: groups.rerank.apiKey,
+      modelPath: groups.rerank.modelPath,
+      localUrl: groups.rerank.localUrl,
+      isConfigured: groups.rerank.isConfigured,
+    },
+    judge: {
+      provider: groups.judge.provider,
+      model: groups.judge.model,
+      baseUrl: groups.judge.baseUrl,
+      apiKey: groups.judge.apiKey,
+      modelPath: groups.judge.modelPath,
+      localUrl: groups.judge.localUrl,
+      isConfigured: groups.judge.isConfigured,
+    },
+  }), []);
 
   // ─── Chat: FLIP helper ─────────────────────────────────────────────────────
   const captureFlip = useCallback(() => {
@@ -480,8 +573,23 @@ export function ChatInteractionPanel({
   }, [mcToast]);
 
   useEffect(() => {
-    onJudgeModelConfiguredChange?.(mcGroups.judge.isConfigured);
-  }, [mcGroups.judge.isConfigured, onJudgeModelConfiguredChange]);
+    if (prevModeRef.current === mode) return;
+    prevModeRef.current = mode;
+
+    if (typingTimerRef.current !== null) {
+      window.clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+    if (botReplyTimerRef.current !== null) {
+      window.clearTimeout(botReplyTimerRef.current);
+      botReplyTimerRef.current = null;
+    }
+
+    isSendingRef.current = false;
+    setIsSending(false);
+    setMessages([]);
+    setShowSemicircle(true);
+  }, [mode]);
 
   const pushValidationReply = useCallback((question: string, validationMessage: string) => {
     const now = Date.now();
@@ -772,6 +880,12 @@ export function ChatInteractionPanel({
   // ─── Model config: connect ─────────────────────────────────────────────────
   const handleMCConnect = useCallback(async () => {
     const snapshot = mcGroups;
+    const nextGroups: MCGroupStateMap = {
+      local_query: { ...snapshot.local_query },
+      embedding: { ...snapshot.embedding },
+      rerank: { ...snapshot.rerank },
+      judge: { ...snapshot.judge },
+    };
     let successCount = 0;
     let failedCount = 0;
 
@@ -784,6 +898,13 @@ export function ChatInteractionPanel({
 
       if (validationError) {
         failedCount += 1;
+        nextGroups[id] = {
+          ...nextGroups[id],
+          isConnecting: false,
+          connectError: validationError,
+          connectSuccess: false,
+          isConfigured: false,
+        };
         updateMCGroup(id, {
           isConnecting: false,
           connectError: validationError,
@@ -809,6 +930,13 @@ export function ChatInteractionPanel({
 
         if (!res.ok) {
           failedCount += 1;
+          nextGroups[id] = {
+            ...nextGroups[id],
+            isConnecting: false,
+            connectError: data.error ?? "连接失败，请检查 API Key 和网络设置",
+            connectSuccess: false,
+            isConfigured: false,
+          };
           updateMCGroup(id, {
             isConnecting: false,
             connectError: data.error ?? "连接失败，请检查 API Key 和网络设置",
@@ -817,6 +945,13 @@ export function ChatInteractionPanel({
           });
         } else {
           successCount += 1;
+          nextGroups[id] = {
+            ...nextGroups[id],
+            isConnecting: false,
+            connectError: "",
+            connectSuccess: true,
+            isConfigured: true,
+          };
           updateMCGroup(id, {
             isConnecting: false,
             connectError: "",
@@ -826,6 +961,13 @@ export function ChatInteractionPanel({
         }
       } catch {
         failedCount += 1;
+        nextGroups[id] = {
+          ...nextGroups[id],
+          isConnecting: false,
+          connectError: "连接失败，请检查 API Key 和网络设置",
+          connectSuccess: false,
+          isConfigured: false,
+        };
         updateMCGroup(id, {
           isConnecting: false,
           connectError: "连接失败，请检查 API Key 和网络设置",
@@ -834,6 +976,9 @@ export function ChatInteractionPanel({
         });
       }
     }
+
+    const persistedState = toRuntimeModelConfigState(nextGroups);
+    onModelConfigStateChange?.(persistedState);
 
     if (successCount === MC_GROUP_DEFS.length) {
       setMCSaveSummary("全部模型连接成功");
@@ -851,7 +996,12 @@ export function ChatInteractionPanel({
       setMCSaveSummary("连接未完成，请检查配置项");
       setMCSaveSummaryTone("warning");
     }
-  }, [mcGroups, updateMCGroup]);
+  }, [
+    mcGroups,
+    onModelConfigStateChange,
+    toRuntimeModelConfigState,
+    updateMCGroup,
+  ]);
 
   const handleMCBrowse = useCallback((groupId: MCGroupId) => {
     fileInputRefs.current[groupId]?.click();
