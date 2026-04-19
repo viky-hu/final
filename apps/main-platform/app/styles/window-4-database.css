@@ -913,6 +913,17 @@
   flex: 1;
 }
 
+.db-preview-highlight {
+  color: #c64b44;
+  background: rgba(198, 75, 68, 0.1);
+  text-decoration-line: underline;
+  text-decoration-color: #c64b44;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 2px;
+  font-weight: 600;
+  padding: 0 1px;
+}
+
 .db-preview-truncate-notice {
   color: rgba(17, 17, 17, 0.4);
   font-style: italic;

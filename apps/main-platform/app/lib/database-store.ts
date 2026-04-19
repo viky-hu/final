@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { ClusterFile, AddClusterFileBody } from "./cluster-files-contract";
+import { TRACE_REFERENCE_DOCS } from "./mock-qa-trace-data";
 
 export interface DatabaseUpdate {
   id: string;
@@ -26,6 +27,7 @@ export interface Metrics {
 }
 
 interface DatabaseState {
+  version: number;
   clusters: Cluster[];
   clusterFiles: Record<string, ClusterFile[]>;
   updateLog: DatabaseUpdate[];
@@ -33,6 +35,7 @@ interface DatabaseState {
 
 const DB_DATA_DIR = path.join(process.cwd(), "data");
 const DB_STATE_FILE = path.join(DB_DATA_DIR, "database-store.json");
+const DB_STORE_VERSION = 3;
 
 const ACTOR_POOL = [
   "法学教研室",
@@ -45,61 +48,26 @@ const ACTOR_POOL = [
   "本机节点",
 ] as const;
 
-const seedClusterBlueprints = [
-  {
-    id: "cluster-civil",
-    name: "民法学",
-    createdAt: "2026-04-06",
-    files: [
-      "民法典总则中的民事主体能力演进.txt",
-      "物权变动与公示公信原则的司法适用.md",
-      "合同编风险负担与违约救济路径.txt",
-      "人格权保护与网络侵权边界研究.md",
-      "侵权责任编中过错推定规则梳理.txt",
-    ],
-  },
-  {
-    id: "cluster-criminal-law",
-    name: "刑法学",
-    createdAt: "2026-04-07",
-    files: [
-      "刑法总则中罪责刑相适应原则再解读.txt",
-      "正当防卫与防卫过当裁判尺度观察.md",
-      "危害公共安全犯罪构成要件比较.txt",
-      "财产犯罪中数额标准与情节判断.md",
-      "共同犯罪中的主从犯区分实务要点.txt",
-      "单位犯罪处罚结构与合规启示.md",
-    ],
-  },
-  {
-    id: "cluster-criminal-procedure",
-    name: "刑事诉讼法学",
-    createdAt: "2026-04-08",
-    files: [
-      "侦查阶段律师介入权的制度价值.txt",
-      "非法证据排除规则适用流程解析.md",
-      "认罪认罚从宽程序中的权利保障.txt",
-      "庭前会议在争点整理中的功能重估.md",
-      "证人出庭率提升与交叉询问实效.txt",
-      "二审程序全面审查原则的边界.md",
-      "再审启动标准与错案纠正机制.txt",
-    ],
-  },
-  {
-    id: "cluster-casebook",
-    name: "真实案例汇编",
-    createdAt: "2026-04-09",
-    files: [
-      "校园纠纷中侵权责任认定案例评析一.txt",
-      "民间借贷利率争议案例评析二.md",
-      "劳动合同解除合法性案例评析三.txt",
-      "电信网络诈骗共同犯罪案例评析四.md",
-      "数据权益侵害与平台责任案例评析五.txt",
-      "环境公益诉讼损害修复案例评析六.md",
-      "未成年人犯罪附条件不起诉案例评析七.txt",
-      "知识产权恶意诉讼责任案例评析八.md",
-    ],
-  },
+const REBUILT_CLUSTER_CATALOG: Array<{ id: string; name: string; createdAt: string }> = [
+  { id: "cluster-civil", name: "民法学", createdAt: "2026-04-10" },
+  { id: "cluster-criminal-law", name: "刑法学", createdAt: "2026-04-11" },
+  { id: "cluster-criminal-procedure", name: "刑事诉讼法学", createdAt: "2026-04-12" },
+  { id: "cluster-casebook", name: "真实案例汇编", createdAt: "2026-04-13" },
+];
+
+const TRACE_CLUSTER_NAME_TO_ID: Record<string, string> = {
+  "民法学": "cluster-civil",
+  "刑法学": "cluster-criminal-law",
+  "刑事诉讼法学": "cluster-criminal-procedure",
+  "真实案例汇编": "cluster-casebook",
+};
+
+const CASEBOOK_SUPPLEMENT_FILE_NAMES = [
+  "建设工程分包合同无效后价款与利息裁判要点案例纪要.txt",
+  "专利侵权与无效宣告并行程序审理路径案例纪要.txt",
+  "中外合作经营企业合同欺诈与担保效力案例纪要.txt",
+  "法定代表人调解确认债务对公司约束力案例纪要.txt",
+  "案由选择错误导致程序偏离的纠正案例纪要.txt",
 ] as const;
 
 let cache: DatabaseState | null = null;
@@ -154,64 +122,97 @@ function composeLegalArticle(clusterName: string, articleTitle: string): string 
   return text;
 }
 
+function buildSeedClusterFiles(): Record<string, ClusterFile[]> {
+  const clusterFiles: Record<string, ClusterFile[]> = Object.fromEntries(
+    REBUILT_CLUSTER_CATALOG.map((cluster) => [cluster.id, [] as ClusterFile[]]),
+  );
+
+  TRACE_REFERENCE_DOCS.forEach((doc) => {
+    const clusterId = TRACE_CLUSTER_NAME_TO_ID[doc.clusterName] ?? "cluster-casebook";
+    const existing = clusterFiles[clusterId] ?? [];
+    const nextIndex = existing.length + 1;
+    const content = [
+      `来源文献：${doc.sourceTitle}`,
+      `Reference：${doc.refIndex}`,
+      `溯源案例：${doc.traceCaseId}`,
+      "",
+      doc.fullText,
+    ].join("\n");
+
+    existing.push({
+      id: `seed-file-${clusterId}-${nextIndex}`,
+      clusterId,
+      name: doc.fileName,
+      size: Buffer.byteLength(content, "utf-8"),
+      mimeType: "text/plain",
+      addedAt: "2026-04-14",
+      textContent: content,
+    });
+    clusterFiles[clusterId] = existing;
+  });
+
+  const casebookFiles = clusterFiles["cluster-casebook"] ?? [];
+  CASEBOOK_SUPPLEMENT_FILE_NAMES.forEach((fileName, idx) => {
+    const article = composeLegalArticle("真实案例汇编", fileName.replace(/\.[^.]+$/, ""));
+    casebookFiles.push({
+      id: `seed-file-cluster-casebook-sup-${idx + 1}`,
+      clusterId: "cluster-casebook",
+      name: fileName,
+      size: Buffer.byteLength(article, "utf-8"),
+      mimeType: "text/plain",
+      addedAt: "2026-04-15",
+      textContent: article,
+    });
+  });
+  clusterFiles["cluster-casebook"] = casebookFiles;
+
+  return clusterFiles;
+}
+
 function buildSeedState(): DatabaseState {
-  const clusters: Cluster[] = [];
-  const clusterFiles: Record<string, ClusterFile[]> = {};
+  const clusterFiles = buildSeedClusterFiles();
+  const clusters: Cluster[] = REBUILT_CLUSTER_CATALOG.map((cluster) => ({
+    id: cluster.id,
+    name: cluster.name,
+    createdAt: cluster.createdAt,
+    fileCount: clusterFiles[cluster.id]?.length ?? 0,
+  }));
   const updateLog: DatabaseUpdate[] = [];
 
   let minuteCursor = 0;
-  seedClusterBlueprints.forEach((clusterDef, clusterIdx) => {
-    clusters.push({
-      id: clusterDef.id,
-      name: clusterDef.name,
-      fileCount: clusterDef.files.length,
-      createdAt: clusterDef.createdAt,
-    });
-
-    const clusterCreatedAt = new Date(`${clusterDef.createdAt}T08:30:00`);
+  clusters.forEach((cluster, clusterIdx) => {
+    const clusterCreatedAt = new Date(`${cluster.createdAt}T08:30:00`);
     updateLog.unshift({
-      id: `seed-upd-cluster-${clusterDef.id}`,
+      id: `seed-upd-cluster-${cluster.id}`,
       time: `${pad2(clusterCreatedAt.getHours())}:${pad2(clusterCreatedAt.getMinutes())}`,
       date: formatDateForTimeline(clusterCreatedAt),
       actor: ACTOR_POOL[clusterIdx % ACTOR_POOL.length],
-      action: `新建了聚类《${clusterDef.name}》`,
+      action: `新建了聚类《${cluster.name}》`,
       type: "cluster",
       timestamp: clusterCreatedAt.getTime(),
     });
 
-    const files: ClusterFile[] = clusterDef.files.map((fileName, fileIdx) => {
-      const mimeType = fileName.endsWith(".md") ? "text/markdown" : "text/plain";
-      const article = composeLegalArticle(clusterDef.name, fileName.replace(/\.(txt|md)$/i, ""));
-      const addedDate = new Date(`${clusterDef.createdAt}T09:00:00`);
+    const files = clusterFiles[cluster.id] ?? [];
+    files.forEach((_file, fileIdx) => {
+      const addedDate = new Date(`${cluster.createdAt}T09:00:00`);
       addedDate.setDate(addedDate.getDate() + Math.floor(fileIdx / 2));
       addedDate.setMinutes(addedDate.getMinutes() + minuteCursor);
       minuteCursor += 11;
 
       updateLog.unshift({
-        id: `seed-upd-file-${clusterDef.id}-${fileIdx + 1}`,
+        id: `seed-upd-file-${cluster.id}-${fileIdx + 1}`,
         time: `${pad2(addedDate.getHours())}:${pad2(addedDate.getMinutes())}`,
         date: formatDateForTimeline(addedDate),
         actor: ACTOR_POOL[(clusterIdx + fileIdx + 1) % ACTOR_POOL.length],
-        action: `上传文件至《${clusterDef.name}》`,
+        action: `上传文件至《${cluster.name}》`,
         type: "file",
         timestamp: addedDate.getTime(),
       });
-
-      return {
-        id: `seed-file-${clusterDef.id}-${fileIdx + 1}`,
-        clusterId: clusterDef.id,
-        name: fileName,
-        size: Buffer.byteLength(article, "utf-8"),
-        mimeType,
-        addedAt: addedDate.toISOString().slice(0, 10),
-        textContent: article,
-      };
     });
-
-    clusterFiles[clusterDef.id] = files;
   });
 
   return {
+    version: DB_STORE_VERSION,
     clusters,
     clusterFiles,
     updateLog: updateLog.sort((a, b) => b.timestamp - a.timestamp),
@@ -225,6 +226,7 @@ function hydrateState(raw: unknown): DatabaseState | null {
     return null;
   }
   return {
+    version: typeof obj.version === "number" ? obj.version : 0,
     clusters: obj.clusters,
     clusterFiles: obj.clusterFiles,
     updateLog: obj.updateLog,
@@ -245,6 +247,13 @@ function getState(): DatabaseState {
     const parsed = JSON.parse(fs.readFileSync(DB_STATE_FILE, "utf-8")) as unknown;
     const hydrated = hydrateState(parsed);
     if (!hydrated) throw new Error("invalid store file shape");
+
+    if (hydrated.version !== DB_STORE_VERSION) {
+      cache = buildSeedState();
+      saveState(cache);
+      return cache;
+    }
+
     cache = hydrated;
     return cache;
   } catch {
@@ -423,40 +432,26 @@ export function restoreCluster(clusterId: string, actor?: string): Cluster | nul
     return null; // Already exists, nothing to restore
   }
 
-  // Find the blueprint
-  const blueprint = seedClusterBlueprints.find((b) => b.id === clusterId);
-  if (!blueprint) {
+  const catalog = REBUILT_CLUSTER_CATALOG.find((item) => item.id === clusterId);
+  if (!catalog) {
     return null; // Unknown cluster ID
   }
 
+  const seedState = buildSeedState();
+  const seedFiles = (seedState.clusterFiles[clusterId] ?? []).map((file) => ({ ...file }));
+
   const now = new Date();
-  const today = now.toISOString().slice(0, 10);
 
   // Create cluster
   const cluster: Cluster = {
-    id: blueprint.id,
-    name: blueprint.name,
-    fileCount: blueprint.files.length,
-    createdAt: blueprint.createdAt,
+    id: catalog.id,
+    name: catalog.name,
+    fileCount: seedFiles.length,
+    createdAt: catalog.createdAt,
   };
 
   state.clusters.push(cluster);
-
-  // Create files with content
-  const files: ClusterFile[] = blueprint.files.map((fileName, idx) => {
-    const article = composeLegalArticle(blueprint.name, fileName.replace(/\.[^.]+$/, ""));
-    return {
-      id: `seed-file-${blueprint.id}-${idx + 1}`,
-      clusterId: blueprint.id,
-      name: fileName,
-      size: Buffer.byteLength(article, "utf-8"),
-      mimeType: fileName.endsWith(".md") ? "text/markdown" : "text/plain",
-      addedAt: blueprint.createdAt,
-      textContent: article,
-    };
-  });
-
-  state.clusterFiles[blueprint.id] = files;
+  state.clusterFiles[catalog.id] = seedFiles;
 
   // Add update log entry
   state.updateLog.unshift({
@@ -464,7 +459,7 @@ export function restoreCluster(clusterId: string, actor?: string): Cluster | nul
     time: `${pad2(now.getHours())}:${pad2(now.getMinutes())}`,
     date: formatDateForTimeline(now),
     actor: normalizeActorName(actor),
-    action: `恢复聚类《${blueprint.name}》`,
+    action: `恢复聚类《${catalog.name}》`,
     type: "cluster",
     timestamp: now.getTime(),
   });

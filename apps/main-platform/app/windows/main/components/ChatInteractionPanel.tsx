@@ -8,19 +8,19 @@ import {
   useState,
 } from "react";
 import { gsap } from "gsap";
-import { Flip } from "gsap/Flip";
 import { LINE_DRAW_EASE } from "../../shared/animation";
 import { ModelConfigCanvasLines } from "./ModelConfigCanvasLines";
 import type { RuntimeModelConfigState } from "@/app/components/runtime/AppRuntimeProvider";
+import { findMockQAPair, type TraceCaseId } from "@/app/lib/mock-qa-trace-data";
 
-gsap.registerPlugin(Flip);
 
 // ─── BotBubble ────────────────────────────────────────────────────────────────
 interface BotBubbleProps {
   msgId: string;
   content: string;
+  traceCaseId: TraceCaseId | null;
   showTrace: boolean;
-  onTrace: (msgId: string, content: string) => void;
+  onTrace: (msgId: string, content: string, traceCaseId: TraceCaseId) => void;
 }
 
 function buildMCGroupStateMapFromRuntime(
@@ -51,7 +51,7 @@ function buildMCGroupStateMapFromRuntime(
   }, {} as MCGroupStateMap);
 }
 
-function BotBubble({ msgId, content, showTrace, onTrace }: BotBubbleProps) {
+function BotBubble({ msgId, content, traceCaseId, showTrace, onTrace }: BotBubbleProps) {
   const bubbleRef = useRef<HTMLDivElement>(null);
   const btnOuterRef = useRef<HTMLDivElement>(null);
   const btnInnerRef = useRef<HTMLDivElement>(null);
@@ -68,10 +68,15 @@ function BotBubble({ msgId, content, showTrace, onTrace }: BotBubbleProps) {
     gsap.set(btnOuter, { width: 0 });
     gsap.set(btnInner, { opacity: 0 });
 
+    const targetTraceWidth = Math.min(
+      TRACE_BUTTON_MAX_WIDTH,
+      Math.max(TRACE_BUTTON_MIN_WIDTH, bubble.getBoundingClientRect().width),
+    );
+
     const tl = gsap.timeline({ paused: true });
 
     tl.to(btnOuter, {
-      width: TRACE_BUTTON_WIDTH,
+      width: targetTraceWidth,
       duration: 0.38,
       ease: LINE_DRAW_EASE,
     }, 0.14);
@@ -111,8 +116,14 @@ function BotBubble({ msgId, content, showTrace, onTrace }: BotBubbleProps) {
           role="button"
           tabIndex={0}
           aria-label="查看回答溯源"
-          onClick={() => onTrace(msgId, content)}
-          onKeyDown={(e) => e.key === "Enter" && onTrace(msgId, content)}
+          onClick={() => {
+            if (!traceCaseId) return;
+            onTrace(msgId, content, traceCaseId);
+          }}
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" || !traceCaseId) return;
+            onTrace(msgId, content, traceCaseId);
+          }}
         >
           溯源
         </div>
@@ -129,6 +140,7 @@ interface Message {
   id: string;
   role: MessageRole;
   content: string;
+  traceCaseId?: TraceCaseId;
 }
 
 // 模型配置状态机
@@ -250,42 +262,41 @@ function buildMCPayload(group: MCGroupState) {
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const BOT_REPLY = "这是模拟回答，后续将接入实际代码。";
+const BOT_REPLY = "未命中当前预设问答，请使用 README 指定的四组问题之一。";
 const TYPING_STAGE_STATIC_DELAY_MS = 550;
 const THINKING_TOTAL_DELAY_MS_BY_MODE: Record<Mode, number> = {
   local: 5000,
   global: 15000,
 };
-const TRACE_BUTTON_WIDTH = 80;
+const TRACE_BUTTON_MIN_WIDTH = 80;
+const TRACE_BUTTON_MAX_WIDTH = 96;
+const BOT_STREAM_INTERVAL_MS = 26;
+const BOT_STREAM_CHUNK_SIZE = 2;
 
-interface MockQAPair {
-  matchers: string[];
-  answer: string;
+function buildModeMismatchReply(expectedMode: Mode): string {
+  if (expectedMode === "global") {
+    return "该问题属于全局问答，请先切换至全局模式再发送。";
+  }
+  return "该问题属于本地问答，请先切换至本地模式再发送。";
 }
 
-const MOCK_QA_PAIRS: MockQAPair[] = [
-  {
-    matchers: ["中国法制史配套测试", "动产担保权公示及优先顺位规则研究", "法学教育中的定位"],
-    answer:
-      "《中国法制史配套测试》旨在帮助法学院校学生掌握法律专业知识和培养法律思维能力，属于《高校法学专业核心课程配套测试丛书》系列，考点全面、题量充足、解答详尽且应试性强；《动产担保权公示及优先顺位规则研究》则基于我国动产担保实践，深入探讨动产担保的公示制度与优先顺位规则，并提出相关法律对策，以期为完善我国动产担保制度提供立法建议和法理支持。",
-  },
-  {
-    matchers: ["秭归县茅坪镇九里村", "故意杀人案", "江苏南通", "山东临沂", "孟某"],
-    answer:
-      "在秭归县茅坪镇九里村的案件中，唐某某因矛盾纠纷持刀将郭某某当场杀死，具有明显的故意杀人动机和直接的致死结果，因此被采取刑事强制措施；而在江苏南通和山东临沂的案件中，孟某的具体犯罪行为尚未完全明确，且没有直接导致人员死亡的结果，因此案件仍在进一步侦办中，未明确具体的法律定性。",
-  },
-];
+function resolveMockReply(question: string, currentMode: Mode): { answer: string; traceCaseId: TraceCaseId | null } {
+  const hit = findMockQAPair(question);
+  if (!hit) {
+    return { answer: BOT_REPLY, traceCaseId: null };
+  }
 
-function normalizeForMockQa(input: string): string {
-  return input.replace(/\s+/g, "").replace(/[“”"'‘’]/g, "");
-}
+  if (hit.mode !== currentMode) {
+    return {
+      answer: buildModeMismatchReply(hit.mode),
+      traceCaseId: null,
+    };
+  }
 
-function resolveMockReply(question: string): string {
-  const normalized = normalizeForMockQa(question);
-  const hit = MOCK_QA_PAIRS.find((pair) =>
-    pair.matchers.every((matcher) => normalized.includes(normalizeForMockQa(matcher))),
-  );
-  return hit?.answer ?? BOT_REPLY;
+  return {
+    answer: hit.answer,
+    traceCaseId: hit.traceCaseId,
+  };
 }
 
 export interface ChatInteractionPanelProps {
@@ -293,7 +304,7 @@ export interface ChatInteractionPanelProps {
   canvasReady?: boolean;
   mode?: Mode;
   onModeChange?: (mode: Mode) => void;
-  onOpenTrace?: (msgId: string, content: string) => void;
+  onOpenTrace?: (msgId: string, content: string, traceCaseId: TraceCaseId) => void;
   initialJudgeModelConfigured?: boolean;
   onJudgeModelConfiguredChange?: (configured: boolean) => void;
   initialModelConfigState?: RuntimeModelConfigState;
@@ -339,12 +350,11 @@ export function ChatInteractionPanel({
   const panelRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const isSendingRef = useRef(false);
-  const pendingFlipRef = useRef<ReturnType<typeof Flip.getState> | null>(null);
   const pendingEntryIdsRef = useRef<Set<string>>(new Set());
   const bubbleTweensRef = useRef<Map<string, gsap.core.Tween>>(new Map());
-  const scrollHandledByFlipRef = useRef(false);
   const typingTimerRef = useRef<number | null>(null);
   const botReplyTimerRef = useRef<number | null>(null);
+  const streamTimerRef = useRef<number | null>(null);
 
   const modeRowRef = useRef<HTMLDivElement>(null);
   const msgMaskRef = useRef<HTMLDivElement>(null);
@@ -405,20 +415,6 @@ export function ChatInteractionPanel({
     },
   }), []);
 
-  // ─── Chat: FLIP helper ─────────────────────────────────────────────────────
-  const captureFlip = useCallback(() => {
-    const list = listRef.current;
-    if (!list) return;
-    const nodes = list.querySelectorAll<HTMLElement>(".chat-bubble-wrapper");
-    const settled = Array.from(nodes).filter((el) => {
-      const id = el.getAttribute("data-msg-id");
-      return !id || !bubbleTweensRef.current.has(id);
-    });
-    if (settled.length > 0) {
-      pendingFlipRef.current = Flip.getState(settled);
-    }
-  }, []);
-
   // ─── Chat: bubble entry animation ──────────────────────────────────────────
   const animateBubble = useCallback((el: HTMLElement, msgId: string) => {
     bubbleTweensRef.current.get(msgId)?.kill();
@@ -442,29 +438,16 @@ export function ChatInteractionPanel({
     if (!list) return;
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
-        gsap.to(list, { scrollTop: list.scrollHeight, duration: 0.6, ease: "power3.out" });
+        gsap.killTweensOf(list);
+        gsap.to(list, {
+          scrollTop: list.scrollHeight,
+          duration: 0.45,
+          ease: "power2.out",
+          overwrite: "auto",
+        });
       });
     });
   }, []);
-
-  // ─── Chat: apply pending FLIP ──────────────────────────────────────────────
-  useLayoutEffect(() => {
-    scrollHandledByFlipRef.current = false;
-    if (pendingFlipRef.current) {
-      scrollHandledByFlipRef.current = true;
-      Flip.from(pendingFlipRef.current, {
-        targets: ".chat-bubble-wrapper",
-        duration: 0.35,
-        ease: "power3.out",
-        stagger: 0.01,
-        onComplete: () => {
-          pendingFlipRef.current = null;
-          scrollToBottom();
-        },
-      });
-      pendingFlipRef.current = null;
-    }
-  }, [messages, scrollToBottom]);
 
   // ─── Chat: entry animation for new bubbles ─────────────────────────────────
   useLayoutEffect(() => {
@@ -478,7 +461,7 @@ export function ChatInteractionPanel({
         if (id && ids.has(id)) animateBubble(el, id);
       });
     pendingEntryIdsRef.current.clear();
-    if (!scrollHandledByFlipRef.current) scrollToBottom();
+    scrollToBottom();
   }, [messages, animateBubble, scrollToBottom]);
 
   // ─── Chat: semicircle fade ─────────────────────────────────────────────────
@@ -503,6 +486,9 @@ export function ChatInteractionPanel({
       }
       if (botReplyTimerRef.current !== null) {
         window.clearTimeout(botReplyTimerRef.current);
+      }
+      if (streamTimerRef.current !== null) {
+        window.clearInterval(streamTimerRef.current);
       }
     };
   }, []);
@@ -584,6 +570,10 @@ export function ChatInteractionPanel({
       window.clearTimeout(botReplyTimerRef.current);
       botReplyTimerRef.current = null;
     }
+    if (streamTimerRef.current !== null) {
+      window.clearInterval(streamTimerRef.current);
+      streamTimerRef.current = null;
+    }
 
     isSendingRef.current = false;
     setIsSending(false);
@@ -596,7 +586,6 @@ export function ChatInteractionPanel({
     const userId = `msg-${now}-user`;
     const botId = `msg-${now + 1}-bot`;
 
-    captureFlip();
     pendingEntryIdsRef.current.add(userId);
     pendingEntryIdsRef.current.add(botId);
     setInputValue("");
@@ -605,7 +594,7 @@ export function ChatInteractionPanel({
       { id: userId, role: "user", content: question },
       { id: botId, role: "bot", content: validationMessage },
     ]);
-  }, [captureFlip]);
+  }, []);
 
   const getRetrieveValidationMessage = useCallback((currentMode: Mode): string | null => {
     if (!mcGroups.local_query.isConfigured) {
@@ -645,6 +634,10 @@ export function ChatInteractionPanel({
       window.clearTimeout(botReplyTimerRef.current);
       botReplyTimerRef.current = null;
     }
+    if (streamTimerRef.current !== null) {
+      window.clearInterval(streamTimerRef.current);
+      streamTimerRef.current = null;
+    }
 
     const validationMessage = getRetrieveValidationMessage(mode);
     if (validationMessage) {
@@ -652,7 +645,9 @@ export function ChatInteractionPanel({
       return;
     }
 
-    const replyText = resolveMockReply(text);
+    const resolvedReply = resolveMockReply(text, mode);
+    const replyText = resolvedReply.answer;
+    const traceCaseId = resolvedReply.traceCaseId;
     const thinkingTotalDelayMs = THINKING_TOTAL_DELAY_MS_BY_MODE[mode];
     const typingDelayMs = Math.max(0, thinkingTotalDelayMs - TYPING_STAGE_STATIC_DELAY_MS);
 
@@ -665,28 +660,45 @@ export function ChatInteractionPanel({
     const typingId = `msg-${now + 1}-typing`;
     const botId = `msg-${now + 2}-bot`;
 
-    captureFlip();
     pendingEntryIdsRef.current.add(userId);
     setMessages((prev) => [...prev, { id: userId, role: "user", content: text }]);
 
     typingTimerRef.current = window.setTimeout(() => {
       typingTimerRef.current = null;
-      captureFlip();
       pendingEntryIdsRef.current.add(typingId);
       setMessages((prev) => [...prev, { id: typingId, role: "typing", content: "" }]);
 
       botReplyTimerRef.current = window.setTimeout(() => {
         botReplyTimerRef.current = null;
-        captureFlip();
         pendingEntryIdsRef.current.add(botId);
         setMessages((prev) =>
-          prev.filter((m) => m.id !== typingId).concat({ id: botId, role: "bot", content: replyText })
+          prev.filter((m) => m.id !== typingId).concat({
+            id: botId,
+            role: "bot",
+            content: "",
+            traceCaseId: traceCaseId ?? undefined,
+          })
         );
-        isSendingRef.current = false;
-        setIsSending(false);
+
+        let renderedLength = 0;
+        streamTimerRef.current = window.setInterval(() => {
+          renderedLength = Math.min(replyText.length, renderedLength + BOT_STREAM_CHUNK_SIZE);
+          const streamedText = replyText.slice(0, renderedLength);
+          setMessages((prev) => prev.map((m) => (m.id === botId ? { ...m, content: streamedText } : m)));
+          scrollToBottom();
+
+          if (renderedLength >= replyText.length) {
+            if (streamTimerRef.current !== null) {
+              window.clearInterval(streamTimerRef.current);
+              streamTimerRef.current = null;
+            }
+            isSendingRef.current = false;
+            setIsSending(false);
+          }
+        }, BOT_STREAM_INTERVAL_MS);
       }, typingDelayMs);
     }, TYPING_STAGE_STATIC_DELAY_MS);
-  }, [inputValue, captureFlip, getRetrieveValidationMessage, mode, pushValidationReply]);
+  }, [inputValue, getRetrieveValidationMessage, mode, pushValidationReply, scrollToBottom]);
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInputValue(e.target.value);
@@ -1262,10 +1274,13 @@ export function ChatInteractionPanel({
           </div>
 
           {/* ── Messages Area ── */}
-          <div ref={msgMaskRef} className="chat-messages-mask">
+          <div
+            ref={msgMaskRef}
+            className="chat-messages-mask"
+          >
             <div
               ref={listRef}
-              className={`chat-messages-list${messages.length > 0 ? " chat-messages-list--has-messages" : ""}`}
+              className="chat-messages-list"
             >
               <div className="chat-messages-inner">
                 {messages.map((msg) => (
@@ -1285,7 +1300,8 @@ export function ChatInteractionPanel({
                       <BotBubble
                         msgId={msg.id}
                         content={msg.content}
-                        showTrace={mode === "local"}
+                        traceCaseId={msg.traceCaseId ?? null}
+                        showTrace={Boolean(msg.traceCaseId)}
                         onTrace={onOpenTrace ?? (() => { })}
                       />
                     ) : (

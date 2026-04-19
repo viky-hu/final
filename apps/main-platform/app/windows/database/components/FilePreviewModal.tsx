@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { gsap } from "gsap";
 import { X, Download, File } from "lucide-react";
 import { openFileWithSystem } from "@/app/lib/desktop-file-bridge";
@@ -9,7 +9,56 @@ interface FilePreviewModalProps {
   file: File;
   name: string;
   addedAt?: string;
+  highlightPhrases?: string[];
   onClose: () => void;
+}
+
+interface HighlightSegment {
+  text: string;
+  highlighted: boolean;
+}
+
+function escapeRegExp(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function resolveHighlightTargets(content: string, phrases: string[]): string[] {
+  const targets: string[] = [];
+  const pushIfMatch = (candidate: string) => {
+    const next = candidate.trim();
+    if (!next || next.length < 12) return;
+    if (!content.includes(next)) return;
+    if (targets.includes(next)) return;
+    targets.push(next);
+  };
+
+  phrases.forEach((phrase) => {
+    const raw = phrase.trim();
+    if (!raw) return;
+
+    pushIfMatch(raw);
+    pushIfMatch(raw.replace(/……+$/g, ""));
+    pushIfMatch(raw.replace(/[。！？；，、]+$/g, ""));
+  });
+
+  return targets.sort((a, b) => b.length - a.length);
+}
+
+function buildHighlightedSegments(content: string, phrases: string[]): HighlightSegment[] {
+  const normalized = resolveHighlightTargets(content, phrases);
+
+  if (!normalized.length) {
+    return [{ text: content, highlighted: false }];
+  }
+
+  const matcher = new RegExp(`(${normalized.map((item) => escapeRegExp(item)).join("|")})`, "g");
+  return content
+    .split(matcher)
+    .filter((segment) => segment.length > 0)
+    .map((segment) => ({
+      text: segment,
+      highlighted: normalized.includes(segment),
+    }));
 }
 
 function detectFileCategory(file: File): "text" | "image" | "video" | "audio" | "pdf" | "other" {
@@ -40,7 +89,7 @@ function formatFileSize(bytes: number): string {
 
 const TEXT_PREVIEW_LIMIT = 64 * 1024; // 64 KB text preview cap
 
-export function FilePreviewModal({ file, name, addedAt, onClose }: FilePreviewModalProps) {
+export function FilePreviewModal({ file, name, addedAt, highlightPhrases = [], onClose }: FilePreviewModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const modalRef  = useRef<HTMLDivElement>(null);
 
@@ -49,6 +98,11 @@ export function FilePreviewModal({ file, name, addedAt, onClose }: FilePreviewMo
   const [textContent, setTextContent] = useState<string | null>(null);
   const [openResult,  setOpenResult]  = useState<{ ok: boolean; message: string } | null>(null);
   const [isOpening,   setIsOpening]   = useState(false);
+
+  const highlightedSegments = useMemo(() => {
+    if (category !== "text" || textContent === null) return [];
+    return buildHighlightedSegments(textContent, highlightPhrases);
+  }, [category, highlightPhrases, textContent]);
 
   // Create object URL for binary previews
   useEffect(() => {
@@ -146,7 +200,18 @@ export function FilePreviewModal({ file, name, addedAt, onClose }: FilePreviewMo
         {/* ── Content body ── */}
         <div className="db-preview-body">
           {category === "text" && textContent !== null && (
-            <pre className="db-preview-text">{textContent}
+            <pre className="db-preview-text">
+              {highlightedSegments.length > 0
+                ? highlightedSegments.map((segment, index) => (
+                  <span key={`db-preview-segment-${index}`}>
+                    {segment.highlighted ? (
+                      <mark className="db-preview-highlight">{segment.text}</mark>
+                    ) : (
+                      segment.text
+                    )}
+                  </span>
+                ))
+                : textContent}
               {file.size > TEXT_PREVIEW_LIMIT && (
                 <span className="db-preview-truncate-notice">
                   {"\n\n"}[仅显示前 64 KB，完整内容请点击「下载文件」]

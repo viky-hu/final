@@ -14,6 +14,7 @@ import { LINE_DRAW_EASE } from "../../shared/animation";
 import { DotGrid } from "./DotGrid";
 import { FilePreviewModal } from "../../database/components/FilePreviewModal";
 import { TraceKnowledgeGraph } from "./TraceKnowledgeGraph";
+import { getTraceReferencesByCase, type TraceCaseId } from "@/app/lib/mock-qa-trace-data";
 
 // ─── SVG canvas dimensions ───────────────────────────────────────────────────
 const TVW = 1440;
@@ -41,13 +42,17 @@ const TRACE_COL_META_DIVIDER_Y_TOP = TRACE_COL_META_Y - 14;
 const TRACE_COL_META_DIVIDER_Y_BOTTOM = TRACE_COL_META_Y + 8;
 
 interface TraceRow {
+  id: string;
+  sourceTitle: string;
+  refIndex: number;
   text: string;
+  fullText: string;
   clusterName: string;
   fileName: string;
 }
 
 interface TraceDataset {
-  tag: string;
+  traceCaseId: TraceCaseId;
   rows: TraceRow[];
 }
 
@@ -65,6 +70,7 @@ interface TraceLineDef {
 interface TracePreviewTarget {
   file: File;
   name: string;
+  highlightPhrases: string[];
 }
 
 const TRACE_LINES: TraceLineDef[] = [
@@ -81,222 +87,38 @@ const TRACE_LINES: TraceLineDef[] = [
   { id: "bottom-boundary", x1: 0, y1: TVH - 1, x2: TVW, y2: TVH - 1, start: 0.9, duration: 0.3, strokeWidth: 2.2 },
 ];
 
-const GROUP_1: TraceDataset = {
-  tag: "法学教材定位差异",
-  rows: [
-    {
-      text: "《中国法制史配套测试》在课程导向上强调章节化训练、阶段性测评与高频考点回溯，内容组织围绕课堂进度与考试节奏展开，适合在教学周内进行持续刷题与错题复盘，目标是帮助学生快速形成可迁移的答题框架并提升应试稳定性",
-      clusterName: "核心知识库",
-      fileName: "高校法学核心课程配套测试丛书_法制史卷.pdf",
-    },
-    {
-      text: "同组材料显示，配套测试体系会将知识点拆分为基础概念、制度沿革、案例辨析与综合论述四个层级，并在每个层级附加评分说明与典型误区，强调通过高频小测形成记忆曲线，从而在有限备考时间内实现覆盖广、命中高、复习路径清晰的学习效果",
-      clusterName: "研究文献集",
-      fileName: "法学本科教学指南_课程能力要求.docx",
-    },
-    {
-      text: "题库与解析文档进一步补充了答题模板、关键词触发机制与法条定位建议，要求学习者在阅读后立即进行同主题迁移练习，并通过解析中的反向示例识别常见失分点，这种“输入—训练—校正”闭环更偏向课程训练与考试实战的结合场景",
-      clusterName: "核心知识库",
-      fileName: "法制史配套测试题库与解析_2026版.pdf",
-    },
-    {
-      text: "与之对照，《动产担保权公示及优先顺位规则研究》聚焦制度结构、比较法脉络与裁判规则协调问题，讨论重点是规则冲突与立法完善路径，文本密集引用实务案例和理论争鸣，不以应试得分为直接目标，而以制度解释力和规范建构能力为核心",
-      clusterName: "研究文献集",
-      fileName: "动产担保公示与优先顺位规则研究_专著.pdf",
-    },
-    {
-      text: "从受众角度看，研究型材料更适合研究生与政策研究人员在专题写作、课题论证或实务评估时深度使用，其价值体现在提出可操作改革方案与证据化论证链路；而教材型材料更侧重教学配套与考试表现，两类文献在功能定位上形成清晰分层",
-      clusterName: "实验数据集",
-      fileName: "动产担保司法实践与立法建议报告.md",
-    },
-  ],
-};
-
-const GROUP_2: TraceDataset = {
-  tag: "故意杀人与侦办阶段区分",
-  rows: [
-    {
-      text: "秭归县个案公开信息已明确“持刀攻击—被害人死亡—嫌疑人被控制”这一完整事实链，客观结果与行为因果关系具备直接对应，结合现场处置与后续通报可形成较高确定性的初步法律评价，因此在侦查初期即可落入故意杀人罪名审查路径",
-      clusterName: "核心知识库",
-      fileName: "秭归县茅坪镇九里村警情通报_案情摘要.pdf",
-    },
-    {
-      text: "对照刑法构成要件，行为人的主观恶性、实施手段危险程度、攻击部位与持续性行为通常共同指向直接故意判断，若客观上已发生死亡结果且排除明显阻却事由，案件定性会更快从一般暴力行为筛查转入故意杀人实体审查与证据补强阶段",
-      clusterName: "研究文献集",
-      fileName: "刑法分则要件对照表_故意杀人条款.docx",
-    },
-    {
-      text: "南通与临沂相关案件目前披露内容主要集中在抓获进展与程序节点，尚缺少关键事实细节、完整鉴定结论以及稳定证据链条，尤其在主观故意程度与结果关联尚未固定前，侦查机关通常会保持审慎表述，避免过早给出终局性罪名结论",
-      clusterName: "实验数据集",
-      fileName: "跨省案件侦办阶段信息披露规范.md",
-    },
-    {
-      text: "侦办阶段的法律评价通常遵循“事实先行、证据闭环、定性递进”的工作规则，只有在死亡结果、作案行为、主观状态和排他性解释都达到可支撑起诉标准时，罪名表达才会趋于明确，因此阶段性信息差异并不意味着裁判标准不一致，而是证据成熟度不同",
-      clusterName: "核心知识库",
-      fileName: "刑事案件定性流程指引_侦查阶段.pdf",
-    },
-    {
-      text: "综合比较可见，警方在公开口径中区分案件性质的核心依据是证据完成度与事实确定性：一类案件已具备“行为—结果—故意”三要素的高匹配，另一类案件仍处在关键事实补全期，依法维持程序性描述有助于保障后续起诉与审判阶段的严谨性和可解释性",
-      clusterName: "研究文献集",
-      fileName: "暴力案件法律适用与证据标准研究报告.pdf",
-    },
-  ],
-};
-
-const DEFAULT_DATASET: TraceDataset = {
-  tag: "默认溯源样本",
-  rows: [
-    {
-      text: "系统在收到问题后会先执行多路召回策略，联合向量索引、关键词倒排与主题标签过滤快速定位候选知识块，再根据语义覆盖度、时效权重与结构完整性进行重排序，确保进入生成环节的上下文既贴近问题意图，也具备可追溯、可核验的来源基础",
-      clusterName: "核心知识库",
-      fileName: "knowledge_retrieval_pipeline.md",
-    },
-    {
-      text: "在排序阶段，模型不仅比较向量相似度，还会引入关键词共现密度、实体一致性与段落位置权重，防止单一相似度指标导致语义漂移；当多条证据分数接近时，系统会优先保留信息粒度更完整且上下文关系更清晰的文本片段，以提升回答稳定性",
-      clusterName: "研究文献集",
-      fileName: "semantic_ranking_design.pdf",
-    },
-    {
-      text: "生成前的校核流程会对候选片段进行事实一致性比对与来源绑定检查，重点确认时间、主体、行为与结论之间不存在明显冲突，并在输出阶段附加可回查锚点，避免回答出现“看似合理但无法追证”的表述，满足后续审计与人工复核需求",
-      clusterName: "实验数据集",
-      fileName: "answer_grounding_spec.docx",
-    },
-    {
-      text: "展示层将候选证据映射到文件级元数据后，会统一输出文档来源、聚类归属、命中片段摘要与关联分组信息，使用户能够快速判断每条依据的出处与可信度；当问题跨领域时，界面会优先呈现跨聚类共识片段，减少单源偏差对决策的影响",
-      clusterName: "核心知识库",
-      fileName: "trace_window_render_schema.json",
-    },
-    {
-      text: "为增强可解释性，系统在最终答案旁保留结构化溯源链路，包括检索命中记录、重排权重概览与证据片段引用顺序，支持“从结论回看依据”的逆向审查流程；该机制可用于教学演示、业务质检与模型迭代评估，帮助团队持续优化知识问答质量",
-      clusterName: "研究文献集",
-      fileName: "llm_explainability_manual.pdf",
-    },
-  ],
-};
-
-function normalize(input: string): string {
-  return input.replace(/\s+/g, "").replace(/[“”"'‘’]/g, "");
-}
-
 function ensureTrailingEllipsis(text: string): string {
-  const trimmed = text.trimEnd();
+  const trimmed = text.trimEnd().replace(/[。！？；，、,.!?;:：]+$/g, "");
   if (/……$/.test(trimmed)) return trimmed;
   return `${trimmed}……`;
 }
 
-function selectDataset(answerContent: string): TraceDataset {
-  const content = normalize(answerContent);
-  if (
-    content.includes(normalize("中国法制史配套测试")) ||
-    content.includes(normalize("动产担保权公示及优先顺位规则研究"))
-  ) {
-    return GROUP_1;
-  }
-
-  if (
-    content.includes(normalize("秭归县茅坪镇九里村")) ||
-    content.includes(normalize("江苏南通")) ||
-    content.includes(normalize("山东临沂"))
-  ) {
-    return GROUP_2;
-  }
-
-  return DEFAULT_DATASET;
+function buildDataset(traceCaseId: TraceCaseId): TraceDataset {
+  return {
+    traceCaseId,
+    rows: getTraceReferencesByCase(traceCaseId).map((doc) => ({
+      id: doc.id,
+      sourceTitle: doc.sourceTitle,
+      refIndex: doc.refIndex,
+      text: doc.excerpt.trimEnd().replace(/[。！？；，、,.!?;:：]+$/g, ""),
+      fullText: doc.fullText,
+      clusterName: doc.clusterName,
+      fileName: doc.fileName,
+    })),
+  };
 }
 
-function pickRandomItems<T>(items: T[], count: number): T[] {
-  const pool = [...items];
-  for (let idx = pool.length - 1; idx > 0; idx -= 1) {
-    const swapIdx = Math.floor(Math.random() * (idx + 1));
-    [pool[idx], pool[swapIdx]] = [pool[swapIdx], pool[idx]];
-  }
-  return pool.slice(0, Math.max(0, Math.min(count, pool.length)));
-}
-
-function buildTracePreviewFile(row: TraceRow, rowIndex: number): File {
-  const indent = "　　";
-  const intro = [
+function buildTracePreviewFile(row: TraceRow): File {
+  const content = [
     `来源文件：${row.fileName}`,
     `所属聚类：${row.clusterName}`,
-    `溯源编号：TRACE-${String(rowIndex + 1).padStart(2, "0")}`,
+    `对应文献：${row.sourceTitle}`,
+    `Reference：${row.refIndex}`,
     "",
-    "语义相关文本：",
-    row.text,
-    "",
-    "正文：",
-  ];
-
-  const openingPool = [
-    `${indent}围绕“${row.fileName}”的记录主线可以看到，文本描述与证据链呈现出明显的阶段性推进关系。`,
-    `${indent}从“${row.clusterName}”聚类的上下文看，该文件重点补充了事件细部与关键节点之间的逻辑连接。`,
-    `${indent}将语义文本与来源片段逐条对照后，可以确认主要叙述方向保持一致，仅在表达层面存在轻微差异。`,
-    `${indent}该条目在事实呈现上采用了先结论后展开的结构，阅读时需结合时间线与实体关系同步理解。`,
-  ];
-
-  const detailPool = [
-    "在首轮整理中，系统优先提取可量化信息，再将人物、地点、行为三类实体交叉映射，减少叙述歧义。",
-    "就同类文档而言，本文件在细节密度上明显更高，尤其是对上下游事件触发条件的描述更完整。",
-    "通过句级比对可以发现，原文中多处因果连接词与时间副词共同构成了强约束的推断路径。",
-    "针对容易误读的段落，采用反向复核方式回看源句，确认结论并非由单一语句孤立支撑。",
-    "若从资料来源构成观察，该文本同时包含陈述性材料与说明性材料，二者互为补充。",
-    "相较于摘要性材料，本文件提供了更多过程描述，可帮助读者理解事实如何逐步成立。",
-    "在关联比对阶段，多个关键词在邻近语境重复出现，说明该主题并非偶发提及而是核心议题。",
-    "该文档在论述中保留了不少边界条件，这些条件对后续解释范围与结论强度有直接影响。",
-  ];
-
-  const closingPool = [
-    `${indent}综合以上信息，本文件可作为该主题的重要支撑材料，适合与同聚类文档并行阅读以提高判断稳定性。`,
-    `${indent}从证据连续性与叙事完整度看，当前文本具备较高参考价值，建议在复核阶段保留为核心来源之一。`,
-    `${indent}若后续需要扩展检索范围，可优先沿当前关键词链条向相邻语料延伸，以获得更完整的背景信息。`,
-    `${indent}整体来看，该来源在事实核验、语义一致性与上下文衔接三方面表现均衡，适合作为基础样本。`,
-  ];
-
-  const paragraphCount = 12 + Math.floor(Math.random() * 4);
-  const baseBody = Array.from({ length: paragraphCount }, () => {
-    const opening = openingPool[Math.floor(Math.random() * openingPool.length)];
-    const detailA = detailPool[Math.floor(Math.random() * detailPool.length)];
-    const detailB = detailPool[Math.floor(Math.random() * detailPool.length)];
-    return `${opening}${detailA}${detailB}`;
-  }).join("\n\n");
-
-  let body = baseBody;
-  while (body.length < 1900) {
-    const opening = openingPool[Math.floor(Math.random() * openingPool.length)];
-    const detail = detailPool[Math.floor(Math.random() * detailPool.length)];
-    body += `\n\n${opening}${detail}`;
-  }
-
-  const relatedFilePool = [
-    "政策执行纪要-季度汇编.pdf",
-    "访谈记录-文本整理版.docx",
-    "事件节点时间轴-校核稿.xlsx",
-    "联合研判纪要-内部稿.doc",
-    "区域样本抽取说明-v3.txt",
-    "工作流日志导出-完整版.csv",
-    "现场记录影像清单-补充版.md",
-    "跨部门会商纪要-终稿.pdf",
-    "证据条目索引-修订表.xlsx",
-    "案例要点提炼-对照稿.docx",
-    "语义片段标注记录-v2.json",
-    "溯源链路说明-附注.txt",
-  ];
-  const relatedFiles = pickRandomItems(relatedFilePool, 7)
-    .map((name) => `${indent}${name}`)
-    .join("\n");
-
-  const closing = closingPool[Math.floor(Math.random() * closingPool.length)];
-
-  const content = [
-    ...intro,
-    body,
-    "",
-    "关联来源：",
-    relatedFiles,
-    "",
-    closing,
+    row.fullText,
   ].join("\n");
 
-  return new File([content], `trace-preview-${rowIndex + 1}.txt`, {
+  return new File([content], row.fileName, {
     type: "text/plain;charset=utf-8",
   });
 }
@@ -304,12 +126,12 @@ function buildTracePreviewFile(row: TraceRow, rowIndex: number): File {
 // ─── Props ────────────────────────────────────────────────────────────────────
 export interface TraceWindowProps {
   msgId: string;
-  answerContent: string;
+  traceCaseId: TraceCaseId;
   onClose: () => void;
 }
 
 // ─── Main component ───────────────────────────────────────────────────────────
-export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps) {
+export function TraceWindow({ msgId, traceCaseId, onClose }: TraceWindowProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
@@ -326,7 +148,7 @@ export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps)
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
   const [previewTarget, setPreviewTarget] = useState<TracePreviewTarget | null>(null);
   const isClosingRef = useRef(false);
-  const dataset = useMemo(() => selectDataset(answerContent), [answerContent]);
+  const dataset = useMemo(() => buildDataset(traceCaseId), [traceCaseId]);
 
   const updateHoveredRow = useCallback((nextRow: number | null) => {
     if (hoveredRowRef.current === nextRow) return;
@@ -466,16 +288,17 @@ export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps)
     });
   }, []);
 
-  const handleOpenPreview = useCallback((row: TraceRow, rowIndex: number) => {
+  const handleOpenPreview = useCallback((row: TraceRow) => {
     setPreviewTarget({
-      file: buildTracePreviewFile(row, rowIndex),
+      file: buildTracePreviewFile(row),
       name: row.fileName,
+      highlightPhrases: [row.text],
     });
   }, []);
 
   const handleOpenPreviewFromSelectedRow = useCallback((row: TraceRow, rowIndex: number) => {
     if (hoveredRowRef.current !== rowIndex) return;
-    handleOpenPreview(row, rowIndex);
+    handleOpenPreview(row);
   }, [handleOpenPreview]);
 
   const handleClosePreview = useCallback(() => {
@@ -785,6 +608,7 @@ export function TraceWindow({ msgId, answerContent, onClose }: TraceWindowProps)
         <FilePreviewModal
           file={previewTarget.file}
           name={previewTarget.name}
+          highlightPhrases={previewTarget.highlightPhrases}
           onClose={handleClosePreview}
         />
       )}

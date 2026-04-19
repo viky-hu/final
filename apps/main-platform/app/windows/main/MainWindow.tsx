@@ -7,6 +7,7 @@ import { ChatInteractionPanel } from "./components/ChatInteractionPanel";
 import { TraceWindow } from "./components/TraceWindow";
 import { GlobalTopNav } from "../shared/GlobalTopNav";
 import { useAppRuntime } from "@/app/components/runtime/AppRuntimeProvider";
+import type { TraceCaseId } from "@/app/lib/mock-qa-trace-data";
 
 type ChatMode = "local" | "global";
 
@@ -19,11 +20,11 @@ interface MainWindowProps {
 export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowProps) {
   const { modelConfigState, setModelConfigState } = useAppRuntime();
   const [canvasReady, setCanvasReady] = useState(false);
-  const [traceTarget, setTraceTarget] = useState<{ msgId: string; content: string } | null>(null);
+  const [traceTarget, setTraceTarget] = useState<{ msgId: string; traceCaseId: TraceCaseId } | null>(null);
   const [chatMode, setChatMode] = useState<ChatMode>("local");
 
-  const handleOpenTrace = useCallback((msgId: string, content: string) => {
-    setTraceTarget({ msgId, content });
+  const handleOpenTrace = useCallback((msgId: string, _content: string, traceCaseId: TraceCaseId) => {
+    setTraceTarget({ msgId, traceCaseId });
   }, []);
 
   const handleCloseTrace = useCallback(() => {
@@ -82,7 +83,7 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
         {traceTarget && (
           <TraceWindow
             msgId={traceTarget.msgId}
-            answerContent={traceTarget.content}
+            traceCaseId={traceTarget.traceCaseId}
             onClose={handleCloseTrace}
           />
         )}
