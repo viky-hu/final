@@ -696,12 +696,20 @@ export function ChatInteractionPanel({
     }, TYPING_STAGE_STATIC_DELAY_MS);
   }, [inputValue, getRetrieveValidationMessage, mode, pushValidationReply, scrollToBottom]);
 
-  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputValue(e.target.value);
-    const el = e.target;
+  const syncInputHeight = useCallback((el: HTMLTextAreaElement | null) => {
+    if (!el) return;
     el.style.height = "auto";
     el.style.height = `${Math.min(el.scrollHeight, 120)}px`;
+  }, []);
+
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setInputValue(e.target.value);
+    syncInputHeight(e.target);
   };
+
+  useEffect(() => {
+    syncInputHeight(inputRef.current);
+  }, [inputValue, syncInputHeight]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSend(); }

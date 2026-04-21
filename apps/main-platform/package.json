@@ -7,7 +7,9 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "trace:graph:build": "python apps/main-platform/scripts/build_trace_graph_data.py",
+    "trace:graph:build-local": "python apps/main-platform/scripts/build_trace_graph_data.py --source-html C:/Users/Admin/final/newgraph.html --target-node-count 300 --online-translate"
   },
   "dependencies": {
     "@fontsource/michroma": "^5.2.8",

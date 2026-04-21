@@ -4,7 +4,46 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 const VIS_SCRIPT_SRC = "/trace/lib/vis-9.1.2/vis-network.min.js";
 const VIS_STYLE_HREF = "/trace/lib/vis-9.1.2/vis-network.css";
-const TRACE_GRAPH_DATA_URL = "/trace/trace-knowledge-graph-reduced.json";
+const TRACE_GRAPH_DATA_MANIFEST_URL = "/trace/trace-knowledge-graph-manifest.json";
+const TRACE_GRAPH_DATA_FALLBACK_URL = "/trace/trace-knowledge-graph-reduced.json";
+const TRACE_NODE_COLOR_PALETTE = [
+  "#A7AAE1",
+  "#2FA4D7",
+  "#9ED3DC",
+  "#FEFD99",
+  "#FCB7C7",
+  "#CA6180",
+] as const;
+
+interface TraceNodeColorState {
+  background: string;
+  border: string;
+}
+
+interface TraceNodeColorSpec {
+  background: string;
+  border: string;
+  highlight: TraceNodeColorState;
+  hover: TraceNodeColorState;
+}
+
+function resolveTraceNodeColor(node: Pick<TraceGraphNode, "id">): TraceNodeColorSpec {
+  const key = node.id;
+  const seed = Array.from(key).reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+  const base = TRACE_NODE_COLOR_PALETTE[seed % TRACE_NODE_COLOR_PALETTE.length];
+  return {
+    background: base,
+    border: base,
+    highlight: {
+      background: base,
+      border: base,
+    },
+    hover: {
+      background: base,
+      border: base,
+    },
+  };
+}
 
 type GraphStatus = "loading" | "ready" | "error";
 
@@ -12,10 +51,11 @@ interface TraceGraphNode {
   id: string;
   label: string;
   title: string;
-  group: string;
-  color: string;
+  group?: string;
+  color?: string | TraceNodeColorSpec;
   shape: string;
   size: number;
+  borderWidth?: number;
 }
 
 interface TraceGraphEdge {
@@ -29,19 +69,27 @@ interface TraceGraphEdge {
 
 interface TraceGraphMeta {
   generatedAt: string;
+  sourceKind?: string;
+  sourcePath?: string;
   sourceNodeCount: number;
   sourceEdgeCount: number;
   keptNodeCount: number;
   keptEdgeCount: number;
-  targetRatio: number;
+  targetNodeCount?: number;
+  targetRatio?: number;
   sourceGraphBytes: number;
   centerRoots: string[];
+  translationMode?: string;
 }
 
 interface TraceGraphPayload {
   meta: TraceGraphMeta;
   nodes: TraceGraphNode[];
   edges: TraceGraphEdge[];
+}
+
+interface TraceGraphManifest {
+  activeDataUrl?: string;
 }
 
 interface VisNetworkInstance {
@@ -144,6 +192,15 @@ export function TraceKnowledgeGraph({ onExit }: TraceKnowledgeGraphProps) {
     return `中心关键词：${centerRoots.join("、")}`;
   }, [meta]);
 
+  const bottomSourceText = useMemo(() => {
+    const sourcePath = meta?.sourcePath?.trim();
+    if (!sourcePath) return "图谱源：读取中";
+    const normalized = sourcePath.replace(/\\/g, "/");
+    const fileName = normalized.split("/").pop() || sourcePath;
+    const sourceKind = meta?.sourceKind ? `（${meta.sourceKind}）` : "";
+    return `图谱源：${fileName}${sourceKind}`;
+  }, [meta]);
+
   const handleFit = useCallback(() => {
     networkRef.current?.fit({
       animation: {
@@ -164,7 +221,20 @@ export function TraceKnowledgeGraph({ onExit }: TraceKnowledgeGraphProps) {
         ensureVisStylesheet();
         await loadVisScript();
 
-        const response = await fetch(TRACE_GRAPH_DATA_URL, { cache: "force-cache" });
+        let dataUrl = TRACE_GRAPH_DATA_FALLBACK_URL;
+        try {
+          const manifestResponse = await fetch(TRACE_GRAPH_DATA_MANIFEST_URL, { cache: "no-store" });
+          if (manifestResponse.ok) {
+            const manifest = (await manifestResponse.json()) as TraceGraphManifest;
+            if (manifest.activeDataUrl) {
+              dataUrl = manifest.activeDataUrl;
+            }
+          }
+        } catch {
+          dataUrl = TRACE_GRAPH_DATA_FALLBACK_URL;
+        }
+
+        const response = await fetch(dataUrl, { cache: "no-store" });
         if (!response.ok) {
           throw new Error(`图谱数据加载失败（HTTP ${response.status}）`);
         }
@@ -188,19 +258,23 @@ export function TraceKnowledgeGraph({ onExit }: TraceKnowledgeGraphProps) {
             improvedLayout: true,
             randomSeed: 23,
           },
+          groups: {},
           interaction: {
             dragNodes: true,
             dragView: true,
             zoomView: true,
             hover: true,
+            hoverConnectedEdges: false,
             hideEdgesOnDrag: false,
             hideNodesOnDrag: false,
+            tooltipDelay: 80,
             navigationButtons: false,
             keyboard: false,
           },
           nodes: {
             borderWidth: 1,
             borderWidthSelected: 2,
+            chosen: false,
             font: {
               face: "DingTalk JinBuTi, sans-serif",
               color: "#0f172a",
@@ -218,8 +292,7 @@ export function TraceKnowledgeGraph({ onExit }: TraceKnowledgeGraphProps) {
               hover: "rgba(0,71,255,0.62)",
             },
             smooth: {
-              enabled: true,
-              type: "dynamic",
+              enabled: false,
             },
           },
           physics: {
@@ -230,28 +303,63 @@ export function TraceKnowledgeGraph({ onExit }: TraceKnowledgeGraphProps) {
               centralGravity: 0.38,
               springLength: 130,
               springConstant: 0.05,
-              damping: 0.16,
+              damping: 0.22,
               avoidOverlap: 0.18,
             },
+            adaptiveTimestep: true,
             stabilization: {
               enabled: true,
-              iterations: 380,
+              iterations: 320,
               fit: true,
-              updateInterval: 32,
+              updateInterval: 40,
             },
           },
         };
+
+        const normalizedNodes = payload.nodes.map((node) => {
+          const color = resolveTraceNodeColor(node);
+          return {
+            id: node.id,
+            label: node.label,
+            title: node.title,
+            shape: node.shape,
+            size: node.size,
+            borderWidth: node.borderWidth,
+            color,
+          };
+        });
 
         networkRef.current?.destroy();
         const network = new vis.Network(
           container,
           {
-            nodes: payload.nodes,
+            nodes: normalizedNodes,
             edges: payload.edges,
           },
           options,
         );
         networkRef.current = network;
+
+        network.setOptions({
+          interaction: {
+            hideEdgesOnDrag: false,
+            hideNodesOnDrag: false,
+          },
+          edges: {
+            smooth: {
+              enabled: false,
+            },
+          },
+        });
+
+        network.on("dragStart", () => {
+          network.setOptions({
+            interaction: {
+              hideEdgesOnDrag: false,
+              hideNodesOnDrag: false,
+            },
+          });
+        });
 
         network.once("stabilizationIterationsDone", () => {
           network.setOptions({
@@ -317,6 +425,7 @@ export function TraceKnowledgeGraph({ onExit }: TraceKnowledgeGraphProps) {
         <p className="trace-graph-center-roots">{bottomNodeCountText}</p>
         <p className="trace-graph-center-roots">{bottomEdgeCountText}</p>
         <p className="trace-graph-center-roots">{bottomKeywordsText}</p>
+        <p className="trace-graph-center-roots">{bottomSourceText}</p>
       </footer>
 
       <div className="trace-graph-exit-wrap">
