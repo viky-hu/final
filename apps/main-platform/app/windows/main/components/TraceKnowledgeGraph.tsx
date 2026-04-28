@@ -192,15 +192,6 @@ export function TraceKnowledgeGraph({ onExit }: TraceKnowledgeGraphProps) {
     return `中心关键词：${centerRoots.join("、")}`;
   }, [meta]);
 
-  const bottomSourceText = useMemo(() => {
-    const sourcePath = meta?.sourcePath?.trim();
-    if (!sourcePath) return "图谱源：读取中";
-    const normalized = sourcePath.replace(/\\/g, "/");
-    const fileName = normalized.split("/").pop() || sourcePath;
-    const sourceKind = meta?.sourceKind ? `（${meta.sourceKind}）` : "";
-    return `图谱源：${fileName}${sourceKind}`;
-  }, [meta]);
-
   const handleFit = useCallback(() => {
     networkRef.current?.fit({
       animation: {
@@ -425,7 +416,6 @@ export function TraceKnowledgeGraph({ onExit }: TraceKnowledgeGraphProps) {
         <p className="trace-graph-center-roots">{bottomNodeCountText}</p>
         <p className="trace-graph-center-roots">{bottomEdgeCountText}</p>
         <p className="trace-graph-center-roots">{bottomKeywordsText}</p>
-        <p className="trace-graph-center-roots">{bottomSourceText}</p>
       </footer>
 
       <div className="trace-graph-exit-wrap">
