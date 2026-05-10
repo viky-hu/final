@@ -11,6 +11,7 @@ import {
 } from "react";
 import Cropper, { type Area } from "react-easy-crop";
 import { useAppRuntime, type SavedNodeLocation } from "@/app/components/runtime/AppRuntimeProvider";
+import { coerceClientError } from "./error-utils";
 import {
   buildPlateMapFromSvgMarkup,
   createPlateHitTester,
@@ -53,7 +54,7 @@ async function loadImageFromSource(src: string): Promise<HTMLImageElement> {
   return await new Promise((resolve, reject) => {
     const image = new Image();
     image.onload = () => resolve(image);
-    image.onerror = () => reject(new Error("image load failed"));
+    image.onerror = (event) => reject(coerceClientError(event, `image load failed: ${src}`));
     image.src = src;
   });
 }

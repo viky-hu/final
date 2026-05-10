@@ -180,4 +180,200 @@ apps/main-platform/
   - https://vercel.com/academy/nextjs-foundations/security-review-apis-and-config
   - https://vercel.com/kb/guide/add-rate-limiting-vercel
 
-# 
+# 2. 节点通信
+
+## 2.1 本次会话代码操作总览
+
+本节按**实际执行顺序**完整记录本次聊天中所有代码相关操作（含检索/读取、文件新增、文件修改、验证命令、临时产物清理）。
+
+---
+
+## 2.2 规划阶段操作（未改业务代码）
+
+### 2.2.1 代码检索与上下文读取（只读）
+
+1. 全局检索前端聊天链路、`central_server.py`、`node_server.py` 现状与调用关系。
+2. 检索并读取规则文件（`AGENTS.md`）：
+   - 仓库根 `AGENTS.md`
+   - `apps/main-platform/AGENTS.md`
+   - `apps/main-platform/app/api/AGENTS.md`
+   - `apps/main-platform/app/windows/main/AGENTS.md`
+3. 读取架构文档现状：
+   - `docs/architecture/modules-index.md`
+   - `docs/architecture/extension-review-checklist.md`
+4. 检索并确认联邦 BFF 目录尚未落地（`app/api/federation/**` 不存在）。
+5. 读取核心业务文件确认接入点：
+   - `apps/main-platform/app/windows/main/components/ChatInteractionPanel.tsx`
+   - `apps/main-platform/app/windows/main/MainWindow.tsx`
+   - `apps/main-platform/app/api/model-config/connect/route.ts`
+   - `README_2.md`、`README.md`
+
+### 2.2.2 计划文件操作（规划产物）
+
+6. 新建计划文件：
+   - `c:\Users\Admin\.windsurf\plans\federation-chat-contract-freeze-plan-8907e4.md`
+7. 根据用户 6 项确认决策，更新计划文件第 F 节（由“待确认”改为“已冻结决策”）。
+8. 执行 `exitplanmode`，进入实施阶段。
+
+---
+
+## 2.3 实施阶段：新增文件
+
+### 2.3.1 Next.js 服务层（federation）
+
+1. 新增 `apps/main-platform/app/lib/server/federation/schemas.ts`
+   - 定义联邦请求/响应 schema：`FederationAskRequestSchema`、`CentralAskResponseSchema`、`FederationAskResponseSchema`。
+   - 定义节点明细类型与错误体结构。
+
+2. 新增 `apps/main-platform/app/lib/server/federation/errors.ts`
+   - 新增 `FederationHttpError`。
+   - 提供 `toFederationErrorResponse()` 做错误归一化（`code/message/requestId/details`）。
+
+3. 新增 `apps/main-platform/app/lib/server/federation/central-client.ts`
+   - 实现 `askCentral()`：调用中心服务 `/ask`，处理超时、上游错误、响应校验。
+   - 实现 `checkCentralHealth()`：调用中心服务 `/health`，返回规范健康结构。
+   - 支持环境变量：`FEDERATION_CENTRAL_BASE_URL`、`FEDERATION_CENTRAL_TIMEOUT_MS`、`FEDERATION_CENTRAL_HEALTH_TIMEOUT_MS`。
+
+### 2.3.2 Next.js BFF 路由
+
+4. 新增 `apps/main-platform/app/api/federation/ask/route.ts`
+   - 落地 `POST /api/federation/ask`。
+   - 处理请求解析、schema 校验、`request-id` 透传、错误归一化、日志。
+
+5. 新增 `apps/main-platform/app/api/federation/health/route.ts`
+   - 落地 `GET /api/federation/health`。
+   - 聚合中心健康 + 可选节点直连健康（`FEDERATION_NODE_HEALTH_URLS`）。
+
+### 2.3.3 前端调用封装
+
+6. 新增 `apps/main-platform/app/windows/main/services/federation-chat-api.ts`
+   - 封装 `askFederationChat()`。
+   - 定义 `FederationChatError`。
+   - 统一解析成功/失败 payload，前端只消费稳定结构。
+
+### 2.3.4 环境变量示例
+
+7. 新增 `apps/main-platform/.env.example`
+   - 给出联邦链路所需环境变量模板：
+     - `FEDERATION_CENTRAL_BASE_URL`
+     - `FEDERATION_CENTRAL_TIMEOUT_MS`
+     - `FEDERATION_CENTRAL_HEALTH_TIMEOUT_MS`
+     - `FEDERATION_NODE_HEALTH_URLS`（可选）
+     - `FEDERATION_NODE_TIMEOUT_MS`
+     - `FEDERATION_SM4_KEY`
+
+---
+
+## 2.4 实施阶段：修改文件
+
+### 2.4.1 前端聊天主链路
+
+1. 修改 `apps/main-platform/app/windows/main/components/ChatInteractionPanel.tsx`
+   - 新增 `askFederationChat`、`FederationChatError` 引入。
+   - 新增 `buildFederationReplyText()`：格式化主答案、节点明细、请求 ID。
+   - 新增 `buildFederationErrorReply()`：归一化联邦异常文案。
+   - 改造 `handleSend()`：
+     - `global` 模式走 `askFederationChat()`；
+     - `local` 模式保留 `resolveMockReply()`；
+     - 保留原有思考延迟 + 流式输出动画。
+
+### 2.4.2 Python 中心服务
+
+2. 修改 `central_server.py`
+   - 新增 `load_sm4_key()`：改为环境变量 `FEDERATION_SM4_KEY`。
+   - 新增 `resolve_node_timeout_seconds()`：读取 `FEDERATION_NODE_TIMEOUT_MS`（默认 8000ms）。
+   - `AskResponse` 增加字段：`status`、`request_id`。
+   - 新增 `resolve_status()`：统一 `ok/partial/error` 语义。
+   - 修改 `POST /ask`：
+     - 接收并透传 `x-request-id`（无则生成 UUID）；
+     - 向节点请求时附加 `x-request-id`；
+     - 返回 `status + request_id`。
+   - 新增 `GET /health`：并发探测各节点 `/health` 并返回聚合状态。
+
+### 2.4.3 Python 节点服务
+
+3. 修改 `node_server.py`
+   - 新增 `load_sm4_key()`：改为环境变量 `FEDERATION_SM4_KEY`。
+   - 新增 `normalize_node_id()`：统一 `node_a -> nodea`，避免知识表 key 不匹配。
+   - 修改 `POST /query`：读取 `x-request-id` 并打印节点日志。
+
+### 2.4.4 联邦服务层二次收敛（当次重构）
+
+4. 二次修改 `apps/main-platform/app/lib/server/federation/central-client.ts`
+   - 将 `askCentral()` 的 `requestId` 参数显式为 `string`，修复类型约束。
+   - `checkCentralHealth()` 从中心 `/health` 读取状态。
+   - 成功响应优先使用中心返回的 `request_id`。
+   - 去掉 `z.treeifyError` 依赖，改为稳定 `result.error.issues`。
+
+5. 二次修改 `apps/main-platform/app/api/federation/health/route.ts`
+   - 新增 `extractCentralNodeResults()`。
+   - 合并“中心返回节点健康”与“可选直连节点健康”，去重后统一输出。
+
+### 2.4.5 架构文档同步（职责变化强制更新）
+
+6. 修改 `docs/architecture/modules-index.md`
+   - 补充联邦 BFF（`ask/health`）已落地。
+   - 补充服务层 `federation` 目录职责。
+   - 补充 Window4 前端调用封装职责（仅 `global` 走联邦）。
+
+7. 修改 `docs/architecture/extension-review-checklist.md`
+   - 追加 `2026-04-28 - Window 4 global 联邦聊天链路正式接入` 审查记录。
+   - 记录主责/协同文件、扩展性结论、重构动作、风险与后续。
+
+---
+
+## 2.5 验证与质量检查操作
+
+1. TypeScript 编译校验（多次执行）：
+   - `pnpm --filter main-platform exec tsc --noEmit`
+   - 结果：通过。
+
+2. Python 语法校验（多次执行）：
+   - `python -m py_compile central_server.py node_server.py`
+   - 结果：通过。
+
+3. 变更核对：
+   - 执行 `git status --short` 检查最终变更集。
+
+4. 临时产物清理：
+   - 删除 `__pycache__/`。
+   - 恢复 `apps/main-platform/tsconfig.tsbuildinfo`，避免将编译缓存纳入业务改动。
+
+---
+
+## 2.6 本次会话最终代码变更清单（落盘）
+
+### 新增文件
+
+- `apps/main-platform/.env.example`
+- `apps/main-platform/app/api/federation/ask/route.ts`
+- `apps/main-platform/app/api/federation/health/route.ts`
+- `apps/main-platform/app/lib/server/federation/central-client.ts`
+- `apps/main-platform/app/lib/server/federation/errors.ts`
+- `apps/main-platform/app/lib/server/federation/schemas.ts`
+- `apps/main-platform/app/windows/main/services/federation-chat-api.ts`
+
+### 修改文件
+
+- `apps/main-platform/app/windows/main/components/ChatInteractionPanel.tsx`
+- `central_server.py`
+- `node_server.py`
+- `docs/architecture/modules-index.md`
+- `docs/architecture/extension-review-checklist.md`
+
+### 规划阶段产物（非业务运行代码）
+
+- `c:\Users\Admin\.windsurf\plans\federation-chat-contract-freeze-plan-8907e4.md`（创建 + 更新）
+
+# 3. 历史记录
+
+我们将要改变交互对话页面布局，新增查看历史会话记录功能
+
+## 3.1 当前页面状态
+
+整个交互对话页面目前大致看作三个部分
+1、位于整个窗口顶部的长条导航栏
+导航栏往下面：
+2、点阵状背景，与鼠标位置有交互动画
+3、由四条线条GSAP绘制，并动态展开扩大的SVG矩形画布
+4、

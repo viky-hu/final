@@ -10,8 +10,8 @@
   # 全部走远程
   python central_server.py --node nodea=http://172.22.39.147:8001 --node nodeb=http://172.22.39.147:8002
 """
-import argparse, asyncio, json, base64, httpx
-from fastapi import FastAPI
+import argparse, asyncio, json, base64, os, uuid, httpx
+from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 
@@ -49,7 +49,27 @@ for nid, info in NODES.items():
 
 # ---- SM4 加解密 ----
 from sm4 import SM4Key
-SM4_KEY = b'ness-python-key!'[:16].ljust(16, b'\x00')
+
+
+def load_sm4_key() -> bytes:
+    raw = os.getenv("FEDERATION_SM4_KEY", "").strip()
+    if not raw:
+        raise RuntimeError("缺少环境变量 FEDERATION_SM4_KEY")
+    return raw.encode("utf-8")[:16].ljust(16, b'\x00')
+
+
+def resolve_node_timeout_seconds() -> float:
+    raw = os.getenv("FEDERATION_NODE_TIMEOUT_MS", "8000").strip()
+    try:
+        timeout_ms = int(raw)
+    except ValueError:
+        timeout_ms = 8000
+    if timeout_ms <= 0:
+        timeout_ms = 8000
+    return timeout_ms / 1000.0
+
+
+SM4_KEY = load_sm4_key()
 _sm4 = SM4Key(SM4_KEY)
 
 def simple_encrypt(text: str) -> str:
@@ -78,17 +98,33 @@ class AskRequest(BaseModel):
 class AskResponse(BaseModel):
     answer: str
     details: list[dict]
+    status: str
+    request_id: str
+
+
+def resolve_status(details: list[dict]) -> str:
+    if not details:
+        return "error"
+    ok_count = sum(1 for item in details if item.get("status") == "ok")
+    if ok_count == 0:
+        return "error"
+    if ok_count < len(details):
+        return "partial"
+    return "ok"
 
 @app.post("/ask", response_model=AskResponse)
-async def ask(req: AskRequest):
+async def ask(req: AskRequest, request: Request):
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
     encrypted = simple_encrypt(req.question)
-    async with httpx.AsyncClient(timeout=30) as client:
+    node_timeout_seconds = resolve_node_timeout_seconds()
+    async with httpx.AsyncClient(timeout=node_timeout_seconds) as client:
         tasks = []
         for nid, info in NODES.items():
             tasks.append(
                 client.post(
                     f"{info['url']}/query",
-                    json={"encrypted_query": encrypted}
+                    json={"encrypted_query": encrypted},
+                    headers={"x-request-id": request_id},
                 )
             )
         responses = await asyncio.gather(*tasks, return_exceptions=True)
@@ -108,7 +144,65 @@ async def ask(req: AskRequest):
             details.append({"node": nid, "status": "parse_error", "detail": str(e)})
 
     answer = judge_model(candidates)
-    return AskResponse(answer=answer, details=details)
+    status = resolve_status(details)
+    print(f"[CENTRAL] request_id={request_id} status={status} details={len(details)}")
+    return AskResponse(answer=answer, details=details, status=status, request_id=request_id)
+
+
+@app.get("/health")
+async def health(request: Request):
+    request_id = request.headers.get("x-request-id") or str(uuid.uuid4())
+    node_timeout_seconds = resolve_node_timeout_seconds()
+    results = []
+
+    async with httpx.AsyncClient(timeout=node_timeout_seconds) as client:
+        tasks = []
+        node_ids = []
+        for nid, info in NODES.items():
+            node_ids.append(nid)
+            tasks.append(client.get(f"{info['url']}/health", headers={"x-request-id": request_id}))
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+
+    for nid, info, resp in zip(node_ids, NODES.values(), responses):
+        if isinstance(resp, Exception):
+            results.append({
+                "node": nid,
+                "url": info["url"],
+                "status": "error",
+                "detail": str(resp),
+            })
+            continue
+
+        try:
+            body = resp.json()
+        except Exception:
+            body = None
+
+        if resp.status_code >= 400:
+            results.append({
+                "node": nid,
+                "url": info["url"],
+                "status": "error",
+                "http_status": resp.status_code,
+                "body": body,
+            })
+            continue
+
+        results.append({
+            "node": nid,
+            "url": info["url"],
+            "status": "ok",
+            "http_status": resp.status_code,
+            "body": body,
+        })
+
+    overall_status = resolve_status(results)
+    print(f"[CENTRAL] request_id={request_id} health_status={overall_status}")
+    return {
+        "request_id": request_id,
+        "status": overall_status,
+        "nodes": results,
+    }
 
 @app.get("/")
 async def root():

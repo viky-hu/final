@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { coerceClientError } from "../../shared/error-utils";
 
 const VIS_SCRIPT_SRC = "/trace/lib/vis-9.1.2/vis-network.min.js";
 const VIS_STYLE_HREF = "/trace/lib/vis-9.1.2/vis-network.css";
@@ -144,9 +145,16 @@ function loadVisScript(): Promise<void> {
         return;
       }
       existing.addEventListener("load", () => resolve(), { once: true });
-      existing.addEventListener("error", () => reject(new Error("vis-network 脚本加载失败")), {
-        once: true,
-      });
+      existing.addEventListener(
+        "error",
+        (event) => {
+          visScriptPromise = null;
+          reject(coerceClientError(event, "vis-network 脚本加载失败"));
+        },
+        {
+          once: true,
+        },
+      );
       return;
     }
 
@@ -154,8 +162,18 @@ function loadVisScript(): Promise<void> {
     script.src = VIS_SCRIPT_SRC;
     script.async = true;
     script.dataset.traceVis = VIS_SCRIPT_SRC;
-    script.onload = () => resolve();
-    script.onerror = () => reject(new Error("vis-network 脚本加载失败"));
+    script.onload = () => {
+      if (window.vis?.Network) {
+        resolve();
+        return;
+      }
+      visScriptPromise = null;
+      reject(new Error("vis-network 脚本加载完成但未初始化 Network"));
+    };
+    script.onerror = (event) => {
+      visScriptPromise = null;
+      reject(coerceClientError(event, "vis-network 脚本加载失败"));
+    };
     document.body.appendChild(script);
   });
 
@@ -364,7 +382,7 @@ export function TraceKnowledgeGraph({ onExit }: TraceKnowledgeGraphProps) {
         setStatus("ready");
       } catch (error) {
         if (cancelled) return;
-        const message = error instanceof Error ? error.message : "图谱初始化失败";
+        const message = coerceClientError(error, "图谱初始化失败").message;
         setErrorText(message);
         setStatus("error");
       }

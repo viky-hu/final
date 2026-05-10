@@ -12,6 +12,7 @@ import { LINE_DRAW_EASE } from "../../shared/animation";
 import { ModelConfigCanvasLines } from "./ModelConfigCanvasLines";
 import type { RuntimeModelConfigState } from "@/app/components/runtime/AppRuntimeProvider";
 import { findMockQAPair, type TraceCaseId } from "@/app/lib/mock-qa-trace-data";
+import { askFederationChat, FederationChatError } from "../services/federation-chat-api";
 
 
 // ─── BotBubble ────────────────────────────────────────────────────────────────
@@ -271,9 +272,9 @@ const BOT_STREAM_CHUNK_SIZE = 2;
 
 function buildModeMismatchReply(expectedMode: Mode): string {
   if (expectedMode === "global") {
-    return "该问题属于全局问答，请先切换至全局模式再发送。";
+    return "我无法回答你的问题。";
   }
-  return "该问题属于本地问答，请先切换至本地模式再发送。";
+  return "我无法回答你的问题。";
 }
 
 function resolveMockReply(question: string, currentMode: Mode): { answer: string; traceCaseId: TraceCaseId | null } {
@@ -293,6 +294,53 @@ function resolveMockReply(question: string, currentMode: Mode): { answer: string
     answer: hit.answer,
     traceCaseId: hit.traceCaseId,
   };
+}
+
+function buildFederationReplyText(result: Awaited<ReturnType<typeof askFederationChat>>): string {
+  const statusPrefix =
+    result.status === "partial"
+      ? "[部分节点失败，已返回可用结果]"
+      : result.status === "error"
+        ? "[链路异常]"
+        : "";
+
+  const detailsText = result.details
+    .map((item) => {
+      const parts: string[] = [`节点:${item.node}`, `状态:${item.status}`];
+      if (typeof item.confidence === "number") {
+        parts.push(`置信度:${item.confidence.toFixed(2)}`);
+      }
+      if (item.answer_preview) {
+        parts.push(`摘要:${item.answer_preview}`);
+      }
+      if (item.detail) {
+        parts.push(`错误:${item.detail}`);
+      }
+      return `- ${parts.join(" | ")}`;
+    })
+    .join("\n");
+
+  const sections = [
+    statusPrefix,
+    result.answer,
+    detailsText ? `节点明细:\n${detailsText}` : "",
+    `请求ID: ${result.requestId}`,
+  ].filter(Boolean);
+
+  return sections.join("\n\n");
+}
+
+function buildFederationErrorReply(error: unknown): string {
+  if (error instanceof FederationChatError) {
+    const req = error.requestId ? `\n请求ID: ${error.requestId}` : "";
+    return `检索失败：${error.message}${req}`;
+  }
+
+  if (error instanceof Error) {
+    return `检索失败：${error.message}`;
+  }
+
+  return "检索失败：未知异常";
 }
 
 export interface ChatInteractionPanelProps {
@@ -641,9 +689,13 @@ export function ChatInteractionPanel({
       return;
     }
 
-    const resolvedReply = resolveMockReply(text, mode);
-    const replyText = resolvedReply.answer;
-    const traceCaseId = resolvedReply.traceCaseId;
+    const replyPromise: Promise<{ answer: string; traceCaseId: TraceCaseId | null }> =
+      mode === "global"
+        ? askFederationChat(text)
+            .then((result) => ({ answer: buildFederationReplyText(result), traceCaseId: null }))
+            .catch((error: unknown) => ({ answer: buildFederationErrorReply(error), traceCaseId: null }))
+        : Promise.resolve(resolveMockReply(text, mode));
+
     const thinkingTotalDelayMs = THINKING_TOTAL_DELAY_MS_BY_MODE[mode];
     const typingDelayMs = Math.max(0, thinkingTotalDelayMs - TYPING_STAGE_STATIC_DELAY_MS);
 
@@ -666,32 +718,42 @@ export function ChatInteractionPanel({
 
       botReplyTimerRef.current = window.setTimeout(() => {
         botReplyTimerRef.current = null;
-        pendingEntryIdsRef.current.add(botId);
-        setMessages((prev) =>
-          prev.filter((m) => m.id !== typingId).concat({
-            id: botId,
-            role: "bot",
-            content: "",
-            traceCaseId: traceCaseId ?? undefined,
-          })
-        );
-
-        let renderedLength = 0;
-        streamTimerRef.current = window.setInterval(() => {
-          renderedLength = Math.min(replyText.length, renderedLength + BOT_STREAM_CHUNK_SIZE);
-          const streamedText = replyText.slice(0, renderedLength);
-          setMessages((prev) => prev.map((m) => (m.id === botId ? { ...m, content: streamedText } : m)));
-          scrollToBottom();
-
-          if (renderedLength >= replyText.length) {
-            if (streamTimerRef.current !== null) {
-              window.clearInterval(streamTimerRef.current);
-              streamTimerRef.current = null;
-            }
-            isSendingRef.current = false;
-            setIsSending(false);
+        void (async () => {
+          const resolvedReply = await replyPromise;
+          if (!isSendingRef.current) {
+            return;
           }
-        }, BOT_STREAM_INTERVAL_MS);
+
+          const replyText = resolvedReply.answer;
+          const traceCaseId = resolvedReply.traceCaseId;
+
+          pendingEntryIdsRef.current.add(botId);
+          setMessages((prev) =>
+            prev.filter((m) => m.id !== typingId).concat({
+              id: botId,
+              role: "bot",
+              content: "",
+              traceCaseId: traceCaseId ?? undefined,
+            })
+          );
+
+          let renderedLength = 0;
+          streamTimerRef.current = window.setInterval(() => {
+            renderedLength = Math.min(replyText.length, renderedLength + BOT_STREAM_CHUNK_SIZE);
+            const streamedText = replyText.slice(0, renderedLength);
+            setMessages((prev) => prev.map((m) => (m.id === botId ? { ...m, content: streamedText } : m)));
+            scrollToBottom();
+
+            if (renderedLength >= replyText.length) {
+              if (streamTimerRef.current !== null) {
+                window.clearInterval(streamTimerRef.current);
+                streamTimerRef.current = null;
+              }
+              isSendingRef.current = false;
+              setIsSending(false);
+            }
+          }, BOT_STREAM_INTERVAL_MS);
+        })();
       }, typingDelayMs);
     }, TYPING_STAGE_STATIC_DELAY_MS);
   }, [inputValue, getRetrieveValidationMessage, mode, pushValidationReply, scrollToBottom]);

@@ -52,3 +52,31 @@
 - 关键扩展性结论：
 - 重构动作：
 - 风险与后续：
+
+### 2026-04-28 - Window 4 global 联邦聊天链路正式接入
+- 主责文件：
+  - `apps/main-platform/app/api/federation/ask/route.ts`
+  - `apps/main-platform/app/lib/server/federation/central-client.ts`
+  - `apps/main-platform/app/windows/main/services/federation-chat-api.ts`
+- 协同文件：
+  - `apps/main-platform/app/api/federation/health/route.ts`
+  - `apps/main-platform/app/lib/server/federation/schemas.ts`
+  - `apps/main-platform/app/lib/server/federation/errors.ts`
+  - `apps/main-platform/app/windows/main/components/ChatInteractionPanel.tsx`
+  - `central_server.py`
+  - `node_server.py`
+  - `docs/architecture/modules-index.md`
+- 关键扩展性结论：
+  - `local/global` 双模式边界保持清晰：仅 `global` 走联邦链路，`local` 保持本地 mock。
+  - BFF/服务层/组件分层明确，避免 UI 承担聚合逻辑，后续新增节点或替换中心服务时改动集中在服务层。
+  - 错误结构统一为 `code/message/requestId/details`，并在前端保留可解释错误文案，减少分支爆炸。
+  - 健康检查新增聚合入口 `/api/federation/health`，支持后续接入更多节点健康探针。
+- 重构动作：
+  - 抽离重复接口契约到 `schemas.ts`，避免 ask 路由与 client 重复定义。
+  - 抽离错误归一化到 `errors.ts`，避免 BFF 各路由重复拼装错误结构。
+  - 将联邦调用从组件内联 `fetch` 收敛到 `services/federation-chat-api.ts`，避免组件边界污染。
+  - 清理 Python 侧 SM4 硬编码，统一改为环境变量读取。
+- 风险与后续：
+  - 当前 `local` 仍为 mock 策略，若后续要接真实本地检索需新增独立服务契约，避免与 `global` 链路耦合。
+  - 需在部署环境补齐 `FEDERATION_SM4_KEY`、`FEDERATION_CENTRAL_BASE_URL` 等变量，否则服务会快速失败并返回配置错误。
+  - 建议后续补充联邦链路限流/鉴权（当前重点为链路打通与错误可观测性）。

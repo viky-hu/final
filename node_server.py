@@ -5,8 +5,8 @@
   python node_server.py --port 8002 --node-id node_b
   python node_server.py --port 8003 --node-id node_c
 """
-import argparse, json, base64, uvicorn
-from fastapi import FastAPI
+import argparse, json, base64, os, uvicorn
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
 
 # ---- 硬编码单节点检索（替换成你的 query_single_node） ----
@@ -24,6 +24,10 @@ NODE_KNOWLEDGE = {
         "default_answer": "节点C认为：双通道检索将查询解耦为显式实体词与隐式概念词，分别走向量通道和社区通道，兼顾细粒度与全局语义。"
     },
 }
+
+def normalize_node_id(node_id: str) -> str:
+    return (node_id or "").replace("_", "").lower()
+
 
 def query_single_node(question: str, node_id: str) -> dict:
     kw = NODE_KNOWLEDGE.get(node_id, {})
@@ -44,7 +48,16 @@ def query_single_node(question: str, node_id: str) -> dict:
 
 # ---- SM4 加解密 ----
 from sm4 import SM4Key
-SM4_KEY = b'ness-python-key!'[:16].ljust(16, b'\x00')
+
+
+def load_sm4_key() -> bytes:
+    raw = os.getenv("FEDERATION_SM4_KEY", "").strip()
+    if not raw:
+        raise RuntimeError("缺少环境变量 FEDERATION_SM4_KEY")
+    return raw.encode("utf-8")[:16].ljust(16, b'\x00')
+
+
+SM4_KEY = load_sm4_key()
 _sm4 = SM4Key(SM4_KEY)
 
 def simple_encrypt(text: str) -> str:
@@ -64,10 +77,12 @@ class QueryResponse(BaseModel):
     encrypted_result: str
 
 @app.post("/query", response_model=QueryResponse)
-async def handle_query(req: QueryRequest):
+async def handle_query(req: QueryRequest, request: Request):
+    request_id = request.headers.get("x-request-id", "")
     question = simple_decrypt(req.encrypted_query)
-    result = query_single_node(question, args.node_id)
+    result = query_single_node(question, normalize_node_id(args.node_id))
     encrypted = simple_encrypt(json.dumps(result, ensure_ascii=False))
+    print(f"[NODE] request_id={request_id or '-'} node={args.node_id} status=ok")
     return {"encrypted_result": encrypted}
 
 @app.get("/health")

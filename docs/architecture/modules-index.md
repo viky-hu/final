@@ -6,11 +6,11 @@
 
 ### 1.1 中心聚合服务
 - 主责文件：`central_server.py`
-- 职责：接收问题、加密转发、并发聚合节点结果、返回最终答案与节点明细。
+- 职责：接收问题、加密转发、并发聚合节点结果、返回最终答案与节点明细；透传 `request-id`，提供 `GET /health` 节点健康聚合。
 
 ### 1.2 节点检索服务
 - 主责文件：`node_server.py`
-- 职责：解密查询、执行单节点检索、加密返回候选答案。
+- 职责：解密查询、执行单节点检索、加密返回候选答案；按请求头记录 `request-id`，通过环境变量加载 SM4 密钥。
 
 ## 2. 前端 Window 4（交互对话）
 
@@ -65,10 +65,23 @@
 ### 7.2 模型配置相关接口
 - `apps/main-platform/app/api/model-config/connect/route.ts`
 
-## 8. 第二阶段计划中的 BFF 联邦接口（待落地）
+### 7.3 联邦聊天 BFF 接口
+- `apps/main-platform/app/api/federation/ask/route.ts`
+- `apps/main-platform/app/api/federation/health/route.ts`
 
-- 计划文件：`apps/main-platform/app/api/federation/ask/route.ts`（待创建）
-- 目标职责：统一承接前端聊天请求并转发到 `central_server.py`。
+## 8. 联邦服务层与前端调用封装
+
+### 8.1 服务层（Server）
+- 主责目录：`apps/main-platform/app/lib/server/federation/`
+- 主责文件：
+  - `apps/main-platform/app/lib/server/federation/central-client.ts`（中心服务调用、超时控制、响应归一化）
+  - `apps/main-platform/app/lib/server/federation/schemas.ts`（联邦接口 schema/类型）
+  - `apps/main-platform/app/lib/server/federation/errors.ts`（错误归一化）
+
+### 8.2 Window 4 前端调用
+- 主责文件：`apps/main-platform/app/windows/main/services/federation-chat-api.ts`
+- 协同文件：`apps/main-platform/app/windows/main/components/ChatInteractionPanel.tsx`
+- 职责：仅在 `global` 模式调用 `/api/federation/ask`；`local` 模式保留本地 mock 回复链路。
 
 ---
 
