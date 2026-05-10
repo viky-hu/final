@@ -50,6 +50,8 @@
 - 个人信息弹层：`apps/main-platform/app/windows/shared/ProfileModalLong.tsx`
 - 共享动画工具：`apps/main-platform/app/windows/shared/animation.ts`
 - 共享坐标工具：`apps/main-platform/app/windows/shared/coords.ts`
+  - 新增 `svgToCssPx`：将 SVG viewBox 坐标换算为 CSS 像素位置（处理 xMidYMid slice）
+  - 新增 `svgShiftPx`：计算画布状态切换时 HTML 层的 CSS 像素位移（替代 -15vw 等魔法值）
 
 ## 7. Next.js API（BFF / 内部接口）
 

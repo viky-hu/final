@@ -8,6 +8,8 @@ import {
   MAIN_CANVAS_INITIAL,
   MAIN_CANVAS_EXPANDED,
   MAIN_CANVAS_MENU_OPEN,
+  MAIN_CANVAS_EXTRA_LINE_INITIAL_X,
+  MAIN_CANVAS_EXTRA_LINE_EXPANDED_X,
   MAIN_CANVAS_FILL,
   MAIN_CANVAS_LINE_ACTIVE,
   MAIN_CANVAS_LINE_INITIAL,
@@ -15,7 +17,7 @@ import {
 } from "../../shared/coords";
 import { LINE_DRAW_EASE } from "../../shared/animation";
 
-type Coords = { x1: number; x2: number; y1: number; y2: number };
+type Coords = { x1: number; x2: number; y1: number; y2: number; extraX: number };
 type ChatMode = "local" | "global";
 
 export interface ChatCanvasLinesProps {
@@ -48,11 +50,27 @@ function syncRect(rect: SVGRectElement | null, c: Coords) {
   rect.setAttribute("height", String(Math.max(0, c.y2 - c.y1)));
 }
 
+// 同步左侧第五竖线位置
+function syncExtraLine(line: SVGLineElement | null, extraX: number) {
+  if (!line) return;
+  line.setAttribute("x1", String(extraX));
+  line.setAttribute("x2", String(extraX));
+}
+
+// 同步左侧填充矩形（x=0..extraX，y=y1..y2）
+function syncRectLeft(rect: SVGRectElement | null, c: Coords) {
+  if (!rect) return;
+  rect.setAttribute("x", "0");
+  rect.setAttribute("y", String(c.y1));
+  rect.setAttribute("width", String(Math.max(0, c.extraX)));
+  rect.setAttribute("height", String(Math.max(0, c.y2 - c.y1)));
+}
+
 export function ChatCanvasLines({ menuOpen = false, mode = "local", onComplete }: ChatCanvasLinesProps) {
   const svgRef = useRef<SVGSVGElement>(null);
 
   // 单一坐标源，所有线条和 rect 由此驱动
-  const coordsRef = useRef<Coords>({ ...MAIN_CANVAS_INITIAL });
+  const coordsRef = useRef<Coords>({ ...MAIN_CANVAS_INITIAL, extraX: MAIN_CANVAS_EXTRA_LINE_INITIAL_X });
 
   // 入场动画已完成标志：菜单联动补间必须等入场结束后才能介入
   const entryDoneRef = useRef(false);
@@ -84,9 +102,11 @@ export function ChatCanvasLines({ menuOpen = false, mode = "local", onComplete }
     const lineRight  = svg.querySelector<SVGLineElement>("#cc-line-right");
     const lineTop    = svg.querySelector<SVGLineElement>("#cc-line-top");
     const lineBottom = svg.querySelector<SVGLineElement>("#cc-line-bottom");
+    const lineLeftExtra = svg.querySelector<SVGLineElement>("#cc-line-left-extra");
     const fillRect   = svg.querySelector<SVGRectElement>("#cc-fill-rect");
+    const fillRectLeft = svg.querySelector<SVGRectElement>("#cc-fill-rect-left");
 
-    const lines = [lineTop, lineBottom, lineLeft, lineRight].filter(Boolean) as SVGLineElement[];
+    const lines = [lineTop, lineBottom, lineLeft, lineRight, lineLeftExtra].filter(Boolean) as SVGLineElement[];
     if (lines.length === 0) return;
 
     // 初始化：线条为白色，dashoffset=全长（不可见），rect 与初始 coords 一致但透明
@@ -104,6 +124,10 @@ export function ChatCanvasLines({ menuOpen = false, mode = "local", onComplete }
       syncRect(fillRect, coords);
       gsap.set(fillRect, { fillOpacity: 0 });
     }
+    if (fillRectLeft) {
+      syncRectLeft(fillRectLeft, coords);
+      gsap.set(fillRectLeft, { fillOpacity: 0 });
+    }
 
     // 阶段1：画线（与第一窗口 LoginIntroWindow 一致：duration 1.08，stagger 0.08，慢快慢 ease）
     const tl = gsap.timeline();
@@ -115,8 +139,8 @@ export function ChatCanvasLines({ menuOpen = false, mode = "local", onComplete }
       ease: LINE_DRAW_EASE,
     }, 0);
 
-    // 阶段2：变色 + 扩张 + 填充，在四条线绘制完成后立即开始（0.24 + 1.08 = 1.32）
-    const lineDrawEnd = 0.24 + 1.08;
+    // 阶段2：变色 + 扩张 + 填充，在五条线绘制完成后立即开始（0.32 + 1.08 = 1.40）
+    const lineDrawEnd = 0.32 + 1.08;
     tl.to(lines, {
       stroke: activeStroke,
       duration: 0.5,
@@ -135,13 +159,24 @@ export function ChatCanvasLines({ menuOpen = false, mode = "local", onComplete }
       }, lineDrawEnd);
     }
 
+    if (fillRectLeft) {
+      tl.to(fillRectLeft, {
+        fillOpacity: 1,
+        duration: 0.18,
+        ease: "power2.out",
+      }, lineDrawEnd);
+    }
+
     tl.to(coords, {
       ...MAIN_CANVAS_EXPANDED,
+      extraX: MAIN_CANVAS_EXTRA_LINE_EXPANDED_X,
       duration: 0.5,
       ease: "power3.inOut",
       onUpdate: () => {
         syncLines(svg, coords);
         syncRect(fillRect, coords);
+        syncExtraLine(lineLeftExtra, coords.extraX);
+        syncRectLeft(fillRectLeft, coords);
       },
       onComplete: () => {
         entryDoneRef.current = true;
@@ -154,11 +189,14 @@ export function ChatCanvasLines({ menuOpen = false, mode = "local", onComplete }
           menuTweenRef.current = gsap.to(coords, {
             x1: target.x1,
             x2: target.x2,
+            // y1/y2 保持全屏（0 / VH），不受菜单影响
             duration: 0.45,
             ease: "power3.inOut",
             onUpdate: () => {
               syncLines(svg, coords);
               syncRect(fillRect, coords);
+              syncExtraLine(lineLeftExtra, coords.extraX);
+              syncRectLeft(fillRectLeft, coords);
             },
           });
         }
@@ -194,6 +232,8 @@ export function ChatCanvasLines({ menuOpen = false, mode = "local", onComplete }
 
     const coords = coordsRef.current;
     const fillRect = svg.querySelector<SVGRectElement>("#cc-fill-rect");
+    const fillRectLeft = svg.querySelector<SVGRectElement>("#cc-fill-rect-left");
+    const lineLeftExtra = svg.querySelector<SVGLineElement>("#cc-line-left-extra");
 
     menuTweenRef.current?.kill();
 
@@ -208,6 +248,8 @@ export function ChatCanvasLines({ menuOpen = false, mode = "local", onComplete }
       onUpdate: () => {
         syncLines(svg, coords);
         syncRect(fillRect, coords);
+        syncExtraLine(lineLeftExtra, coords.extraX);
+        syncRectLeft(fillRectLeft, coords);
       },
     });
 
@@ -232,6 +274,17 @@ export function ChatCanvasLines({ menuOpen = false, mode = "local", onComplete }
           <stop offset="100%" stopColor="#9D4DFF" />
         </linearGradient>
       </defs>
+
+      {/* 左侧填充 rect：在主 rect 之下，竖线同层 */}
+      <rect
+        id="cc-fill-rect-left"
+        x={0}
+        y={MAIN_CANVAS_INITIAL.y1}
+        width={MAIN_CANVAS_EXTRA_LINE_INITIAL_X}
+        height={MAIN_CANVAS_INITIAL.y2 - MAIN_CANVAS_INITIAL.y1}
+        fill={MAIN_CANVAS_FILL}
+        fillOpacity={0}
+      />
 
       {/* 画布填充 rect：必须在线条之下，四线始终覆盖在上方 */}
       <rect
@@ -262,6 +315,16 @@ export function ChatCanvasLines({ menuOpen = false, mode = "local", onComplete }
         y1={MAIN_CANVAS_INITIAL.y2}
         x2={VW}
         y2={MAIN_CANVAS_INITIAL.y2}
+        stroke={mode === "global" ? "url(#cc-global-neon-grad)" : MAIN_CANVAS_LINE_INITIAL}
+        strokeWidth={MAIN_CANVAS_STROKE_WIDTH}
+      />
+      <line
+        id="cc-line-left-extra"
+        className={`cc-main-line${mode === "global" ? " cc-main-line--global" : ""}`}
+        x1={MAIN_CANVAS_EXTRA_LINE_INITIAL_X}
+        y1={0}
+        x2={MAIN_CANVAS_EXTRA_LINE_INITIAL_X}
+        y2={VH}
         stroke={mode === "global" ? "url(#cc-global-neon-grad)" : MAIN_CANVAS_LINE_INITIAL}
         strokeWidth={MAIN_CANVAS_STROKE_WIDTH}
       />

@@ -9,6 +9,12 @@ import {
 } from "react";
 import { gsap } from "gsap";
 import { LINE_DRAW_EASE } from "../../shared/animation";
+import {
+  MAIN_CANVAS_EXPANDED,
+  MAIN_CANVAS_MENU_OPEN,
+  svgToCssPx,
+  svgShiftPx,
+} from "../../shared/coords";
 import { ModelConfigCanvasLines } from "./ModelConfigCanvasLines";
 import type { RuntimeModelConfigState } from "@/app/components/runtime/AppRuntimeProvider";
 import { findMockQAPair, type TraceCaseId } from "@/app/lib/mock-qa-trace-data";
@@ -412,6 +418,12 @@ export function ChatInteractionPanel({
   const mcFieldsRef = useRef<HTMLDivElement>(null);
   const mcFooterRef = useRef<HTMLDivElement>(null);
   const mcRevealTlRef = useRef<gsap.core.Timeline | null>(null);
+
+  // ── Layout sync: 坐标驱动定位 ─────────────────────────────────────────────
+  // 根层引用（用于写入 CSS 变量 --w4-canvas-left / --w4-canvas-right）
+  const layerRef = useRef<HTMLDivElement>(null);
+  // 容器实际 CSS 尺寸缓存（ResizeObserver 更新）
+  const containerSizeRef = useRef({ w: 0, h: 0 });
   const fileInputRefs = useRef<Record<MCGroupId, HTMLInputElement | null>>({
     local_query: null,
     judge: null,
@@ -458,6 +470,31 @@ export function ChatInteractionPanel({
       isConfigured: groups.judge.isConfigured,
     },
   }), []);
+
+  // ─── Layout sync: CSS 变量更新 ────────────────────────────────────────────
+  // 从 MAIN_CANVAS_EXPANDED 坐标推算并写入 CSS 变量，供子元素消费
+  const updateLayoutVars = useCallback((w: number, h: number) => {
+    const layer = layerRef.current;
+    if (!layer || w <= 0 || h <= 0) return;
+    const pos = svgToCssPx(w, h, MAIN_CANVAS_EXPANDED);
+    layer.style.setProperty("--w4-canvas-left",  `${pos.left}px`);
+    layer.style.setProperty("--w4-canvas-right", `${pos.right}px`);
+  }, []);
+
+  // ResizeObserver：容器尺寸变化时刷新 CSS 变量
+  useLayoutEffect(() => {
+    const layer = layerRef.current;
+    if (!layer) return;
+    const sync = () => {
+      const { width, height } = layer.getBoundingClientRect();
+      containerSizeRef.current = { w: width, h: height };
+      updateLayoutVars(width, height);
+    };
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(layer);
+    return () => ro.disconnect();
+  }, [updateLayoutVars]);
 
   // ─── Chat: bubble entry animation ──────────────────────────────────────────
   const animateBubble = useCallback((el: HTMLElement, msgId: string) => {
@@ -541,25 +578,39 @@ export function ChatInteractionPanel({
   useEffect(() => {
     const panel = panelRef.current;
     if (!panel) return;
-    gsap.to(panel, { x: menuOpen ? "-15vw" : "0vw", duration: 0.45, ease: "power3.inOut" });
+    const { w, h } = containerSizeRef.current;
+    const shiftPx = w > 0
+      ? svgShiftPx(w, h, MAIN_CANVAS_EXPANDED, MAIN_CANVAS_MENU_OPEN).dx
+      : -0.15 * (typeof window !== "undefined" ? window.innerWidth : 1440);
+    gsap.to(panel, { x: menuOpen ? shiftPx : 0, duration: 0.45, ease: "power3.inOut" });
   }, [menuOpen]);
 
   // ─── Model config: set initial mc-panel-layer position when mounted ────────
-  // 若菜单已展开时才挂载模型配置层，立即对齐到 -15vw（照搬 panelRef 逻辑）
+  // 若菜单已展开时才挂载模型配置层，立即对齐到坐标计算值（替代 -15vw 魔法值）
   useLayoutEffect(() => {
     if (!mcMounted) return;
     const layer = mcPanelLayerRef.current;
     if (!layer) return;
-    if (menuOpen) gsap.set(layer, { x: "-15vw" });
+    if (menuOpen) {
+      const { w, h } = containerSizeRef.current;
+      const shiftPx = w > 0
+        ? svgShiftPx(w, h, MAIN_CANVAS_EXPANDED, MAIN_CANVAS_MENU_OPEN).dx
+        : -0.15 * (typeof window !== "undefined" ? window.innerWidth : 1440);
+      gsap.set(layer, { x: shiftPx });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mcMounted]);
 
-  // ─── Model config: mc-panel-layer follows menu （照搬 panelRef 逻辑）────────
+  // ─── Model config: mc-panel-layer follows menu（坐标驱动，替代 -15vw 魔法值）
   useEffect(() => {
     if (!mcMounted) return;
     const layer = mcPanelLayerRef.current;
     if (!layer) return;
-    gsap.to(layer, { x: menuOpen ? "-15vw" : "0vw", duration: 0.45, ease: "power3.inOut" });
+    const { w, h } = containerSizeRef.current;
+    const shiftPx = w > 0
+      ? svgShiftPx(w, h, MAIN_CANVAS_EXPANDED, MAIN_CANVAS_MENU_OPEN).dx
+      : -0.15 * (typeof window !== "undefined" ? window.innerWidth : 1440);
+    gsap.to(layer, { x: menuOpen ? shiftPx : 0, duration: 0.45, ease: "power3.inOut" });
   }, [menuOpen, mcMounted]);
 
   // ─── Chat: initial hide + reveal on canvasReady ────────────────────────────
@@ -1095,7 +1146,7 @@ export function ChatInteractionPanel({
   // Render
   // ──────────────────────────────────────────────────────────────────────────
   return (
-    <div className="chat-interaction-layer" data-menu-open={menuOpen} data-mode={mode}>
+    <div ref={layerRef} className="chat-interaction-layer" data-menu-open={menuOpen} data-mode={mode}>
 
       {mcToast && (
         <div className="chat-toast" role="status" aria-live="polite">

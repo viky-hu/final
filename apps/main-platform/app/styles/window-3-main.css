@@ -415,8 +415,8 @@
 
 .chat-interaction-panel {
   position: absolute;
-  left: 25%;
-  right: 25%;
+  left: var(--w4-canvas-left, 32%);
+  right: var(--w4-canvas-right, 18%);
   top: 0;
   bottom: 0;
   display: flex;
@@ -1703,7 +1703,7 @@
 .mc-canvas-close-anchor {
   position: absolute;
   top: 30px;
-  right: calc(25% + 18px);
+  right: calc(var(--w4-canvas-right, 18%) + 18px);
   z-index: 4;
   pointer-events: none;
   opacity: 0;
@@ -1757,7 +1757,10 @@
 
 .mc-panel-layer {
   position: absolute;
-  inset: 0;
+  left: var(--w4-canvas-left, 32%);
+  right: var(--w4-canvas-right, 18%);
+  top: 0;
+  bottom: 0;
   z-index: 3;
   pointer-events: none;
   display: flex;

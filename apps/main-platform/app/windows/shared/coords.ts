@@ -5,6 +5,10 @@ export const BRAND_BLUE = "#3152f4";
 export const GRID_COLOR = "rgba(49, 82, 244, 0.12)";
 export const VW = 1440;
 export const VH = 900;
+
+// Window 4 画布竖线统一右移偏移量（SVG 坐标，单位 px）
+// 调整此值可整体平移信息流与模型配置两层画布，HTML 覆盖层通过 svgToCssPx/svgShiftPx 自动跟随
+export const CANVAS_X_SHIFT = 100;
 export const PHASE1_STROKE = 1.5;
 
 export const INTRO_COORDS = {
@@ -95,24 +99,29 @@ export const P3_L4 = 691.5;
 // 四线围成的画布区域，y1/y2 扩张后贴紧上下屏幕边界
 // ─────────────────────────────────────────────
 export const MAIN_CANVAS_INITIAL = {
-  x1: 0.35 * VW, // 504
-  x2: 0.65 * VW, // 936
+  x1: 0.35 * VW + CANVAS_X_SHIFT, // 604
+  x2: 0.65 * VW + CANVAS_X_SHIFT, // 1036
   y1: 0.23 * VH, // 207
   y2: 0.83 * VH, // 747
 };
 
+// Window 4 主信息流画布新增左侧竖线（仅 ChatCanvasLines 使用）
+// 采用坐标驱动：初始态约 210px，展开稳定态约 350px
+export const MAIN_CANVAS_EXTRA_LINE_INITIAL_X = 210;
+export const MAIN_CANVAS_EXTRA_LINE_EXPANDED_X = 350;
+
 // 菜单收起（默认）时的展开态坐标
 export const MAIN_CANVAS_EXPANDED = {
-  x1: 0.25 * VW, // 360
-  x2: 0.75 * VW, // 1080
+  x1: 0.25 * VW + CANVAS_X_SHIFT, // 460
+  x2: 0.75 * VW + CANVAS_X_SHIFT, // 1180
   y1: 0 * VH,    // 0
   y2: 1 * VH,    // 900
 };
 
 // 菜单展开时，画布横向平移至左侧 2/3 区间
 export const MAIN_CANVAS_MENU_OPEN = {
-  x1: 0.10 * VW, // 144
-  x2: 0.60 * VW, // 864
+  x1: 0.10 * VW + CANVAS_X_SHIFT, // 244
+  x2: 0.60 * VW + CANVAS_X_SHIFT, // 964
   y1: 0 * VH,
   y2: 1 * VH,
 };
@@ -127,23 +136,23 @@ export const MAIN_CANVAS_STROKE_WIDTH = 1.5;
 // 模型配置画布，独立于主画布，填充色为暖白
 // ─────────────────────────────────────────────
 export const MC_CANVAS_INITIAL = {
-  x1: 0.35 * VW, // 504
-  x2: 0.65 * VW, // 936
+  x1: 0.35 * VW + CANVAS_X_SHIFT, // 604
+  x2: 0.65 * VW + CANVAS_X_SHIFT, // 1036
   y1: 0.23 * VH, // 207
   y2: 0.83 * VH, // 747
 };
 
 export const MC_CANVAS_EXPANDED = {
-  x1: 0.25 * VW, // 360
-  x2: 0.75 * VW, // 1080
+  x1: 0.25 * VW + CANVAS_X_SHIFT, // 460
+  x2: 0.75 * VW + CANVAS_X_SHIFT, // 1180
   y1: 0,
   y2: VH,
 };
 
 // 菜单展开时，模型配置画布横向平移至左侧 2/3 区间（与主画布完全一致）
 export const MC_CANVAS_MENU_OPEN = {
-  x1: 0.10 * VW, // 144
-  x2: 0.60 * VW, // 864
+  x1: 0.10 * VW + CANVAS_X_SHIFT, // 244
+  x2: 0.60 * VW + CANVAS_X_SHIFT, // 964
   y1: 0,
   y2: VH,
 };
@@ -168,3 +177,52 @@ export const MACRO_STROKE_WIDTH = 1.5;
 export const DB_V_LINE_X_RATIO = 0.42;
 export const DB_LINE_COLOR = "#111111";
 export const DB_LINE_STROKE_W = 1.5;
+
+// ─────────────────────────────────────────────
+// Window 4 · SVG→CSS 坐标映射工具
+// 统一处理 preserveAspectRatio="xMidYMid slice" 下的换算
+// ─────────────────────────────────────────────
+
+export type CanvasRect = { x1: number; x2: number; y1: number; y2: number };
+
+/**
+ * 将 SVG viewBox 内的坐标换算为 CSS 像素位置。
+ * containerW/H 为 SVG 元素容器的实际 CSS 尺寸（getBoundingClientRect）。
+ * 支持 preserveAspectRatio="xMidYMid slice"（取 max scale）。
+ */
+export function svgToCssPx(
+  containerW: number,
+  containerH: number,
+  coords: CanvasRect,
+): { left: number; right: number; top: number; bottom: number } {
+  const scale = Math.max(containerW / VW, containerH / VH);
+  const offsetX = (containerW - VW * scale) / 2;
+  const offsetY = (containerH - VH * scale) / 2;
+  const cssX1 = coords.x1 * scale + offsetX;
+  const cssY1 = coords.y1 * scale + offsetY;
+  const cssX2 = coords.x2 * scale + offsetX;
+  const cssY2 = coords.y2 * scale + offsetY;
+  return {
+    left:   cssX1,
+    right:  containerW - cssX2,
+    top:    cssY1,
+    bottom: containerH - cssY2,
+  };
+}
+
+/**
+ * 计算从一个画布状态切换到另一个状态时，HTML 覆盖层的 CSS 像素位移量。
+ * 用于替代 GSAP 动画中的 "-15vw" 等硬编码魔法值。
+ */
+export function svgShiftPx(
+  containerW: number,
+  containerH: number,
+  fromCoords: CanvasRect,
+  toCoords: CanvasRect,
+): { dx: number; dy: number } {
+  const scale = Math.max(containerW / VW, containerH / VH);
+  return {
+    dx: (toCoords.x1 - fromCoords.x1) * scale,
+    dy: (toCoords.y1 - fromCoords.y1) * scale,
+  };
+}
