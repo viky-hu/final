@@ -60,7 +60,7 @@ export function GlobalTopNav({
     <>
       <header className="global-top-nav" role="banner" aria-label="全局顶部导航栏">
         <div className="global-top-nav__left">
-          <div className="global-top-nav__icon-placeholder" aria-hidden="true" />
+          <img src="/logo.png" className="global-top-nav__logo" alt="项目Logo" />
           <span className="global-top-nav__thick-separator" aria-hidden="true" />
           <span className="global-top-nav__brand">密态智图</span>
         </div>

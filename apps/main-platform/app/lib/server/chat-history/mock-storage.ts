@@ -148,6 +148,14 @@ export const MockChatHistory = {
 
     conversation.messages.push(...newMessages);
     conversation.updatedAt = now;
+
+    if (conversation.title === "新建对话") {
+      const firstUserMsg = input.messages.find((m) => m.role === "user");
+      if (firstUserMsg) {
+        const trimmed = firstUserMsg.content.trim().replace(/\s+/g, " ");
+        conversation.title = trimmed.length <= 15 ? trimmed : trimmed.slice(0, 15) + "...";
+      }
+    }
   },
 
   async deleteConversation(id: string): Promise<void> {

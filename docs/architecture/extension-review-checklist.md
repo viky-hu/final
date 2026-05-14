@@ -198,3 +198,24 @@
   - `mock` 模式仍为进程内临时存储，服务重启后数据会清空；该行为为预期，但需要联调环境明确模式配置。
   - 目前 `Conversation not found` 识别基于错误文案字符串；后续建议统一为结构化错误码（如 `CHAT_HISTORY_NOT_FOUND`）以减少文案耦合。
   - 建议补充 E2E 回归：新建/加载/删除/切模式 + 服务重启后续发消息路径。
+
+### 2026-05-14 - Window 4 聊天历史三阶段修复（强制 Prisma + 标题自动更新 + 加载失败不清空列表）
+- 主责文件：
+  - `apps/main-platform/app/lib/server/chat-history/index.ts`
+  - `apps/main-platform/app/lib/server/chat-history/mock-storage.ts`
+  - `apps/main-platform/app/windows/main/components/ChatInteractionPanel.tsx`
+- 协同文件：
+  - `apps/main-platform/.env.example`
+  - `docs/architecture/modules-index.md`
+- 关键扩展性结论：
+  - 默认存储策略由 `auto`（静默降级 mock）改为 `prisma`（显式报错），消除数据持久化的不确定性；前端开发测试可通过 `CHAT_HISTORY_STORAGE_MODE=mock` 独立于数据库运行。
+  - `appendMessages` 改为 Prisma 事务：`createMany` + 条件 `findUnique` + `update(title/updatedAt)` 原子执行，确保标题更新与消息写入同步，不产生中间态脏数据。
+  - `handleLoadConversation` 错误处理策略：从"全量刷新列表"改为"仅移除失效单条"，彻底隔离单条会话不存在与整体列表可用性，符合主流 AI 产品行为。
+  - Mock 存储追加同步加入标题自动更新逻辑，保持与 Prisma 路径的行为一致性，离线演示模式不再出现标题一直是"新建对话"的问题。
+- 重构动作：
+  - 服务层 `appendMessages` 从简单 update 升级为事务块，复杂度集中于服务层，route handler 无需修改。
+  - `handleLoadConversation` 移除对 `fetchConversations` 的依赖（错误路径），依赖数组精简，行为更可预测。
+- 风险与后续：
+  - `prisma` 模式下，若数据库未启动，`listAllConversations` 会返回 503；前端已有错误提示，不会白屏。
+  - 标题更新依赖 `DEFAULT_CONVERSATION_TITLE === "新建对话"` 字符串匹配；若多语言需求出现，需改为 DB 字段 `is_title_auto` 标记。
+  - 建议验收路径：新建对话 → 首条消息发送 → 刷新页面 → 侧栏标题已更新；点击任意侧栏条目 → 不清空其他条目。

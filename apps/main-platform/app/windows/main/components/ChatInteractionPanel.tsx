@@ -810,13 +810,14 @@ export function ChatInteractionPanel({
     } catch (error) {
       const msg = coerceClientError(error, "加载历史会话失败").message;
       if (msg.includes("Conversation not found")) {
-        setMCToast("该对话已不存在，正在刷新列表");
-        void fetchConversations({ silent: false }); // 清除列表中的失效条目
+        setMCToast("该对话已不存在");
+        captureFlipState();
+        setConversations((prev) => prev.filter((c) => c.id !== conversation.id));
       } else {
         setMCToast(msg);
       }
     }
-  }, [fetchConversations, mcGroups.judge.isConfigured, onModeChange, persistCurrentConversationAsNew, requestChatHistoryJson, resetChatRuntimeState]);
+  }, [captureFlipState, mcGroups.judge.isConfigured, onModeChange, persistCurrentConversationAsNew, requestChatHistoryJson, resetChatRuntimeState]);
 
   const handleDeleteConversation = useCallback(async () => {
     if (!deleteTargetConv) return;

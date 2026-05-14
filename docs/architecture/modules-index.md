@@ -100,7 +100,7 @@
   - `apps/main-platform/app/lib/chat-history-contract.ts`
   - `apps/main-platform/app/windows/main/components/ChatInteractionPanel.tsx`
   - `apps/main-platform/.env.example`（含 `CHAT_HISTORY_STORAGE_MODE` 注释）
-- 职责：会话/消息持久化、标题规则统一、local/global 分组查询、会话消息追加、物理删除；存储模式三档切换（auto / mock / prisma）。
+- 职责：会话/消息持久化、标题规则统一（首条用户消息自动更新标题）、local/global 分组查询、会话消息追加（事务写入+标题联动）、物理删除；存储模式三档切换（prisma 默认 / auto / mock）。
 
 ---
 

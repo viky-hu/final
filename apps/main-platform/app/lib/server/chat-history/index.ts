@@ -11,12 +11,12 @@ import { MockChatHistory } from "./mock-storage";
 const DEFAULT_CONVERSATION_TITLE = "新建对话";
 
 // 存储模式开关
-// CHAT_HISTORY_STORAGE_MODE=mock   → 始终使用内存 Mock（离线 / 演示用）
-// CHAT_HISTORY_STORAGE_MODE=prisma → 始终使用 Prisma（不再自动降级）
-// CHAT_HISTORY_STORAGE_MODE=auto   → 优先 Prisma，失败后自动降级 Mock（默认）
+// CHAT_HISTORY_STORAGE_MODE=mock   → 始终使用内存 Mock（离线 / 前端纯演示）
+// CHAT_HISTORY_STORAGE_MODE=auto   → 优先 Prisma，失败后自动降级 Mock
+// CHAT_HISTORY_STORAGE_MODE=prisma → 强制 Prisma，数据库不可用时直接报错（默认）
 type StorageMode = "auto" | "mock" | "prisma";
 const STORAGE_MODE: StorageMode =
-  (process.env.CHAT_HISTORY_STORAGE_MODE as StorageMode | undefined) ?? "auto";
+  (process.env.CHAT_HISTORY_STORAGE_MODE as StorageMode | undefined) ?? "prisma";
 
 // 数据库可用性缓存（仅 auto 模式使用）
 let dbAvailable: boolean | null = null;
@@ -160,17 +160,37 @@ export async function appendMessages(
     return MockChatHistory.appendMessages(conversationId, input);
   }
   if (input.messages.length === 0) return;
-  await prisma.chatMessage.createMany({
-    data: input.messages.map((m) => ({
-      conversationId,
-      role: m.role,
-      content: m.content,
-      traceCaseId: m.traceCaseId ?? null,
-    })),
-  });
-  await prisma.chatConversation.update({
-    where: { id: conversationId },
-    data: { updatedAt: new Date() },
+
+  const firstUserMsg = input.messages.find((m) => m.role === "user");
+
+  await prisma.$transaction(async (tx) => {
+    await tx.chatMessage.createMany({
+      data: input.messages.map((m) => ({
+        conversationId,
+        role: m.role,
+        content: m.content,
+        traceCaseId: m.traceCaseId ?? null,
+      })),
+    });
+
+    let newTitle: string | undefined;
+    if (firstUserMsg) {
+      const conv = await tx.chatConversation.findUnique({
+        where: { id: conversationId },
+        select: { title: true },
+      });
+      if (conv?.title === DEFAULT_CONVERSATION_TITLE) {
+        newTitle = buildConversationTitle(firstUserMsg.content);
+      }
+    }
+
+    await tx.chatConversation.update({
+      where: { id: conversationId },
+      data: {
+        updatedAt: new Date(),
+        ...(newTitle ? { title: newTitle } : {}),
+      },
+    });
   });
 }
 
