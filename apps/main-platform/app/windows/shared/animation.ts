@@ -1,7 +1,8 @@
 import { gsap } from "gsap";
 import { CustomEase } from "gsap/CustomEase";
+import { Flip } from "gsap/Flip";
 
-gsap.registerPlugin(CustomEase);
+gsap.registerPlugin(CustomEase, Flip);
 
 // Single-curve slow-fast-slow profile — avoids segmented velocity jumps.
 export const LINE_DRAW_EASE = CustomEase.create(

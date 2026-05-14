@@ -18,7 +18,7 @@ interface MainWindowProps {
 }
 
 export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowProps) {
-  const { modelConfigState, setModelConfigState } = useAppRuntime();
+  const { modelConfigState, setModelConfigState, isSelfCenterNode } = useAppRuntime();
   const [canvasReady, setCanvasReady] = useState(false);
   const [traceTarget, setTraceTarget] = useState<{ msgId: string; traceCaseId: TraceCaseId } | null>(null);
   const [chatMode, setChatMode] = useState<ChatMode>("local");
@@ -77,6 +77,7 @@ export function MainWindow({ onBack, onOpenDatabase, onOpenMacro }: MainWindowPr
           onOpenTrace={handleOpenTrace}
           initialModelConfigState={modelConfigState}
           onModelConfigStateChange={setModelConfigState}
+          isSelfCenterNode={isSelfCenterNode}
         />
 
         {/* TraceWindow: z-index 200, full-screen overlay, mounted only when a trace is active */}

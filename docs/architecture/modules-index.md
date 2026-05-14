@@ -71,6 +71,11 @@
 - `apps/main-platform/app/api/federation/ask/route.ts`
 - `apps/main-platform/app/api/federation/health/route.ts`
 
+### 7.4 聊天历史接口（Prisma + PostgreSQL）
+- `apps/main-platform/app/api/chat-history/route.ts`
+- `apps/main-platform/app/api/chat-history/[conversationId]/route.ts`
+- `apps/main-platform/app/api/chat-history/[conversationId]/messages/route.ts`
+
 ## 8. 联邦服务层与前端调用封装
 
 ### 8.1 服务层（Server）
@@ -84,6 +89,18 @@
 - 主责文件：`apps/main-platform/app/windows/main/services/federation-chat-api.ts`
 - 协同文件：`apps/main-platform/app/windows/main/components/ChatInteractionPanel.tsx`
 - 职责：仅在 `global` 模式调用 `/api/federation/ask`；`local` 模式保留本地 mock 回复链路。
+
+### 8.3 聊天历史服务层与数据模型
+- 主责文件：
+  - `apps/main-platform/app/lib/server/chat-history/index.ts`（存储模式路由、Prisma 调用、Mock 降级；`CHAT_HISTORY_STORAGE_MODE` 开关）
+  - `apps/main-platform/app/lib/server/chat-history/mock-storage.ts`（服务端纯内存 Mock；无 localStorage 依赖）
+  - `apps/main-platform/prisma/schema.prisma`
+  - `apps/main-platform/app/lib/server/prisma.ts`
+- 协同文件：
+  - `apps/main-platform/app/lib/chat-history-contract.ts`
+  - `apps/main-platform/app/windows/main/components/ChatInteractionPanel.tsx`
+  - `apps/main-platform/.env.example`（含 `CHAT_HISTORY_STORAGE_MODE` 注释）
+- 职责：会话/消息持久化、标题规则统一、local/global 分组查询、会话消息追加、物理删除；存储模式三档切换（auto / mock / prisma）。
 
 ---
 

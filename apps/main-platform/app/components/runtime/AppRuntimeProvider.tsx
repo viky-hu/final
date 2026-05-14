@@ -54,6 +54,7 @@ interface PersistedRuntimeState {
   judgeModelConfigured: boolean;
   savedNodeLocation: SavedNodeLocation | null;
   modelConfigState: RuntimeModelConfigState;
+  isSelfCenterNode: boolean;
 }
 
 interface AppRuntimeContextValue extends PersistedRuntimeState {
@@ -97,6 +98,7 @@ const DEFAULT_RUNTIME_STATE: PersistedRuntimeState = {
   judgeModelConfigured: false,
   savedNodeLocation: null,
   modelConfigState: createDefaultRuntimeModelConfigState(false),
+  isSelfCenterNode: false,
 };
 
 const AppRuntimeContext = createContext<AppRuntimeContextValue | null>(null);
@@ -218,6 +220,7 @@ function readPersistedRuntimeState(): PersistedRuntimeState {
       judgeModelConfigured,
       savedNodeLocation: isSavedNodeLocation(parsed.savedNodeLocation) ? parsed.savedNodeLocation : null,
       modelConfigState,
+      isSelfCenterNode: typeof parsed.isSelfCenterNode === "boolean" ? parsed.isSelfCenterNode : false,
     };
   } catch {
     return DEFAULT_RUNTIME_STATE;
@@ -232,7 +235,6 @@ export function AppRuntimeProvider({ children }: AppRuntimeProviderProps) {
   const { setWatermarkName } = useWatermark();
   const [runtimeState, setRuntimeState] = useState<PersistedRuntimeState>(() => readPersistedRuntimeState());
   const [locationRevision, setLocationRevision] = useState(0);
-  const [isSelfCenterNode, setIsSelfCenterNode] = useState(false);
 
   useEffect(() => {
     setWatermarkName(runtimeState.username);
@@ -292,11 +294,17 @@ export function AppRuntimeProvider({ children }: AppRuntimeProviderProps) {
     });
   }, []);
 
+  const setIsSelfCenterNode = useCallback((isCenter: boolean) => {
+    setRuntimeState((prev) => ({
+      ...prev,
+      isSelfCenterNode: isCenter,
+    }));
+  }, []);
+
   const contextValue = useMemo<AppRuntimeContextValue>(
     () => ({
       ...runtimeState,
       locationRevision,
-      isSelfCenterNode,
       setUsername,
       setAvatarDataUrl,
       setJudgeModelConfigured,
@@ -305,7 +313,6 @@ export function AppRuntimeProvider({ children }: AppRuntimeProviderProps) {
       setIsSelfCenterNode,
     }),
     [
-      isSelfCenterNode,
       locationRevision,
       runtimeState,
       setAvatarDataUrl,

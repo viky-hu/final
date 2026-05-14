@@ -119,3 +119,82 @@
 - 风险与后续：
   - `menuOpen` 当前在 `MainWindow.tsx` 中始终为 `false`（菜单功能未开放），坐标驱动位移逻辑已就绪但暂未实际触发，待菜单开放时需端到端回归验收。
   - 历史记录栏接入时，只需修改 `MAIN_CANVAS_EXPANDED.x1/x2` 等坐标常量，HTML 层定位将自动跟随，不需要再次散改 CSS 百分比。
+
+### 2026-05-10 - Window 4 聊天历史（Prisma + PostgreSQL）
+- 主责文件：
+  - `apps/main-platform/app/windows/main/components/ChatInteractionPanel.tsx`
+  - `apps/main-platform/app/lib/server/chat-history/index.ts`
+  - `apps/main-platform/app/api/chat-history/route.ts`
+  - `apps/main-platform/app/api/chat-history/[conversationId]/route.ts`
+  - `apps/main-platform/app/api/chat-history/[conversationId]/messages/route.ts`
+  - `apps/main-platform/prisma/schema.prisma`
+- 协同文件：
+  - `apps/main-platform/app/lib/chat-history-contract.ts`
+  - `apps/main-platform/app/lib/server/prisma.ts`
+  - `apps/main-platform/app/styles/window-3-main.css`
+  - `apps/main-platform/.env.example`
+  - `apps/main-platform/package.json`
+  - `docs/architecture/modules-index.md`
+- 关键扩展性结论：
+  - 对话数据 single source of truth 下沉到 Prisma 会话表 + 消息表，前端只保留当前会话渲染状态，避免状态双源。
+  - local/global 分组通过 `mode` 字段统一，后续新增模式可沿 `mode` 扩展而无需重写消息结构。
+  - Route Handler 仅处理校验/编排，复杂规则（标题生成、追加消息、删除）收敛到 `lib/server/chat-history`，可维护性更高。
+  - 左侧历史栏锚定 SVG 扩展画布变量（`--w4-sidebar-left`），避免魔法值扩散，后续坐标调整可自动跟随。
+  - 删除流程采用统一确认弹窗语义（复用数据库窗口样式），物理删除路径明确，行为可审计。
+- 重构动作：
+  - 将会话标题截断与空会话过滤策略集中到服务层，避免 UI 端重复判断。
+  - 将“发送消息→会话创建/追加”统一为 `persistTurn` 路径，减少分叉逻辑。
+  - 将“切模式/新建对话”统一先保存后清空，保持行为一致。
+- 风险与后续：
+  - 需先执行 `prisma generate` 与数据库迁移后再进行联调。
+  - 当前接口尚未接入鉴权/限流；若部署到多用户环境需补齐访问控制。
+  - 建议补充 API 级集成测试（创建、追加、切模式保存、删除）验证回归。
+
+### 2026-05-10 - Window 4 历史会话可靠性修复（空会话创建 + 错误可观测）
+- 主责文件：
+  - `apps/main-platform/app/windows/main/components/ChatInteractionPanel.tsx`
+  - `apps/main-platform/app/api/chat-history/route.ts`
+  - `apps/main-platform/app/lib/server/chat-history/index.ts`
+- 协同文件：
+  - `apps/main-platform/app/api/chat-history/[conversationId]/route.ts`
+  - `apps/main-platform/app/api/chat-history/[conversationId]/messages/route.ts`
+  - `apps/main-platform/app/api/chat-history/error-response.ts`
+  - `apps/main-platform/app/lib/chat-history-contract.ts`
+  - `apps/main-platform/app/styles/window-3-main.css`
+- 关键扩展性结论：
+  - “新建对话”改为显式创建空会话占位，避免依赖“先发消息再落库”的隐式行为，历史栏状态更可预测。
+  - 前端历史接口统一收敛到 `requestChatHistoryJson`，`fetch` 非 2xx 与 JSON 解析失败路径可观测，减少静默失败。
+  - API 错误语义统一收敛到 `error-response.ts`，按数据库初始化失败/记录不存在/关系失败分级返回状态码，便于后续监控与排障。
+  - 会话创建契约扩展为支持 `messages=[]`，向后兼容原有“带消息创建”路径，后续可平滑引入草稿会话能力。
+- 重构动作：
+  - 删除历史相关 `fetch + !ok return + catch noop` 分散写法，统一抽象请求与错误消息提取。
+  - 抽离路由错误归一化工具，消除三个 route handler 的重复 catch 逻辑。
+  - 服务层补充默认标题与空消息分支，避免 UI 层硬编码标题策略扩散。
+- 风险与后续：
+  - 当前“新建会话”会立即产生空会话记录，若用户高频点按可能增加空会话数量，后续可考虑空会话回收策略（如 24h 无消息自动清理）。
+  - 多用户场景仍需补鉴权与租户隔离，否则会话列表边界不足。
+
+### 2026-05-14 - Window 4 聊天历史二阶段重构（存储模式开关 + 交互稳定性）
+- 主责文件：
+  - `apps/main-platform/app/windows/main/components/ChatInteractionPanel.tsx`
+  - `apps/main-platform/app/lib/server/chat-history/index.ts`
+  - `apps/main-platform/app/lib/server/chat-history/mock-storage.ts`
+- 协同文件：
+  - `apps/main-platform/.env.example`
+  - `apps/main-platform/app/windows/main/components/AGENTS.md`
+  - `docs/architecture/modules-index.md`
+  - `docs/architecture/extension-review-checklist.md`
+- 关键扩展性结论：
+  - 聊天历史存储策略从“隐式自动降级”升级为显式三档：`auto / mock / prisma`，避免环境差异导致的行为不可预期。
+  - 服务端 Mock 存储移除 `localStorage` 依赖，职责边界清晰为“Node 进程内存回退层”，与浏览器持久化语义解耦。
+  - 历史栏动画改为“更新前捕获 + 更新后执行”的稳定时序，消除旧实现中 `before/after` 同帧导致的位移动画失效。
+  - 删除确认弹窗改为 Portal 到 `document.body`，脱离 `chat-interaction-layer` 堆叠上下文，避免被全局导航层遮挡并导致按钮不可点击。
+  - 会话加载与追加路径对 `Conversation not found` 增加恢复机制（刷新列表或降级新建），降低陈旧会话 ID 引发的死路状态。
+- 重构动作：
+  - 抽离并前置 `captureFlipState()`，统一历史列表的 Flip 状态捕获入口。
+  - `persistTurn` 改为“追加失败可降级新建”的单路径恢复策略，避免错误后静默中断。
+  - 目录下新增组件级 `AGENTS.md`，固化 Window 4 组件职责与交互约束，减少后续回归风险。
+- 风险与后续：
+  - `mock` 模式仍为进程内临时存储，服务重启后数据会清空；该行为为预期，但需要联调环境明确模式配置。
+  - 目前 `Conversation not found` 识别基于错误文案字符串；后续建议统一为结构化错误码（如 `CHAT_HISTORY_NOT_FOUND`）以减少文案耦合。
+  - 建议补充 E2E 回归：新建/加载/删除/切模式 + 服务重启后续发消息路径。

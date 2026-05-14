@@ -8,6 +8,9 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
     "trace:graph:build": "python apps/main-platform/scripts/build_trace_graph_data.py",
     "trace:graph:build-local": "python apps/main-platform/scripts/build_trace_graph_data.py --source-html C:/Users/Admin/final/newgraph.html --target-node-count 300 --online-translate"
   },
@@ -32,7 +35,8 @@
     "react-dom": "latest",
     "three": "^0.183.2",
     "ui-components": "workspace:*",
-    "zod": "^4.3.6"
+    "zod": "^4.3.6",
+    "@prisma/client": "^5.22.0"
   },
   "devDependencies": {
     "@final/configs": "workspace:*",
@@ -46,6 +50,7 @@
     "autoprefixer": "^10.4.27",
     "postcss": "^8.5.8",
     "tailwindcss": "^4.2.1",
-    "typescript": "latest"
+    "typescript": "latest",
+    "prisma": "^5.22.0"
   }
 }

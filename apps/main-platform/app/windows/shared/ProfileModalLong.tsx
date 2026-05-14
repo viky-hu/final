@@ -172,10 +172,12 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
   const mapCursorFadeTimerRef = useRef<number | null>(null);
 
   const applyMessage = useMemo(() => {
-    if (applyState === "success") return "申请成功：已具备中心节点资格。";
+    if (applyState === "success") {
+      return isSelfCenterNode ? "申请成功：已具备中心节点资格。" : "已恢复为普通节点身份。";
+    }
     if (applyState === "failed") return "申请失败：请先在交互对话窗口完成法官模型配置。";
     return "";
-  }, [applyState]);
+  }, [applyState, isSelfCenterNode]);
 
   const pushM1AvatarHint = useCallback((nextHint: string) => {
     setM1AvatarHint(nextHint);
@@ -403,11 +405,22 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
 
   const handleApplyCenterNode = useCallback(() => {
     if (applyState === "loading") return;
+
+    // Revert to normal node (center -> normal)
     if (isSelfCenterNode) {
-      setApplyState("success");
+      setApplyState("loading");
+      if (applyTimerRef.current !== null) {
+        window.clearTimeout(applyTimerRef.current);
+      }
+
+      applyTimerRef.current = window.setTimeout(() => {
+        setIsSelfCenterNode(false);
+        setApplyState("success");
+      }, 3000); // 3 seconds delay
       return;
     }
 
+    // Apply for center node (normal -> center)
     setApplyState("loading");
     if (applyTimerRef.current !== null) {
       window.clearTimeout(applyTimerRef.current);
@@ -687,17 +700,28 @@ export function ProfileModalLong({ onClose }: ProfileModalLongProps) {
             </strong>
           </p>
 
-          <button
-            type="button"
-            className={`global-top-nav__long-apply-btn${applyState === "loading" ? " is-loading" : ""}`}
-            onClick={handleApplyCenterNode}
-            disabled={applyState === "loading"}
-          >
-            {applyState === "loading" ? "申请中，请稍候…" : "申请中心节点"}
-          </button>
+          {isSelfCenterNode ? (
+            <button
+              type="button"
+              className={`global-top-nav__long-apply-btn global-top-nav__long-apply-btn--danger${applyState === "loading" ? " is-loading" : ""}`}
+              onClick={handleApplyCenterNode}
+              disabled={applyState === "loading"}
+            >
+              {applyState === "loading" ? "恢复中，请稍候…" : "恢复普通节点"}
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`global-top-nav__long-apply-btn${applyState === "loading" ? " is-loading" : ""}`}
+              onClick={handleApplyCenterNode}
+              disabled={applyState === "loading"}
+            >
+              {applyState === "loading" ? "申请中，请稍候…" : "申请中心节点"}
+            </button>
+          )}
 
           <span
-            className={`global-top-nav__save-hint${applyState === "failed" ? " global-top-nav__save-hint--warning" : ""}`}
+            className={`global-top-nav__save-hint${applyState === "failed" || (applyState === "success" && isSelfCenterNode === false) ? " global-top-nav__save-hint--warning" : ""}`}
             aria-live="polite"
           >
             {applyMessage}

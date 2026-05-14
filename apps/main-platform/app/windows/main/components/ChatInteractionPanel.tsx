@@ -4,21 +4,35 @@ import {
   useCallback,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { gsap } from "gsap";
+import { Flip } from "gsap/Flip";
+import { createPortal } from "react-dom";
 import { LINE_DRAW_EASE } from "../../shared/animation";
 import {
   MAIN_CANVAS_EXPANDED,
+  MAIN_CANVAS_EXTRA_LINE_EXPANDED_X,
   MAIN_CANVAS_MENU_OPEN,
+  VW,
   svgToCssPx,
   svgShiftPx,
 } from "../../shared/coords";
 import { ModelConfigCanvasLines } from "./ModelConfigCanvasLines";
 import type { RuntimeModelConfigState } from "@/app/components/runtime/AppRuntimeProvider";
 import { findMockQAPair, type TraceCaseId } from "@/app/lib/mock-qa-trace-data";
+import type {
+  ChatConversationSummary,
+  ChatConversationDetail,
+  CreateConversationResponse,
+  ListConversationsResponse,
+} from "@/app/lib/chat-history-contract";
+import { MessageSquarePlus, Trash2 } from "lucide-react";
 import { askFederationChat, FederationChatError } from "../services/federation-chat-api";
+import { coerceClientError } from "../../shared/error-utils";
+import { ChatHistoryGroup } from "./ChatHistoryGroup";
 
 
 // ─── BotBubble ────────────────────────────────────────────────────────────────
@@ -215,6 +229,25 @@ function isSameMCGroupStateMap(prev: MCGroupStateMap, next: MCGroupStateMap): bo
   });
 }
 
+async function extractErrorMessageFromResponse(response: Response, fallbackMessage: string): Promise<string> {
+  const fallbackWithStatus = `${fallbackMessage}（HTTP ${response.status}）`;
+  try {
+    const payload: unknown = await response.json();
+    if (
+      payload
+      && typeof payload === "object"
+      && "error" in payload
+      && typeof (payload as { error?: unknown }).error === "string"
+      && (payload as { error: string }).error.trim()
+    ) {
+      return (payload as { error: string }).error;
+    }
+    return fallbackWithStatus;
+  } catch {
+    return fallbackWithStatus;
+  }
+}
+
 function createDefaultMCGroupStateMap(initialJudgeConfigured = false): MCGroupStateMap {
   return {
     local_query: createDefaultMCGroupState(),
@@ -349,6 +382,18 @@ function buildFederationErrorReply(error: unknown): string {
   return "检索失败：未知异常";
 }
 
+function formatConversationTime(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "--";
+  return date.toLocaleString("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
 export interface ChatInteractionPanelProps {
   menuOpen?: boolean;
   canvasReady?: boolean;
@@ -359,6 +404,7 @@ export interface ChatInteractionPanelProps {
   onJudgeModelConfiguredChange?: (configured: boolean) => void;
   initialModelConfigState?: RuntimeModelConfigState;
   onModelConfigStateChange?: (state: RuntimeModelConfigState) => void;
+  isSelfCenterNode?: boolean;
 }
 
 export function ChatInteractionPanel({
@@ -371,6 +417,7 @@ export function ChatInteractionPanel({
   onJudgeModelConfiguredChange,
   initialModelConfigState,
   onModelConfigStateChange,
+  isSelfCenterNode = false,
 }: ChatInteractionPanelProps) {
 
   // ── Chat state ──────────────────────────────────────────────────────────────
@@ -379,6 +426,14 @@ export function ChatInteractionPanel({
   const [isSending, setIsSending] = useState(false);
   const [showSemicircle, setShowSemicircle] = useState(true);
   const [mcToast, setMCToast] = useState("");
+
+  // ── Chat history state ────────────────────────────────────────────────────
+  const [conversations, setConversations] = useState<ChatConversationSummary[]>([]);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [deleteTargetConv, setDeleteTargetConv] = useState<ChatConversationSummary | null>(null);
+  const [isDeletingConv, setIsDeletingConv] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [historyError, setHistoryError] = useState("");
 
   // ── Model config state ──────────────────────────────────────────────────────
   const [mcPhase, setMCPhase] = useState<MCPhase>("closed");
@@ -431,6 +486,13 @@ export function ChatInteractionPanel({
     rerank: null,
   });
   const prevModeRef = useRef<Mode>(mode);
+  const messagesRef = useRef<Message[]>([]);
+  const activeConversationIdRef = useRef<string | null>(null);
+  const modeRef = useRef<Mode>(mode);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const historyGroupsRef = useRef<HTMLDivElement>(null);
+  const flipStateBeforeRef = useRef<ReturnType<typeof Flip.getState> | null>(null);
+  const skipNextModePersistRef = useRef(false);
 
   const toRuntimeModelConfigState = useCallback((groups: MCGroupStateMap): RuntimeModelConfigState => ({
     local_query: {
@@ -471,6 +533,344 @@ export function ChatInteractionPanel({
     },
   }), []);
 
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
+
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId;
+  }, [activeConversationId]);
+
+  useEffect(() => {
+    modeRef.current = mode;
+  }, [mode]);
+
+  const requestChatHistoryJson = useCallback(async <T,>(
+    input: RequestInfo | URL,
+    init: RequestInit | undefined,
+    fallbackMessage: string,
+  ): Promise<T> => {
+    let response: Response;
+    try {
+      response = await fetch(input, init);
+    } catch (error) {
+      throw coerceClientError(error, `${fallbackMessage}（网络异常）`);
+    }
+
+    if (!response.ok) {
+      const message = await extractErrorMessageFromResponse(response, fallbackMessage);
+      throw new Error(message);
+    }
+
+    try {
+      return await response.json() as T;
+    } catch (error) {
+      throw coerceClientError(error, `${fallbackMessage}（响应解析失败）`);
+    }
+  }, []);
+
+  // 在 setConversations 之前调用：捕获列表当前布局，供 Flip 动画使用
+  const captureFlipState = useCallback(() => {
+    const groups = historyGroupsRef.current;
+    if (!groups) return;
+    flipStateBeforeRef.current = Flip.getState(
+      groups.querySelectorAll(".chat-history-group-title, .chat-history-empty, .chat-history-anim-item"),
+      { props: "opacity,transform" },
+    );
+  }, []);
+
+  const fetchConversations = useCallback(async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setHistoryLoading(true);
+    }
+    try {
+      const data = await requestChatHistoryJson<ListConversationsResponse>(
+        "/api/chat-history",
+        undefined,
+        "加载历史会话失败",
+      );
+      captureFlipState(); // 捕获更新前布局，供 Flip 动画使用
+      setConversations(data.conversations);
+      setHistoryError("");
+    } catch (error) {
+      const message = coerceClientError(error, "加载历史会话失败").message;
+      setHistoryError(message);
+      setMCToast(message);
+    } finally {
+      if (!options?.silent) {
+        setHistoryLoading(false);
+      }
+    }
+  }, [captureFlipState, requestChatHistoryJson]);
+
+  useEffect(() => {
+    void fetchConversations();
+  }, [fetchConversations]);
+
+  // ─── Chat history: FLIP layout animation ───────────────────────────────────
+  // captureFlipState() が fetchConversations 内で setConversations より前に呼ばれる。
+  // useLayoutEffect は React の DOM 更新後に同期実行されるため、
+  // Flip.from() は「更新前の位置」→「更新後の位置」へ正しくアニメーションする。
+  // （useGSAP で requestAnimationFrame を挟む旧実装は before/after が同一になるバグあり）
+  useLayoutEffect(() => {
+    const state = flipStateBeforeRef.current;
+    flipStateBeforeRef.current = null;
+    if (!state) return;
+
+    const tween = Flip.from(state, {
+      duration: 0.35,
+      ease: "power3.out",
+      stagger: 0,
+      absolute: false,
+      nested: true,
+      scale: false,
+      onEnter: (elements) => {
+        return gsap.fromTo(
+          elements,
+          { autoAlpha: 0, x: -50, scale: 0.85, transformOrigin: "left center" },
+          { autoAlpha: 1, x: 0, scale: 1, duration: 0.35, ease: "back.out(1.2)" },
+        );
+      },
+      onLeave: (elements) => {
+        return gsap.to(elements, {
+          autoAlpha: 0, scale: 0.9, duration: 0.25, ease: "power2.in",
+        });
+      },
+    });
+
+    return () => { tween?.kill(); };
+  }, [conversations]);
+
+  const persistTurn = useCallback(async (
+    payloadMode: Mode,
+    turnMessages: Array<{ role: "user" | "bot"; content: string; traceCaseId?: string | null }>,
+  ) => {
+    if (turnMessages.length === 0) return;
+
+    if (activeConversationIdRef.current) {
+      try {
+        await requestChatHistoryJson<{ ok: true }>(
+          `/api/chat-history/${activeConversationIdRef.current}/messages`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ messages: turnMessages }),
+          },
+          "保存历史消息失败",
+        );
+        void fetchConversations({ silent: true });
+        return; // 成功追加，结束
+      } catch (error) {
+        const msg = coerceClientError(error, "保存历史消息失败").message;
+        if (msg.includes("Conversation not found")) {
+          // 会话丢失（服务器重启 / Mock 重置 / Prisma P2025）
+          // 重置本地 ID，降级到下方"新建会话"分支
+          activeConversationIdRef.current = null;
+          setActiveConversationId(null);
+        } else {
+          setMCToast(msg);
+          return;
+        }
+      }
+    }
+
+    // 无活跃会话或追加失败后降级：创建新会话
+    try {
+      const data = await requestChatHistoryJson<CreateConversationResponse>(
+        "/api/chat-history",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: payloadMode,
+            messages: turnMessages,
+          }),
+        },
+        "创建历史会话失败",
+      );
+      activeConversationIdRef.current = data.conversation.id;
+      setActiveConversationId(data.conversation.id);
+      void fetchConversations({ silent: true });
+    } catch (error) {
+      setMCToast(coerceClientError(error, "创建历史会话失败").message);
+    }
+  }, [fetchConversations, requestChatHistoryJson]);
+
+  const persistCurrentConversationAsNew = useCallback(async (
+    payloadMode: Mode,
+    rawMessages: Message[],
+  ) => {
+    if (activeConversationIdRef.current) return;
+    const saveable = rawMessages.filter((msg) => msg.role === "user" || msg.role === "bot");
+    if (!saveable.some((msg) => msg.role === "user")) return;
+
+    try {
+      const data = await requestChatHistoryJson<CreateConversationResponse>(
+        "/api/chat-history",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: payloadMode,
+            messages: saveable.map((msg) => ({
+              role: msg.role as "user" | "bot",
+              content: msg.content,
+              traceCaseId: msg.traceCaseId ?? null,
+            })),
+          }),
+        },
+        "保存当前会话失败",
+      );
+      setActiveConversationId(data.conversation.id);
+      void fetchConversations({ silent: true });
+    } catch (error) {
+      setMCToast(coerceClientError(error, "保存当前会话失败").message);
+    }
+  }, [fetchConversations, requestChatHistoryJson]);
+
+  const createEmptyConversation = useCallback(async (payloadMode: Mode) => {
+    try {
+      const data = await requestChatHistoryJson<CreateConversationResponse>(
+        "/api/chat-history",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            mode: payloadMode,
+            messages: [],
+          }),
+        },
+        "新建会话失败",
+      );
+      setActiveConversationId(data.conversation.id);
+      setHistoryError("");
+      void fetchConversations({ silent: true });
+      return true;
+    } catch (error) {
+      setActiveConversationId(null);
+      setMCToast(coerceClientError(error, "新建会话失败").message);
+      return false;
+    }
+  }, [fetchConversations, requestChatHistoryJson]);
+
+  const resetChatRuntimeState = useCallback(() => {
+    if (typingTimerRef.current !== null) {
+      window.clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+    if (botReplyTimerRef.current !== null) {
+      window.clearTimeout(botReplyTimerRef.current);
+      botReplyTimerRef.current = null;
+    }
+    if (streamTimerRef.current !== null) {
+      window.clearInterval(streamTimerRef.current);
+      streamTimerRef.current = null;
+    }
+
+    isSendingRef.current = false;
+    setIsSending(false);
+  }, []);
+
+  const handleNewConversation = useCallback(async () => {
+    resetChatRuntimeState();
+    await persistCurrentConversationAsNew(modeRef.current, messagesRef.current);
+    setMessages([]);
+    setShowSemicircle(true);
+    await createEmptyConversation(modeRef.current);
+  }, [createEmptyConversation, persistCurrentConversationAsNew, resetChatRuntimeState]);
+
+  const handleLoadConversation = useCallback(async (conversation: ChatConversationSummary) => {
+    resetChatRuntimeState();
+    await persistCurrentConversationAsNew(modeRef.current, messagesRef.current);
+
+    if (conversation.mode === "global" && !mcGroups.judge.isConfigured) {
+      setMCToast("未配置法官模型，无法切换到全局历史会话");
+      return;
+    }
+
+    if (conversation.mode !== modeRef.current) {
+      skipNextModePersistRef.current = true;
+      onModeChange?.(conversation.mode);
+    }
+
+    try {
+      const data = await requestChatHistoryJson<{ conversation: ChatConversationDetail }>(
+        `/api/chat-history/${conversation.id}`,
+        undefined,
+        "加载历史会话失败",
+      );
+      setMessages(data.conversation.messages.map((msg) => ({
+        id: msg.id,
+        role: msg.role,
+        content: msg.content,
+        traceCaseId: (msg.traceCaseId as TraceCaseId | null) ?? undefined,
+      })));
+      setActiveConversationId(conversation.id);
+      setShowSemicircle(data.conversation.messages.length === 0);
+    } catch (error) {
+      const msg = coerceClientError(error, "加载历史会话失败").message;
+      if (msg.includes("Conversation not found")) {
+        setMCToast("该对话已不存在，正在刷新列表");
+        void fetchConversations({ silent: false }); // 清除列表中的失效条目
+      } else {
+        setMCToast(msg);
+      }
+    }
+  }, [fetchConversations, mcGroups.judge.isConfigured, onModeChange, persistCurrentConversationAsNew, requestChatHistoryJson, resetChatRuntimeState]);
+
+  const handleDeleteConversation = useCallback(async () => {
+    if (!deleteTargetConv) return;
+    setIsDeletingConv(true);
+    try {
+      await requestChatHistoryJson<{ ok: true }>(
+        `/api/chat-history/${deleteTargetConv.id}`,
+        { method: "DELETE" },
+        "删除历史会话失败",
+      );
+
+      if (activeConversationIdRef.current === deleteTargetConv.id) {
+        setMessages([]);
+        setActiveConversationId(null);
+        setShowSemicircle(true);
+      }
+      setDeleteTargetConv(null);
+      void fetchConversations({ silent: true });
+    } catch (error) {
+      setMCToast(coerceClientError(error, "删除历史会话失败").message);
+    } finally {
+      setIsDeletingConv(false);
+    }
+  }, [deleteTargetConv, fetchConversations, requestChatHistoryJson]);
+
+  const conversationsByMode = useMemo(() => ({
+    local: conversations.filter((item) => item.mode === "local"),
+    global: conversations.filter((item) => item.mode === "global"),
+  }), [conversations]);
+
+  useEffect(() => {
+    return () => {
+      const unloadMessages = messagesRef.current;
+      if (
+        activeConversationIdRef.current
+        || !unloadMessages.some((msg) => msg.role === "user")
+      ) {
+        return;
+      }
+      const payload = {
+        mode: modeRef.current,
+        messages: unloadMessages
+          .filter((msg) => msg.role === "user" || msg.role === "bot")
+          .map((msg) => ({
+            role: msg.role,
+            content: msg.content,
+            traceCaseId: msg.traceCaseId ?? null,
+          })),
+      };
+      const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+      navigator.sendBeacon("/api/chat-history", blob);
+    };
+  }, []);
+
   // ─── Layout sync: CSS 变量更新 ────────────────────────────────────────────
   // 从 MAIN_CANVAS_EXPANDED 坐标推算并写入 CSS 变量，供子元素消费
   const updateLayoutVars = useCallback((w: number, h: number) => {
@@ -479,6 +879,10 @@ export function ChatInteractionPanel({
     const pos = svgToCssPx(w, h, MAIN_CANVAS_EXPANDED);
     layer.style.setProperty("--w4-canvas-left",  `${pos.left}px`);
     layer.style.setProperty("--w4-canvas-right", `${pos.right}px`);
+    const scale = Math.max(w / VW, h / (900));
+    const offsetX = (w - VW * scale) / 2;
+    const sidebarLeft = MAIN_CANVAS_EXTRA_LINE_EXPANDED_X * scale + offsetX;
+    layer.style.setProperty("--w4-sidebar-left", `${sidebarLeft}px`);
   }, []);
 
   // ResizeObserver：容器尺寸变化时刷新 CSS 变量
@@ -577,12 +981,16 @@ export function ChatInteractionPanel({
   // ─── Chat: panel x position with menu ─────────────────────────────────────
   useEffect(() => {
     const panel = panelRef.current;
+    const sidebar = sidebarRef.current;
     if (!panel) return;
     const { w, h } = containerSizeRef.current;
     const shiftPx = w > 0
       ? svgShiftPx(w, h, MAIN_CANVAS_EXPANDED, MAIN_CANVAS_MENU_OPEN).dx
       : -0.15 * (typeof window !== "undefined" ? window.innerWidth : 1440);
     gsap.to(panel, { x: menuOpen ? shiftPx : 0, duration: 0.45, ease: "power3.inOut" });
+    if (sidebar) {
+      gsap.to(sidebar, { x: menuOpen ? shiftPx : 0, duration: 0.45, ease: "power3.inOut" });
+    }
   }, [menuOpen]);
 
   // ─── Model config: set initial mc-panel-layer position when mounted ────────
@@ -615,7 +1023,7 @@ export function ChatInteractionPanel({
 
   // ─── Chat: initial hide + reveal on canvasReady ────────────────────────────
   useLayoutEffect(() => {
-    const targets = [modeRowRef.current, msgMaskRef.current, inputAreaRef.current]
+    const targets = [sidebarRef.current, modeRowRef.current, msgMaskRef.current, inputAreaRef.current]
       .filter((el): el is HTMLDivElement => el !== null);
     if (targets.length === 0) return;
     gsap.set(targets, { opacity: 0, y: 24, visibility: "hidden" });
@@ -628,6 +1036,7 @@ export function ChatInteractionPanel({
     revealTlRef.current = tl;
 
     const sections = [
+      { el: sidebarRef.current, at: 0.1, fromY: 20, fromBlur: 6, duration: 0.52, ease: "power3.out" },
       { el: modeRowRef.current, at: 0.12, fromY: 16, fromBlur: 5, duration: 0.50, ease: "power3.out" },
       { el: msgMaskRef.current, at: 0.30, fromY: 28, fromBlur: 3, duration: 0.62, ease: "power3.out" },
       { el: inputAreaRef.current, at: 0.50, fromY: 38, fromBlur: 8, duration: 0.68, ease: "back.out(1.4)" },
@@ -655,28 +1064,24 @@ export function ChatInteractionPanel({
 
   useEffect(() => {
     if (prevModeRef.current === mode) return;
+    const previousMode = prevModeRef.current;
     prevModeRef.current = mode;
 
-    if (typingTimerRef.current !== null) {
-      window.clearTimeout(typingTimerRef.current);
-      typingTimerRef.current = null;
-    }
-    if (botReplyTimerRef.current !== null) {
-      window.clearTimeout(botReplyTimerRef.current);
-      botReplyTimerRef.current = null;
-    }
-    if (streamTimerRef.current !== null) {
-      window.clearInterval(streamTimerRef.current);
-      streamTimerRef.current = null;
+    if (skipNextModePersistRef.current) {
+      skipNextModePersistRef.current = false;
+      return;
     }
 
-    isSendingRef.current = false;
-    setIsSending(false);
-    setMessages([]);
-    setShowSemicircle(true);
-  }, [mode]);
+    void (async () => {
+      resetChatRuntimeState();
+      await persistCurrentConversationAsNew(previousMode, messagesRef.current);
+      setMessages([]);
+      setActiveConversationId(null);
+      setShowSemicircle(true);
+    })();
+  }, [mode, persistCurrentConversationAsNew, resetChatRuntimeState]);
 
-  const pushValidationReply = useCallback((question: string, validationMessage: string) => {
+  const pushValidationReply = useCallback((question: string, validationMessage: string, currentMode: Mode) => {
     const now = Date.now();
     const userId = `msg-${now}-user`;
     const botId = `msg-${now + 1}-bot`;
@@ -689,7 +1094,11 @@ export function ChatInteractionPanel({
       { id: userId, role: "user", content: question },
       { id: botId, role: "bot", content: validationMessage },
     ]);
-  }, []);
+    void persistTurn(currentMode, [
+      { role: "user", content: question, traceCaseId: null },
+      { role: "bot", content: validationMessage, traceCaseId: null },
+    ]);
+  }, [persistTurn]);
 
   const getRetrieveValidationMessage = useCallback((currentMode: Mode): string | null => {
     if (!mcGroups.local_query.isConfigured) {
@@ -720,6 +1129,7 @@ export function ChatInteractionPanel({
   const handleSend = useCallback(() => {
     const text = inputValue.trim();
     if (!text || isSendingRef.current) return;
+    const requestMode = mode;
 
     if (typingTimerRef.current !== null) {
       window.clearTimeout(typingTimerRef.current);
@@ -736,7 +1146,7 @@ export function ChatInteractionPanel({
 
     const validationMessage = getRetrieveValidationMessage(mode);
     if (validationMessage) {
-      pushValidationReply(text, validationMessage);
+      pushValidationReply(text, validationMessage, requestMode);
       return;
     }
 
@@ -800,6 +1210,10 @@ export function ChatInteractionPanel({
                 window.clearInterval(streamTimerRef.current);
                 streamTimerRef.current = null;
               }
+              void persistTurn(requestMode, [
+                { role: "user", content: text, traceCaseId: null },
+                { role: "bot", content: replyText, traceCaseId: traceCaseId ?? null },
+              ]);
               isSendingRef.current = false;
               setIsSending(false);
             }
@@ -807,7 +1221,7 @@ export function ChatInteractionPanel({
         })();
       }, typingDelayMs);
     }, TYPING_STAGE_STATIC_DELAY_MS);
-  }, [inputValue, getRetrieveValidationMessage, mode, pushValidationReply, scrollToBottom]);
+  }, [inputValue, getRetrieveValidationMessage, mode, persistTurn, pushValidationReply, scrollToBottom]);
 
   const syncInputHeight = useCallback((el: HTMLTextAreaElement | null) => {
     if (!el) return;
@@ -994,6 +1408,8 @@ export function ChatInteractionPanel({
   }, [mcPhase, handleMCClose]);
 
   const handleModeSwitch = useCallback((checked: boolean) => {
+    const targetMode: Mode = checked ? "global" : "local";
+    if (targetMode === mode) return;
     if (!checked) {
       onModeChange?.("local");
       return;
@@ -1003,8 +1419,13 @@ export function ChatInteractionPanel({
       onModeChange?.("local");
       return;
     }
+    if (!isSelfCenterNode) {
+      setMCToast("未获得中心节点权限，无法使用全局检索");
+      onModeChange?.("local");
+      return;
+    }
     onModeChange?.("global");
-  }, [mcGroups.judge.isConfigured, onModeChange]);
+  }, [isSelfCenterNode, mcGroups.judge.isConfigured, mode, onModeChange]);
 
   // ─── Model config: connect ─────────────────────────────────────────────────
   const handleMCConnect = useCallback(async () => {
@@ -1354,6 +1775,54 @@ export function ChatInteractionPanel({
         </>
       )}
 
+      <div ref={sidebarRef} className="chat-history-panel">
+        <button
+          type="button"
+          className="chat-history-new-btn animated-button"
+          onClick={() => { void handleNewConversation(); }}
+          aria-label="新建对话"
+        >
+          <svg viewBox="0 0 24 24" className="arr-2" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+          </svg>
+          <span className="text chat-history-new-btn-text">
+            <MessageSquarePlus size={14} strokeWidth={1.9} aria-hidden="true" />
+            <span>新建对话</span>
+          </span>
+          <span className="circle" aria-hidden="true" />
+          <svg viewBox="0 0 24 24" className="arr-1" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M16.1716 10.9999L10.8076 5.63589L12.2218 4.22168L20 11.9999L12.2218 19.778L10.8076 18.3638L16.1716 12.9999H4V10.9999H16.1716Z" />
+          </svg>
+        </button>
+
+        <div className="chat-history-divider" aria-hidden="true" />
+        <h3 className="chat-history-title">最近对话</h3>
+        {historyError && (
+          <p className="chat-history-status chat-history-status--error" role="alert">{historyError}</p>
+        )}
+
+        <div ref={historyGroupsRef} className="chat-history-groups">
+          <ChatHistoryGroup
+            title="本地模式"
+            items={conversationsByMode.local}
+            activeConversationId={activeConversationId}
+            isLoading={historyLoading}
+            onSelect={handleLoadConversation}
+            onDelete={setDeleteTargetConv}
+            formatTime={formatConversationTime}
+          />
+          <ChatHistoryGroup
+            title="全局模式"
+            items={conversationsByMode.global}
+            activeConversationId={activeConversationId}
+            isLoading={historyLoading}
+            onSelect={handleLoadConversation}
+            onDelete={setDeleteTargetConv}
+            formatTime={formatConversationTime}
+          />
+        </div>
+      </div>
+
       {/* ── Chat Panel ───────────────────────────────────────────────────── */}
       <div ref={panelRef} className="chat-interaction-panel">
         <div className="chat-content-wrap">
@@ -1374,7 +1843,7 @@ export function ChatInteractionPanel({
             {/* 按钮结构完全照搬 README animated-button，文案改为"模型配置" */}
             <button
               type="button"
-              className="animated-button"
+              className="animated-button mc-open-btn"
               onClick={handleMCOpen}
               disabled={mcPhase !== "closed"}
               aria-label="打开模型配置"
@@ -1476,6 +1945,57 @@ export function ChatInteractionPanel({
 
         </div>
       </div>
+
+      {deleteTargetConv && typeof document !== "undefined" && createPortal(
+        <div
+          className="db-modal-overlay"
+          role="presentation"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isDeletingConv) {
+              setDeleteTargetConv(null);
+            }
+          }}
+        >
+          <div
+            className="db-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="chat-delete-conversation-title"
+          >
+            <div className="db-modal-header">
+              <p className="db-modal-eyebrow">CHAT · DELETE</p>
+              <h3 id="chat-delete-conversation-title" className="db-modal-title db-modal-title--danger">
+                删除对话
+              </h3>
+            </div>
+            <div className="db-modal-body">
+              <p className="db-modal-desc">
+                确认删除对话《{deleteTargetConv.title}》？删除后不可恢复。
+              </p>
+            </div>
+            <div className="db-modal-footer">
+              <button
+                className="db-modal-cancel"
+                onClick={() => setDeleteTargetConv(null)}
+                type="button"
+                disabled={isDeletingConv}
+              >
+                取消
+              </button>
+              <button
+                className="db-modal-confirm db-modal-confirm--danger chat-history-delete-confirm"
+                onClick={handleDeleteConversation}
+                type="button"
+                disabled={isDeletingConv}
+                aria-busy={isDeletingConv}
+              >
+                {isDeletingConv ? "删除中…" : "确认删除"}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }

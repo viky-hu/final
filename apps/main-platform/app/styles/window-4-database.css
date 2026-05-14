@@ -340,6 +340,7 @@
   justify-content: center;
   padding: 1.5rem;
   backdrop-filter: blur(2px);
+  pointer-events: auto;
 }
 
 /* Brutalist modal — hard shadow, 0 border-radius, off-white bg */
